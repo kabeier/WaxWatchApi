@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     database_url: str 
     # redis_url: str
     database_url: str
-    
+    dev_auto_create_users: bool = True  # set false in prod
+
     # defaults
     log_level: str = "INFO"
 
