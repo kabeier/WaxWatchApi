@@ -78,31 +78,30 @@ def create_rule(
     )
     return rule
 
-
-@router.get("", response_model=list[WatchRuleOut])
-def list_rules(
+@router.get("/{rule_id}", response_model=WatchRuleOut)
+def get_rule(
     request: Request,
+    rule_id: UUID,
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
 ):
     request_id = getattr(request.state, "request_id", "-")
+
     try:
-        rows = service.list_watch_rules(db, user_id=user_id, limit=limit, offset=offset)
+        return service.get_watch_rule(db, user_id=user_id, rule_id=rule_id)
     except SQLAlchemyError:
         logger.exception(
-            "watch_rules.list.db_error",
-            extra={"request_id": request_id, "user_id": str(user_id), "limit": limit, "offset": offset},
+            "watch_rules.get.db_error",
+            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
         raise HTTPException(status_code=500, detail="db error")
-
-    # Optional: keep as debug if you want counts during development
-    logger.debug(
-        "watch_rules.list.success",
-        extra={"request_id": request_id, "user_id": str(user_id), "count": len(rows), "limit": limit, "offset": offset},
-    )
-    return rows
+    except HTTPException as e:
+        if e.status_code == 404:
+            logger.info(
+                "watch_rules.get.not_found",
+                extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
+            )
+        raise
 
 
 @router.get("/{rule_id}", response_model=WatchRuleOut)
