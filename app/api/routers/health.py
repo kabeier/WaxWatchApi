@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.deps import get_db
+from app.core.logging import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter(tags=["health"])
 
 
@@ -15,7 +18,13 @@ def healthz():
 
 
 @router.get("/readyz")
-def readyz(db: Session = Depends(get_db)):
-    # Database connection test
-    db.execute(text("SELECT 1"))
+def readyz(request: Request, db: Session = Depends(get_db)):
+    request_id = getattr(request.state, "request_id", "-")
+
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        logger.exception("health.ready.db_error", extra={"request_id": request_id})
+        raise HTTPException(status_code=500, detail="db not ready")
+
     return {"status": "ready"}

@@ -49,7 +49,6 @@ def create_watch_rule(db: Session, *, user_id: UUID, name: str, query: dict, pol
     db.commit()
     db.refresh(rule)
 
-    # Optional: create an Event record for UI feed / websockets later
     _create_event(db, user_id=user_id, event_type=models.EventType.RULE_CREATED, rule_id=rule.id)
 
     return rule
@@ -95,8 +94,8 @@ def update_watch_rule(
         .first()
     )
     if not rule:
-        raise ValueError("Rule not found for user")
-
+        raise HTTPException(status_code=404, detail="Watch rule not found")
+    
     changed = False
     active_changed: bool | None = None  # None = unchanged, True/False = new value
 
