@@ -8,6 +8,9 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.schemas.watch_rules import WatchRuleCreate, WatchRuleOut, WatchRuleUpdate
 from app.services import watch_rules as service
+from app.services.background import backfill_rule_matches_task
+from fastapi import BackgroundTasks
+
 
 router = APIRouter(prefix="/watch-rules", tags=["watch-rules"])
 

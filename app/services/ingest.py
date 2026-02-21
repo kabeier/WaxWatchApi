@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, UTC 
 from typing import Any
 from uuid import UUID
 
@@ -23,7 +23,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
     provider = models.Provider(payload["provider"])
     external_id = payload["external_id"]
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
     listing = (
         db.query(models.Listing)
@@ -154,7 +154,7 @@ def _create_match_if_needed(db: Session, *, user_id: UUID, rule: models.WatchSea
     if existing:
         return 0
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     match = models.WatchMatch(
         rule_id=rule.id,
         listing_id=listing.id,
