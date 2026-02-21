@@ -9,7 +9,8 @@ from sqlalchemy.orm import Session
 from app.db import models
 from app.providers.mock import MockProvider
 from app.services.ingest import ingest_and_match
-
+from app.providers.registry import PROVIDERS
+from app.providers.base import ProviderError
 
 @dataclass
 class RuleRunSummary:
@@ -42,45 +43,56 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
     if not rule.is_active:
         return RuleRunSummary(rule_id=rule_id, fetched=0, listings_created=0, snapshots_created=0, matches_created=0)
 
-    # For now, use MockProvider regardless of sources.
-    # Later: swap in real provider clients based on sources.
-    provider_client = MockProvider()
-
-    provider_listings = provider_client.search(query=rule.query or {}, limit=limit)
-
-    fetched = len(provider_listings)
+    fetched = 0
     listings_created = 0
     snapshots_created = 0
     matches_created = 0
 
-    for pl in provider_listings:
-        listing_payload: dict[str, Any] = {
-            "provider": pl.provider,
-            "external_id": pl.external_id,
-            "url": pl.url,
-            "title": pl.title,
-            "price": pl.price,
-            "currency": pl.currency,
-            "condition": pl.condition,
-            "seller": pl.seller,
-            "location": pl.location,
-            "discogs_release_id": pl.discogs_release_id,
-            "raw": pl.raw,
-        }
+    sources = _providers_for_rule(rule)
 
-        listing, created_listing, created_snapshot, created_matches = ingest_and_match(
-            db,
-            user_id=user_id,
-            listing_payload=listing_payload,
-        )
+    for source in sources:
+        provider_cls = PROVIDERS.get(source)
+        if not provider_cls:
+            continue
 
-        # ingest_and_match matches against ALL active rules.
-        # That’s OK for now; later we can add “match just this rule” for efficiency.
-        if created_listing:
-            listings_created += 1
-        if created_snapshot:
-            snapshots_created += 1
-        matches_created += created_matches
+        provider_client = provider_cls()
+
+        try:
+            provider_query = dict(rule.query or {})
+            provider_query["_seed"] = str(rule.id)
+            provider_listings = provider_client.search(query=provider_query, limit=limit)
+            
+        except ProviderError:
+            continue
+        
+        fetched += len(provider_listings)
+
+        for pl in provider_listings:
+            listing_payload = {
+                "provider": pl.provider,
+                "external_id": pl.external_id,
+                "url": pl.url,
+                "title": pl.title,
+                "price": pl.price,
+                "currency": pl.currency,
+                "condition": pl.condition,
+                "seller": pl.seller,
+                "location": pl.location,
+                "discogs_release_id": pl.discogs_release_id,
+                "raw": pl.raw,
+            }
+
+            listing, created_listing, created_snapshot, created_matches = ingest_and_match(
+                db,
+                user_id=user_id,
+                listing_payload=listing_payload,
+            )
+
+            if created_listing:
+                listings_created += 1
+            if created_snapshot:
+                snapshots_created += 1
+            matches_created += created_matches
 
     return RuleRunSummary(
         rule_id=rule_id,

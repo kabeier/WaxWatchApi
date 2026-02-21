@@ -25,10 +25,11 @@ def get_current_user_id(x_user_id: str = Header(..., alias="X-User-Id")) -> UUID
 @router.post("", response_model=WatchRuleOut, status_code=201)
 def create_rule(
     payload: WatchRuleCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    return service.create_watch_rule(
+    rule = service.create_watch_rule(
         db,
         user_id=user_id,
         name=payload.name,
@@ -36,6 +37,10 @@ def create_rule(
         poll_interval_seconds=payload.poll_interval_seconds,
     )
 
+    # DEV: backfill recent listings so user sees matches immediately
+    background_tasks.add_task(backfill_rule_matches_task, user_id, rule.id)
+
+    return rule
 
 @router.get("", response_model=list[WatchRuleOut])
 def list_rules(

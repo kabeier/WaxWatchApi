@@ -14,7 +14,9 @@ class Settings(BaseSettings):
     dev_backfill_days: int = 7
     dev_backfill_limit: int = 500
     
-    # defaults
+    discogs_user_agent: str
+    discogs_token: str
+    
     log_level: str = "INFO"
 
 

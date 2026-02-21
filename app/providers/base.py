@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+class ProviderError(Exception):
+    """Raised when a provider request fails in a controlled way."""
+    pass
 
 @dataclass(frozen=True)
 class ProviderListing:

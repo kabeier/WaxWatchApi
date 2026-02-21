@@ -9,7 +9,7 @@ from app.providers.base import ProviderClient, ProviderListing
 class MockProvider(ProviderClient):
     """
     Dev-only provider:
-    returns deterministic-ish fake listings based on keywords.
+    deterministic results per rule/query so repeated runs are stable and idempotent.
     """
     name = "mock"
 
@@ -17,7 +17,12 @@ class MockProvider(ProviderClient):
         keywords = query.get("keywords") or []
         kws = [str(k).strip().lower() for k in keywords if str(k).strip()]
 
-        # A couple curated “realistic” titles so matching actually demonstrates value
+        # Use a deterministic seed so the same rule produces the same listings every time.
+        # Pass _seed from runner as rule.id string.
+        seed = str(query.get("_seed") or "default")
+        rng = random.Random(seed)
+
+        max_price = query.get("max_price")
         base_titles = [
             "Primus - Sailing the Seas of Cheese (Vinyl)",
             "Primus - Frizzle Fry LP Vinyl",
@@ -27,44 +32,39 @@ class MockProvider(ProviderClient):
         ]
 
         def pick_title() -> str:
-            # If keywords exist, try to include them
-            if kws:
-                if "primus" in kws:
-                    return random.choice(base_titles[:3])
-                if "vinyl" in kws:
-                    return random.choice(base_titles)
-            return random.choice(base_titles)
+            if "primus" in kws:
+                return rng.choice(base_titles[:3])
+            if "vinyl" in kws:
+                return rng.choice(base_titles)
+            return rng.choice(base_titles)
 
         results: list[ProviderListing] = []
-        must_match = False
-        max_price = query.get("max_price")
-        if isinstance(max_price, (int, float)) and "primus" in kws and "vinyl" in kws:
-            must_match = True
-            forced_price = float(max_price) - 0.01
 
-        for i in range(min(limit, 5)):
-            title = pick_title()
-            price = round(random.uniform(15, 120), 2)
+        n = min(limit, 5)
+        seed_short = seed.split("-")[0]  # just to keep external_id readable
 
-            if must_match and i == 0:
+        for i in range(n):
+            # Make the first listing a guaranteed match when it makes sense
+            if i == 0 and isinstance(max_price, (int, float)) and "primus" in kws and "vinyl" in kws:
                 title = "Primus - Sailing the Seas of Cheese (Vinyl)"
-                price = round(forced_price, 2)
+                price = round(float(max_price) - 0.01, 2)
             else:
-                price = round(random.uniform(15, 120), 2)
+                title = pick_title()
+                price = round(rng.uniform(15, 120), 2)
 
             results.append(
                 ProviderListing(
-                    provider="ebay", 
-                    external_id=f"mock-{random.randint(100000, 999999)}",
-                    url=f"https://example.com/mock/{random.randint(100000, 999999)}",
+                    provider="ebay",
+                    external_id=f"mock-{seed_short}-{i}",  # deterministic!
+                    url=f"https://example.com/mock/{seed_short}/{i}",
                     title=title,
                     price=price,
                     currency="USD",
-                    condition=random.choice([None, "VG", "VG+", "NM"]),
-                    seller=random.choice([None, "some_seller", "vinyl_shop_42"]),
-                    location=random.choice([None, "US", "NC, USA"]),
+                    condition=rng.choice([None, "VG", "VG+", "NM"]),
+                    seller=rng.choice([None, "some_seller", "vinyl_shop_42"]),
+                    location=rng.choice([None, "US", "NC, USA"]),
                     discogs_release_id=None,
-                    raw={"mock": True, "query": query},
+                    raw={"mock": True, "seed": seed, "query": query},
                 )
             )
 
