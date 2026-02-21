@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator
+from app.db import models
+
 
 
 class WatchRuleBase(BaseModel):
@@ -16,8 +18,32 @@ class WatchRuleBase(BaseModel):
 
 
 class WatchRuleCreate(WatchRuleBase):
-    pass
+    @field_validator("query")
+    @classmethod
+    def require_and_normalize_sources(cls, v: dict[str, Any]) -> dict[str, Any]:
+        sources = v.get("sources")
 
+        if not isinstance(sources, list) or not sources:
+            raise ValueError("query.sources is required and must be a non-empty list")
+
+        cleaned: list[str] = []
+        for s in sources:
+            s_clean = str(s).strip().lower()
+            if not s_clean:
+                continue
+            # validate against enum
+            try:
+                models.Provider(s_clean)
+            except ValueError:
+                raise ValueError(f"Invalid provider source: {s_clean}")
+            cleaned.append(s_clean)
+
+        if not cleaned:
+            raise ValueError("query.sources is required and must contain at least one valid provider")
+
+        # dedupe, keep order
+        v["sources"] = list(dict.fromkeys(cleaned))
+        return v
 
 class WatchRuleUpdate(BaseModel):
     # PATCH: all optional

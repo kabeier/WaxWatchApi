@@ -4,12 +4,9 @@ import time
 from typing import Any
 
 import httpx
-from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db import models
 from app.providers.base import ProviderClient, ProviderListing, ProviderError
-
 
 BASE_URL = "https://api.discogs.com"
 
@@ -25,52 +22,69 @@ class DiscogsClient(ProviderClient):
 
     def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:
         keywords = query.get("keywords") or []
-        search_query = " ".join(keywords) if keywords else ""
+        q = " ".join([str(k).strip() for k in keywords if str(k).strip()])
+
+        endpoint = "/database/search"
+        url = f"{BASE_URL}{endpoint}"
+        method = "GET"
 
         params = {
-            "q": search_query,
+            "q": q,
             "type": "release",
             "per_page": min(limit, 50),
         }
 
         start = time.perf_counter()
-
         try:
             with httpx.Client(timeout=10.0) as client:
-                response = client.get(
-                    f"{BASE_URL}/database/search",
-                    headers=self._headers,
-                    params=params,
-                )
+                resp = client.get(url, headers=self._headers, params=params)
 
             duration_ms = int((time.perf_counter() - start) * 1000)
 
-            if response.status_code != 200:
-                raise ProviderError(f"Discogs error {response.status_code}: {response.text}")
+            meta = {
+                "rate_limit": resp.headers.get("X-Discogs-Ratelimit"),
+                "rate_limit_remaining": resp.headers.get("X-Discogs-Ratelimit-Remaining"),
+                "rate_limit_used": resp.headers.get("X-Discogs-Ratelimit-Used"),
+            }
 
-            data = response.json()
+            if resp.status_code != 200:
+                raise ProviderError(
+                    f"Discogs error {resp.status_code}",
+                    status_code=resp.status_code,
+                    meta=meta,
+                    endpoint=endpoint,
+                    method=method,
+                    duration_ms=duration_ms,
+                )
+
+            data = resp.json()
             results = data.get("results", [])
 
-            listings: list[ProviderListing] = []
-
+            out: list[ProviderListing] = []
             for r in results:
-                listings.append(
+                release_id = r.get("id")
+                out.append(
                     ProviderListing(
                         provider="discogs",
-                        external_id=str(r.get("id")),
+                        external_id=str(release_id),
                         url=r.get("uri") or r.get("resource_url") or "",
                         title=r.get("title") or "",
-                        price=0.0,  # Discogs search doesn’t include marketplace price
+                        price=0.0,
                         currency="USD",
-                        condition=None,
-                        seller=None,
-                        location=None,
-                        discogs_release_id=r.get("id"),
+                        discogs_release_id=release_id,
                         raw=r,
                     )
                 )
 
-            return listings
+            return out
 
         except httpx.RequestError as e:
-            raise ProviderError(f"Network error: {e}") from e
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            raise ProviderError(
+                f"Discogs network error: {e}",
+                status_code=None,
+                meta=None,
+                endpoint=endpoint,
+                method=method,
+                duration_ms=duration_ms,
+            ) from e
