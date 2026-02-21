@@ -1,9 +1,10 @@
 venv/
 .env
-.env.dev
+.env.*
 .secrets
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .venv/
+.DS_Store

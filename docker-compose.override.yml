@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: waxwatch
+      POSTGRES_USER: waxwatch
+      POSTGRES_PASSWORD: waxwatch
+    ports:
+      - "5432:5432"
+    volumes:
+      - waxwatch_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waxwatch -d waxwatch"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload",  "--no-access-log"]
+
+volumes:
+  waxwatch_pgdata:

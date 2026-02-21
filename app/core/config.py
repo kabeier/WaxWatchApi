@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     database_url: str
 
+    # Dev behavior flags
     dev_auto_create_users: bool = True
     dev_backfill_on_rule_change: bool = True
     dev_backfill_days: int = 7
@@ -21,7 +22,14 @@ class Settings(BaseSettings):
 
     # Logging
     log_level: str = "INFO"
-    json_logs: bool = True  
+    json_logs: bool = True
+
+    # DB pooling
+    # - "null" Supabase / pgbouncer handles pooling
+    # - "queue"  for  Postgres 
+    db_pool: str = "queue"  # dev default
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
 
 
 settings = Settings()

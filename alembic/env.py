@@ -6,22 +6,19 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Load .env for Alembic runs
+# Load .env for Alembic runs (local convenience)
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except Exception:
     pass
 
-# this is the Alembic Config object
 config = context.config
 
-# Interpret the config file for Python logging
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Import your Base metadata
-from app.db.models import Base  
+from app.db.models import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
@@ -31,6 +28,14 @@ def get_url() -> str:
     if not url:
         raise RuntimeError("DATABASE_URL is not set for Alembic")
     return url
+
+
+def _poolclass_for_env():
+    # Keep behavior consistent with the app: use NullPool only when upstream pooling exists.
+    pool_mode = (os.environ.get("DB_POOL") or "queue").lower()
+    if pool_mode == "null":
+        return pool.NullPool
+    return None  # let SQLAlchemy choose default (QueuePool)
 
 
 def run_migrations_offline() -> None:
@@ -51,10 +56,15 @@ def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section) or {}
     configuration["sqlalchemy.url"] = get_url()
 
+    poolclass = _poolclass_for_env()
+    kwargs = {}
+    if poolclass is not None:
+        kwargs["poolclass"] = poolclass
+
     connectable = engine_from_config(
         configuration,
         prefix="sqlalchemy.",
-        poolclass=pool.NullPool,  # Supabase pooler
+        **kwargs,
     )
 
     with connectable.connect() as connection:
