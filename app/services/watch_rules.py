@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, UTC
 from uuid import UUID
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -83,41 +84,70 @@ def update_watch_rule(
     user_id: UUID,
     rule_id: UUID,
     name: str | None = None,
-    query: dict | None = None,
+    query: dict[str, Any] | None = None,
     is_active: bool | None = None,
     poll_interval_seconds: int | None = None,
 ) -> models.WatchSearchRule:
-    rule = get_watch_rule(db, user_id=user_id, rule_id=rule_id)
+    rule = (
+        db.query(models.WatchSearchRule)
+        .filter(models.WatchSearchRule.id == rule_id)
+        .filter(models.WatchSearchRule.user_id == user_id)
+        .first()
+    )
+    if not rule:
+        raise ValueError("Rule not found for user")
 
     changed = False
+    active_changed: bool | None = None  # None = unchanged, True/False = new value
+
     if name is not None and name != rule.name:
         rule.name = name
         changed = True
-    if query is not None and query != rule.query:
-        rule.query = query
-        changed = True
-    if is_active is not None and is_active != rule.is_active:
-        rule.is_active = is_active
-        changed = True
+
     if poll_interval_seconds is not None and poll_interval_seconds != rule.poll_interval_seconds:
         rule.poll_interval_seconds = poll_interval_seconds
         changed = True
 
+    if is_active is not None and is_active != rule.is_active:
+        rule.is_active = is_active
+        changed = True
+        active_changed = is_active
+
+    if query is not None:
+        # block attempts to remove sources
+        if "sources" in query and query["sources"] is None:
+            raise ValueError("query.sources cannot be removed")
+
+        existing = dict(rule.query or {})
+        for k, v in query.items():
+            # allow deleting other keys via null
+            if v is None:
+                existing.pop(k, None)
+            else:
+                existing[k] = v
+
+        merged_sources = existing.get("sources")
+        if not isinstance(merged_sources, list) or not merged_sources:
+            raise ValueError("query.sources must remain a non-empty list")
+
+        if existing != (rule.query or {}):
+            rule.query = existing
+            changed = True
+
     if changed:
         rule.updated_at = datetime.now(UTC)
-        db.add(rule)
-        db.commit()
-        db.refresh(rule)
 
         _create_event(db, user_id=user_id, event_type=models.EventType.RULE_UPDATED, rule_id=rule.id)
 
-        if is_active is True:
+        if active_changed is True:
             _create_event(db, user_id=user_id, event_type=models.EventType.RULE_ENABLED, rule_id=rule.id)
-        elif is_active is False:
+        elif active_changed is False:
             _create_event(db, user_id=user_id, event_type=models.EventType.RULE_DISABLED, rule_id=rule.id)
 
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
     return rule
-
 
 def disable_watch_rule(db: Session, *, user_id: UUID, rule_id: UUID) -> models.WatchSearchRule:
     # soft-delete = disable
@@ -130,7 +160,7 @@ def _create_event(
     user_id: UUID,
     event_type: models.EventType,
     rule_id: UUID | None = None,
-) -> None:
+) -> models.Event:
     ev = models.Event(
         user_id=user_id,
         type=event_type,
@@ -139,4 +169,4 @@ def _create_event(
         created_at=datetime.now(UTC),
     )
     db.add(ev)
-    db.commit()
+    return ev

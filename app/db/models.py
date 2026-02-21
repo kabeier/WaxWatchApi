@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 
 from sqlalchemy import (
@@ -84,9 +84,9 @@ class User(Base):
     display_name: Mapped[Optional[str]] = mapped_column(String(120))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=datetime.utcnow
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
     watch_releases: Mapped[list["WatchRelease"]] = relationship(back_populates="user", cascade="all, delete-orphan")
@@ -119,8 +119,8 @@ class WatchRelease(Base):
     min_condition: Mapped[Optional[str]] = mapped_column(String(30))  # keep as string for v1; normalize later
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship(back_populates="watch_releases")
 
@@ -156,8 +156,8 @@ class WatchSearchRule(Base):
     last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship(back_populates="watch_search_rules")
     matches: Mapped[list["WatchMatch"]] = relationship(back_populates="rule", cascade="all, delete-orphan")
@@ -209,8 +209,8 @@ class Listing(Base):
     # If you can infer it, store.
     discogs_release_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
 
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     raw: Mapped[Optional[dict]] = mapped_column(JSONB)  # store raw provider payload (handy for debugging)
 
@@ -234,7 +234,7 @@ class WatchMatch(Base):
     rule_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("watch_search_rules.id", ondelete="CASCADE"), nullable=False)
     listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
 
-    matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     # optionally store "why it matched" (which filters passed)
     match_context: Mapped[Optional[dict]] = mapped_column(JSONB)
@@ -269,7 +269,7 @@ class Event(Base):
     # Event payload (safe subset for UI)
     payload: Mapped[Optional[dict]] = mapped_column(JSONB)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship(back_populates="events")
 
@@ -292,7 +292,7 @@ class PriceSnapshot(Base):
     price: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
 
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
 
     listing: Mapped["Listing"] = relationship(back_populates="price_snapshots")
 
@@ -319,4 +319,4 @@ class ProviderRequest(Base):
     error: Mapped[Optional[str]] = mapped_column(Text)
     meta: Mapped[Optional[dict]] = mapped_column(JSONB)  # e.g., rate-limit headers
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))

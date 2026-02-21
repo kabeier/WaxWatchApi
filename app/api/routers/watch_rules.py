@@ -17,7 +17,7 @@ router = APIRouter(prefix="/watch-rules", tags=["watch-rules"])
 
 def get_current_user_id(x_user_id: str = Header(..., alias="X-User-Id")) -> UUID:
     # Temporary auth stub:
-    # You pass a UUID in header X-User-Id.
+    # Pass a UUID in header X-User-Id.
     # Replace this with JWT later.
     return UUID(x_user_id)
 
