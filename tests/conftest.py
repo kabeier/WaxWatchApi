@@ -83,7 +83,13 @@ def client(db_session: Session) -> Iterator[TestClient]:
 
 @pytest.fixture()
 def user(db_session):
-    u = User(id=uuid.uuid4())
+    u = User(
+        id=uuid.uuid4(),
+        email=f"test-{uuid.uuid4()}@example.com",
+        hashed_password="not-a-real-hash",  # tests won't verify password here
+        display_name="Test User",
+        is_active=True,
+    )
     db_session.add(u)
-    db_session.flush()
+    db_session.flush()  # makes it visible to requests using the same db_session/connection
     return u
