@@ -7,9 +7,8 @@ def _headers(user_id: uuid.UUID | None = None) -> dict[str, str]:
     return {"X-User-Id": str(user_id or uuid.uuid4())}
 
 
-def test_create_and_list_watch_rules(client):
-    user_id = uuid.uuid4()
-    headers = _headers(user_id)
+def test_create_and_list_watch_rules(client, user):
+    headers = _headers(user.id)
 
     payload = {
         "name": "Primus under $70",

@@ -7,6 +7,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
+import uuid
+
+from app.db import User
+
 
 os.environ.setdefault("ENVIRONMENT", "test")
 os.environ.setdefault("LOG_LEVEL", "INFO")
@@ -76,3 +80,11 @@ def client(db_session: Session) -> Iterator[TestClient]:
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture()
+def user(db_session):
+    u = User(id=uuid.uuid4())
+    db_session.add(u)
+    db_session.flush()
+    return u
