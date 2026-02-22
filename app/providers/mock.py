@@ -18,7 +18,7 @@ class MockProvider(ProviderClient):
         keywords = query.get("keywords") or []
         kws = [str(k).strip().lower() for k in keywords if str(k).strip()]
 
-        # Use a deterministic seed so the same rule produces the same listings every time.
+        # Deterministic seed
         # Pass _seed from runner as rule.id string.
         seed = str(query.get("_seed") or "default")
         rng = random.Random(seed)
@@ -42,10 +42,9 @@ class MockProvider(ProviderClient):
         results: list[ProviderListing] = []
 
         n = min(limit, 5)
-        seed_short = seed.split("-")[0]  # just to keep external_id readable
+        seed_short = seed.split("-")[0]
 
         for i in range(n):
-            # Make the first listing a guaranteed match when it makes sense
             if i == 0 and isinstance(max_price, (int | float)) and "primus" in kws and "vinyl" in kws:
                 title = "Primus - Sailing the Seas of Cheese (Vinyl)"
                 price = round(float(max_price) - 0.01, 2)
@@ -55,8 +54,8 @@ class MockProvider(ProviderClient):
 
             results.append(
                 ProviderListing(
-                    provider="ebay",
-                    external_id=f"mock-{seed_short}-{i}",  # deterministic!
+                    provider=self.name,
+                    external_id=f"mock-{seed_short}-{i}",
                     url=f"https://example.com/mock/{seed_short}/{i}",
                     title=title,
                     price=price,
@@ -70,3 +69,11 @@ class MockProvider(ProviderClient):
             )
 
         return results
+
+
+class MockDiscogsClient(MockProvider):
+    """
+    Mock that behaves like the 'discogs' provider.
+    """
+
+    name = "discogs"

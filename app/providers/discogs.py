@@ -13,6 +13,7 @@ BASE_URL = "https://api.discogs.com"
 
 class DiscogsClient(ProviderClient):
     name = "discogs"
+    default_endpoint = "/database/search"
 
     def __init__(self) -> None:
         self._headers = {

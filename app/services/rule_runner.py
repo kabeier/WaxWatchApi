@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.providers.base import ProviderError
-from app.providers.registry import PROVIDERS
+from app.providers.registry import get_provider_class
 from app.services.ingest import ingest_and_match
 from app.services.provider_requests import log_provider_request
 
@@ -26,6 +26,15 @@ def _providers_for_rule(rule: models.WatchSearchRule) -> list[str]:
     if not isinstance(sources, list) or not sources:
         raise ValueError(f"Rule {rule.id} has no sources (data invalid)")
     return [str(s).strip().lower() for s in sources if str(s).strip()]
+
+
+def _endpoint_guess_for_source(source: str) -> str:
+    # best-effort, for observability rows
+    if source == "discogs":
+        return "/database/search"
+    if source == "ebay":
+        return "/search"  # placeholder for later
+    return "/unknown"
 
 
 def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20) -> RuleRunSummary:
@@ -51,26 +60,24 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
     sources = _providers_for_rule(rule)
 
     for source in sources:
-        provider_cls = PROVIDERS.get(source)
-        if not provider_cls:
-            raise ValueError(f"Unknown provider source in rule: {source}")
-
-        # will raise ValueError if not in enum (good)
+        # raises ValueError if not in enum
         provider_enum = models.Provider(source)
 
+        # registry swaps Discogs -> MockDiscogsClient in ENVIRONMENT=test
+        provider_cls = get_provider_class(source)
         provider_client = provider_cls()
 
         provider_query = dict(rule.query or {})
         provider_query["_seed"] = str(rule.id)
 
-        endpoint_guess = "/database/search" if source == "discogs" else "/unknown"
+        endpoint = getattr(provider_cls, "default_endpoint", "/unknown")
 
         try:
             provider_listings = provider_client.search(query=provider_query, limit=limit)
             log_provider_request(
                 db,
                 provider=provider_enum,
-                endpoint=endpoint_guess,
+                endpoint=endpoint,
                 method="GET",
                 status_code=200,
                 duration_ms=None,
@@ -81,7 +88,7 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
             log_provider_request(
                 db,
                 provider=provider_enum,
-                endpoint=e.endpoint or endpoint_guess,
+                endpoint=e.endpoint or endpoint,
                 method=e.method or "GET",
                 status_code=e.status_code,
                 duration_ms=e.duration_ms,

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -21,7 +21,6 @@ def normalize_title(s: str) -> str:
 def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing, bool, bool]:
     """
     Returns: (listing, created_listing, created_snapshot)
-
     """
     provider = models.Provider(payload["provider"])
     external_id = str(payload["external_id"])
@@ -29,6 +28,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
 
     created_listing = False
     created_snapshot = False
+
 
     listing = (
         db.query(models.Listing)
@@ -38,55 +38,74 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
     )
 
     if listing is None:
-        listing = models.Listing(
-            provider=provider,
-            external_id=external_id,
-            url=payload["url"],
-            title=payload["title"],
-            normalized_title=normalize_title(payload["title"]),
-            price=float(payload["price"]),
-            currency=payload.get("currency") or "USD",
-            condition=payload.get("condition"),
-            seller=payload.get("seller"),
-            location=payload.get("location"),
-            status=models.ListingStatus.active,
-            discogs_release_id=payload.get("discogs_release_id"),
-            first_seen_at=now,
-            last_seen_at=now,
-            raw=payload.get("raw"),
+
+        insert_values = {
+            "provider": provider,
+            "external_id": external_id,
+            "url": payload["url"],
+            "title": payload["title"],
+            "normalized_title": normalize_title(payload["title"]),
+            "price": float(payload["price"]),
+            "currency": payload.get("currency") or "USD",
+            "condition": payload.get("condition"),
+            "seller": payload.get("seller"),
+            "location": payload.get("location"),
+            "status": models.ListingStatus.active,
+            "discogs_release_id": payload.get("discogs_release_id"),
+            "first_seen_at": now,
+            "last_seen_at": now,
+            "raw": payload.get("raw"),
+        }
+
+        stmt = (
+            pg_insert(models.Listing)
+            .values(**insert_values)
+            .on_conflict_do_nothing(index_elements=["provider", "external_id"])
+            .returning(models.Listing.id)
         )
-        db.add(listing)
 
-        try:
-            with db.begin_nested():
-                db.flush()  # assigns listing.id
-        except IntegrityError:
-            # Someone else inserted it concurrently; fetch and treat as update case
-            db.rollback()
-            listing = (
-                db.query(models.Listing)
-                .filter(models.Listing.provider == provider)
-                .filter(models.Listing.external_id == external_id)
-                .first()
-            )
-            if listing is None:
-                raise
+        inserted_id = db.execute(stmt).scalar_one_or_none()
 
-        else:
+        if inserted_id is not None:
             created_listing = True
-            # Always snapshot on create
-            db.add(
-                models.PriceSnapshot(
-                    listing_id=listing.id,
-                    price=listing.price,
-                    currency=listing.currency,
-                    recorded_at=now,
+            listing = db.get(models.Listing, inserted_id)
+            if listing is None:
+                
+                listing = (
+                    db.query(models.Listing)
+                    .filter(models.Listing.provider == provider)
+                    .filter(models.Listing.external_id == external_id)
+                    .first()
                 )
-            )
-            created_snapshot = True
+
+            # Always snapshot on create
+            if listing is not None:
+                db.add(
+                    models.PriceSnapshot(
+                        listing_id=listing.id,
+                        price=float(listing.price),
+                        currency=listing.currency,
+                        recorded_at=now,
+                    )
+                )
+                created_snapshot = True
+
+            db.flush()
             return listing, created_listing, created_snapshot
 
-    # Update path (existing listing)
+        # Race
+        # Load it and proceed to update path.
+        listing = (
+            db.query(models.Listing)
+            .filter(models.Listing.provider == provider)
+            .filter(models.Listing.external_id == external_id)
+            .first()
+        )
+        if listing is None:
+            # If this happens, your uniqueness/index_elements don't match reality.
+            raise RuntimeError("Listing insert conflict but listing not found (check unique constraint).")
+
+    # Update path
     old_price = float(listing.price)
 
     listing.url = payload["url"]
@@ -106,7 +125,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
     db.add(listing)
     db.flush()
 
-    # Snapshot rule: only when price changes (you can change later)
+    # Snapshot rule: only when price changes
     if new_price != old_price:
         db.add(
             models.PriceSnapshot(
@@ -117,8 +136,9 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
             )
         )
         created_snapshot = True
+        db.flush()
 
-    return listing, created_listing, created_snapshot
+    return listing, False, created_snapshot
 
 
 def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listing) -> int:
@@ -189,26 +209,27 @@ def _create_match_if_needed(
     listing: models.Listing,
 ) -> int:
     """
-    Attempts to create WatchMatch + Event.
-    Uses a SAVEPOINT so a duplicate insert won't poison the whole outer transaction.
+    Create WatchMatch + Event if not already present.
     """
-    existing = (
-        db.query(models.WatchMatch)
-        .filter(models.WatchMatch.rule_id == rule.id)
-        .filter(models.WatchMatch.listing_id == listing.id)
-        .first()
-    )
-    if existing:
-        return 0
-
     now = datetime.now(UTC)
 
-    match = models.WatchMatch(
-        rule_id=rule.id,
-        listing_id=listing.id,
-        matched_at=now,
-        match_context={"reason": "rule_filters_passed"},
+    # Insert match idempotently
+    stmt = (
+        pg_insert(models.WatchMatch)
+        .values(
+            rule_id=rule.id,
+            listing_id=listing.id,
+            matched_at=now,
+            match_context={"reason": "rule_filters_passed"},
+        )
+        .on_conflict_do_nothing(index_elements=["rule_id", "listing_id"])
+        .returning(models.WatchMatch.id)
     )
+
+    inserted_match_id = db.execute(stmt).scalar_one_or_none()
+    if inserted_match_id is None:
+        return 0
+
     ev = models.Event(
         user_id=user_id,
         type=models.EventType.NEW_MATCH,
@@ -224,18 +245,8 @@ def _create_match_if_needed(
         },
         created_at=now,
     )
-
-    db.add(match)
     db.add(ev)
-
-    try:
-        with db.begin_nested():
-            db.flush()
-    except IntegrityError:
-        # Unique constraint (rule_id, listing_id) got hit due to a race
-        db.rollback()
-        return 0
-
+    db.flush()
     return 1
 
 
@@ -246,19 +257,12 @@ def ingest_and_match(
     listing_payload: dict[str, Any],
 ) -> tuple[models.Listing, bool, bool, int]:
     """
-    One request = one transaction.
-
-    If anything unexpected fails, the outer transaction is rolled back so you
-    never end up with partial ingest state.
+    No transaction context manager here.
+    The request boundary (get_db) owns commit/rollback.
     """
-    try:
-        with db.begin():
-            ensure_user_exists(db, user_id)
+    ensure_user_exists(db, user_id)
 
-            listing, created_listing, created_snapshot = upsert_listing(db, listing_payload)
-            created_matches = match_listing_to_rules(db, user_id=user_id, listing=listing)
+    listing, created_listing, created_snapshot = upsert_listing(db, listing_payload)
+    created_matches = match_listing_to_rules(db, user_id=user_id, listing=listing)
 
-        return listing, created_listing, created_snapshot, created_matches
-
-    except (ValueError, SQLAlchemyError):
-        raise
+    return listing, created_listing, created_snapshot, created_matches
