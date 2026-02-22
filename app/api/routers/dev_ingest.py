@@ -47,7 +47,6 @@ def ingest_listing(
             listing_payload=payload.model_dump(),
         )
     except ValueError as e:
-        # If ingest_and_match validates and throws ValueError, surface as 400
         logger.info(
             "dev.ingest_listing.validation_error",
             extra={"request_id": request_id, "user_id": str(user_id), "error": str(e)[:500]},

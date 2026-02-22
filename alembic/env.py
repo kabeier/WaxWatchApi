@@ -6,12 +6,13 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Load .env for Alembic runs (local convenience)
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except Exception:
-    pass
+env_file = os.environ.get("ALEMBIC_ENV_FILE")
+if env_file:
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(env_file, override=False)
+    except Exception:
+        pass
 
 config = context.config
 
@@ -31,11 +32,10 @@ def get_url() -> str:
 
 
 def _poolclass_for_env():
-    # Keep behavior consistent with the app: use NullPool only when upstream pooling exists.
     pool_mode = (os.environ.get("DB_POOL") or "queue").lower()
     if pool_mode == "null":
         return pool.NullPool
-    return None  # let SQLAlchemy choose default (QueuePool)
+    return None  
 
 
 def run_migrations_offline() -> None:

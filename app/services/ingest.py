@@ -1,28 +1,34 @@
+# app/services/ingest.py
 from __future__ import annotations
 
 from datetime import datetime, UTC
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.db import models
 from app.services.watch_rules import ensure_user_exists
 
+logger = get_logger(__name__)
+
 
 def normalize_title(s: str) -> str:
-    # simple v1 normalizer (good enough for matching + trigram)
     return " ".join("".join(ch.lower() if ch.isalnum() else " " for ch in s).split())
 
 
 def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing, bool, bool]:
     """
     Returns: (listing, created_listing, created_snapshot)
+
+    IMPORTANT:
+    - Does NOT commit.
+    - Uses flush to materialize IDs.
     """
     provider = models.Provider(payload["provider"])
     external_id = payload["external_id"]
-
     now = datetime.now(UTC)
 
     listing = (
@@ -54,55 +60,61 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
             raw=payload.get("raw"),
         )
         db.add(listing)
-        db.commit()
-        db.refresh(listing)
+        db.flush()  # get listing.id without commit
         created_listing = True
 
         # always snapshot on create
-        db.add(models.PriceSnapshot(listing_id=listing.id, price=listing.price, currency=listing.currency, recorded_at=now))
-        db.commit()
+        db.add(
+            models.PriceSnapshot(
+                listing_id=listing.id,
+                price=listing.price,
+                currency=listing.currency,
+                recorded_at=now,
+            )
+        )
         created_snapshot = True
 
-    else:
-        # update fields + track price changes
-        old_price = float(listing.price)
+        return listing, created_listing, created_snapshot
 
-        listing.url = payload["url"]
-        listing.title = payload["title"]
-        listing.normalized_title = normalize_title(payload["title"])
-        listing.currency = payload.get("currency") or listing.currency
-        listing.condition = payload.get("condition")
-        listing.seller = payload.get("seller")
-        listing.location = payload.get("location")
-        listing.discogs_release_id = payload.get("discogs_release_id")
-        listing.last_seen_at = now
-        listing.raw = payload.get("raw")
+    # update fields + track price changes
+    old_price = float(listing.price)
 
-        new_price = float(payload["price"])
-        listing.price = new_price
+    listing.url = payload["url"]
+    listing.title = payload["title"]
+    listing.normalized_title = normalize_title(payload["title"])
+    listing.currency = payload.get("currency") or listing.currency
+    listing.condition = payload.get("condition")
+    listing.seller = payload.get("seller")
+    listing.location = payload.get("location")
+    listing.discogs_release_id = payload.get("discogs_release_id")
+    listing.last_seen_at = now
+    listing.raw = payload.get("raw")
 
-        db.add(listing)
-        db.commit()
-        db.refresh(listing)
+    new_price = float(payload["price"])
+    listing.price = new_price
 
-        # snapshot rule: snapshot if price changed (you can change this later)
-        if new_price != old_price:
-            db.add(models.PriceSnapshot(listing_id=listing.id, price=new_price, currency=listing.currency, recorded_at=now))
-            db.commit()
-            created_snapshot = True
+    db.add(listing)
+    db.flush()
+
+    # snapshot rule: snapshot if price changed
+    if new_price != old_price:
+        db.add(
+            models.PriceSnapshot(
+                listing_id=listing.id,
+                price=new_price,
+                currency=listing.currency,
+                recorded_at=now,
+            )
+        )
+        created_snapshot = True
 
     return listing, created_listing, created_snapshot
 
 
 def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listing) -> int:
-    """
-    Checks active rules for this user and creates WatchMatch + NEW_MATCH Event.
-    Returns number of new matches created.
-    """
     created = 0
-    title = (listing.normalized_title or normalize_title(listing.title))
+    title = listing.normalized_title or normalize_title(listing.title)
 
-    # Load active rules
     rules = (
         db.query(models.WatchSearchRule)
         .filter(models.WatchSearchRule.user_id == user_id)
@@ -111,40 +123,61 @@ def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listin
     )
 
     for rule in rules:
-        if _rule_matches_listing(rule, listing, title):
-            created += _create_match_if_needed(db, user_id=user_id, rule=rule, listing=listing)
+        ok, reason = _rule_matches_listing(rule, listing, title)
+        if not ok:
+            logger.debug(
+                "match.no_match",
+                extra={
+                    "user_id": str(user_id),
+                    "rule_id": str(rule.id),
+                    "listing_id": str(listing.id),
+                    "provider": listing.provider.value,
+                    "reason": reason,
+                },
+            )
+            continue
+
+        created += _create_match_if_needed(db, user_id=user_id, rule=rule, listing=listing)
 
     return created
 
 
-def _rule_matches_listing(rule, listing, normalized_title):
+def _rule_matches_listing(
+    rule: models.WatchSearchRule,
+    listing: models.Listing,
+    normalized_title: str,
+) -> tuple[bool, str]:
     q = rule.query or {}
 
     sources = q.get("sources")
     if isinstance(sources, list) and sources:
-        allowed = [str(s).strip().lower() for s in sources]
+        allowed = [str(s).strip().lower() for s in sources if str(s).strip()]
         if listing.provider.value not in allowed:
-            print("NO MATCH: source", listing.provider.value, "not in", allowed)
-            return False
+            return False, "source_not_allowed"
 
     max_price = q.get("max_price")
     if isinstance(max_price, (int, float)):
         if float(listing.price) > float(max_price):
-            print("NO MATCH: price", listing.price, ">", max_price)
-            return False
+            return False, "price_over_max"
 
     keywords = q.get("keywords")
     if isinstance(keywords, list) and keywords:
         kws = [str(k).strip().lower() for k in keywords if str(k).strip()]
         for kw in kws:
             if kw not in normalized_title:
-                print("NO MATCH: keyword", kw, "not in", normalized_title)
-                return False
+                return False, "keyword_missing"
 
-    print("MATCH:", rule.id)
-    return True
+    return True, "ok"
 
-def _create_match_if_needed(db: Session, *, user_id: UUID, rule: models.WatchSearchRule, listing: models.Listing) -> int:
+
+def _create_match_if_needed(
+    db: Session,
+    *,
+    user_id: UUID,
+    rule: models.WatchSearchRule,
+    listing: models.Listing,
+) -> int:
+
     existing = (
         db.query(models.WatchMatch)
         .filter(models.WatchMatch.rule_id == rule.id)
@@ -155,6 +188,7 @@ def _create_match_if_needed(db: Session, *, user_id: UUID, rule: models.WatchSea
         return 0
 
     now = datetime.now(UTC)
+
     match = models.WatchMatch(
         rule_id=rule.id,
         listing_id=listing.id,
@@ -181,18 +215,41 @@ def _create_match_if_needed(db: Session, *, user_id: UUID, rule: models.WatchSea
     db.add(ev)
 
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         db.rollback()
         return 0
 
+    logger.info(
+        "match.created",
+        extra={
+            "user_id": str(user_id),
+            "rule_id": str(rule.id),
+            "listing_id": str(listing.id),
+            "provider": listing.provider.value,
+        },
+    )
     return 1
 
 
-def ingest_and_match(db: Session, *, user_id: UUID, listing_payload: dict[str, Any]) -> tuple[models.Listing, bool, bool, int]:
+def ingest_and_match(
+    db: Session,
+    *,
+    user_id: UUID,
+    listing_payload: dict[str, Any],
+) -> tuple[models.Listing, bool, bool, int]:
+    """
+    Single transaction boundary.
+    """
     ensure_user_exists(db, user_id)
 
-    listing, created_listing, created_snapshot = upsert_listing(db, listing_payload)
-    created_matches = match_listing_to_rules(db, user_id=user_id, listing=listing)
+    try:
+        listing, created_listing, created_snapshot = upsert_listing(db, listing_payload)
+        created_matches = match_listing_to_rules(db, user_id=user_id, listing=listing)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
+    db.refresh(listing)
     return listing, created_listing, created_snapshot, created_matches

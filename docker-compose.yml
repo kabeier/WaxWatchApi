@@ -3,8 +3,26 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    env_file:
-      - .env
+    image: waxwatch-api:latest
     ports:
       - "8000:8000"
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000",  "--no-access-log"]
+    environment:
+      # required
+      DATABASE_URL: ${DATABASE_URL}
+      DISCOGS_USER_AGENT: ${DISCOGS_USER_AGENT}
+      DISCOGS_TOKEN: ${DISCOGS_TOKEN}
+
+      # optional with defaults
+      ENVIRONMENT: ${ENVIRONMENT:-prod}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      JSON_LOGS: ${JSON_LOGS:-true}
+
+      DB_POOL: ${DB_POOL:-null}
+
+      # default off in prod
+      DEV_AUTO_CREATE_USERS: ${DEV_AUTO_CREATE_USERS:-false}
+      DEV_BACKFILL_ON_RULE_CHANGE: ${DEV_BACKFILL_ON_RULE_CHANGE:-false}
+      DEV_BACKFILL_DAYS: ${DEV_BACKFILL_DAYS:-7}
+      DEV_BACKFILL_LIMIT: ${DEV_BACKFILL_LIMIT:-500}
+
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

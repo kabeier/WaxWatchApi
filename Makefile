@@ -54,26 +54,34 @@ sh:
 # --- migrations (dev/local) ---
 
 migrate:
-	docker compose exec $(APP_SERVICE) alembic upgrade head
+	@if [ ! -f "$(DEV_ENV_FILE)" ]; then echo "$(DEV_ENV_FILE) not found"; exit 1; fi
+	ALEMBIC_ENV_FILE=$(DEV_ENV_FILE) docker compose exec $(APP_SERVICE) alembic upgrade head
 
 revision:
 	@if [ -z "$(MSG)" ]; then echo "MSG is required. Example: make revision MSG='add listings table'"; exit 1; fi
-	docker compose exec $(APP_SERVICE) alembic revision --autogenerate -m "$(MSG)"
+	@if [ ! -f "$(DEV_ENV_FILE)" ]; then echo "$(DEV_ENV_FILE) not found"; exit 1; fi
+	ALEMBIC_ENV_FILE=$(DEV_ENV_FILE) docker compose exec $(APP_SERVICE) alembic revision --autogenerate -m "$(MSG)"
 
-# revision without autogenerate:
 revision-msg:
 	@if [ -z "$(MSG)" ]; then echo "MSG is required. Example: make revision-msg MSG='empty revision'"; exit 1; fi
-	docker compose exec $(APP_SERVICE) alembic revision -m "$(MSG)"
+	@if [ ! -f "$(DEV_ENV_FILE)" ]; then echo "$(DEV_ENV_FILE) not found"; exit 1; fi
+	ALEMBIC_ENV_FILE=$(DEV_ENV_FILE) docker compose exec $(APP_SERVICE) alembic revision -m "$(MSG)"
 
 downgrade:
 	@if [ -z "$(REV)" ]; then echo "REV is required. Example: make downgrade REV=-1"; exit 1; fi
-	docker compose exec $(APP_SERVICE) alembic downgrade $(REV)
+	@if [ ! -f "$(DEV_ENV_FILE)" ]; then echo "$(DEV_ENV_FILE) not found"; exit 1; fi
+	ALEMBIC_ENV_FILE=$(DEV_ENV_FILE) docker compose exec $(APP_SERVICE) alembic downgrade $(REV)
+
+migrate-prod-env:
+	@if [ -z "$$DATABASE_URL" ]; then echo "DATABASE_URL must be set"; exit 1; fi
+	docker compose run --rm $(APP_SERVICE) alembic upgrade head
 
 # --- prod migrations (Supabase/etc) ---
 
-migrate-prod:
+downgrade-prod:
+	@if [ -z "$(REV)" ]; then echo "REV is required. Example: make downgrade-prod REV=-1"; exit 1; fi
 	@if [ ! -f "$(PROD_ENV_FILE)" ]; then echo "$(PROD_ENV_FILE) not found"; exit 1; fi
-	docker compose --env-file $(PROD_ENV_FILE) run --rm $(APP_SERVICE) alembic upgrade head
+	docker compose --env-file $(PROD_ENV_FILE) run --rm $(APP_SERVICE) alembic downgrade $(REV)
 
 # --- db helpers (local docker) ---
 
