@@ -37,7 +37,8 @@ def _smoke_db_connection() -> None:
         conn.execute(text("SELECT 1"))
 
 
-from sqlalchemy import event
+from sqlalchemy import event  # noqa: E402
+
 
 @pytest.fixture()
 def db_session() -> Iterator[Session]:
