@@ -65,13 +65,13 @@ def create_rule(
             "watch_rules.create.validation_error",
             extra={"request_id": request_id, "user_id": str(user_id), "error": str(e)[:500]},
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except SQLAlchemyError:
         logger.exception(
             "watch_rules.create.db_error",
             extra={"request_id": request_id, "user_id": str(user_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     # DEV: backfill recent listings so user sees matches immediately
     background_tasks.add_task(backfill_rule_matches_task, user_id, rule.id)
@@ -104,11 +104,17 @@ def list_rules(
             "watch_rules.list.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "limit": limit, "offset": offset},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "watch_rules.list.success",
-        extra={"request_id": request_id, "user_id": str(user_id), "count": len(rows), "limit": limit, "offset": offset},
+        extra={
+            "request_id": request_id,
+            "user_id": str(user_id),
+            "count": len(rows),
+            "limit": limit,
+            "offset": offset,
+        },
     )
     return rows
 
@@ -141,7 +147,7 @@ def get_rule(
             "watch_rules.get.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "watch_rules.get.success",
@@ -190,15 +196,20 @@ def patch_rule(
         event = "watch_rules.patch.not_found" if status == 404 else "watch_rules.patch.validation_error"
         logger.info(
             event,
-            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id), "error": msg[:500]},
+            extra={
+                "request_id": request_id,
+                "user_id": str(user_id),
+                "rule_id": str(rule_id),
+                "error": msg[:500],
+            },
         )
-        raise HTTPException(status_code=status, detail=msg)
+        raise HTTPException(status_code=status, detail=msg) from e
     except SQLAlchemyError:
         logger.exception(
             "watch_rules.patch.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "watch_rules.patch.success",
@@ -228,15 +239,20 @@ def disable_rule(
         event = "watch_rules.disable.not_found" if status == 404 else "watch_rules.disable.validation_error"
         logger.info(
             event,
-            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id), "error": msg[:500]},
+            extra={
+                "request_id": request_id,
+                "user_id": str(user_id),
+                "rule_id": str(rule_id),
+                "error": msg[:500],
+            },
         )
-        raise HTTPException(status_code=status, detail=msg)
+        raise HTTPException(status_code=status, detail=msg) from e
     except SQLAlchemyError:
         logger.exception(
             "watch_rules.disable.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "watch_rules.disable.success",

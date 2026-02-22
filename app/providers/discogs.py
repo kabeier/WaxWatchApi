@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.providers.base import ProviderClient, ProviderListing, ProviderError
+from app.providers.base import ProviderClient, ProviderError, ProviderListing
 
 BASE_URL = "https://api.discogs.com"
 

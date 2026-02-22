@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
 from app.db import models
-from app.providers.mock import MockProvider
-from app.services.ingest import ingest_and_match
-from app.providers.registry import PROVIDERS
 from app.providers.base import ProviderError
+from app.providers.registry import PROVIDERS
+from app.services.ingest import ingest_and_match
 from app.services.provider_requests import log_provider_request
+
+
 @dataclass
 class RuleRunSummary:
     rule_id: UUID
@@ -27,6 +27,7 @@ def _providers_for_rule(rule: models.WatchSearchRule) -> list[str]:
         raise ValueError(f"Rule {rule.id} has no sources (data invalid)")
     return [str(s).strip().lower() for s in sources if str(s).strip()]
 
+
 def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20) -> RuleRunSummary:
     rule = (
         db.query(models.WatchSearchRule)
@@ -38,7 +39,9 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
         raise ValueError("Rule not found for user")
 
     if not rule.is_active:
-        return RuleRunSummary(rule_id=rule_id, fetched=0, listings_created=0, snapshots_created=0, matches_created=0)
+        return RuleRunSummary(
+            rule_id=rule_id, fetched=0, listings_created=0, snapshots_created=0, matches_created=0
+        )
 
     fetched = 0
     listings_created = 0

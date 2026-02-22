@@ -3,23 +3,23 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: waxwatch-api:latest
     ports:
       - "8000:8000"
     environment:
-      # required
+      # Required
       DATABASE_URL: ${DATABASE_URL}
       DISCOGS_USER_AGENT: ${DISCOGS_USER_AGENT}
       DISCOGS_TOKEN: ${DISCOGS_TOKEN}
 
-      # optional with defaults
+      # Optional / defaults exist in config.py
       ENVIRONMENT: ${ENVIRONMENT:-prod}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       JSON_LOGS: ${JSON_LOGS:-true}
 
       DB_POOL: ${DB_POOL:-null}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-5}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-10}
 
-      # default off in prod
       DEV_AUTO_CREATE_USERS: ${DEV_AUTO_CREATE_USERS:-false}
       DEV_BACKFILL_ON_RULE_CHANGE: ${DEV_BACKFILL_ON_RULE_CHANGE:-false}
       DEV_BACKFILL_DAYS: ${DEV_BACKFILL_DAYS:-7}

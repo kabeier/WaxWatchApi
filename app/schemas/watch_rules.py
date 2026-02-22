@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from app.db import models
 
 
@@ -26,8 +27,8 @@ def _normalize_and_validate_sources(query: dict[str, Any], *, require: bool) -> 
             continue
         try:
             models.Provider(s_clean)
-        except ValueError:
-            raise ValueError(f"Invalid provider source: {s_clean}")
+        except ValueError as e:
+            raise ValueError(f"Invalid provider source: {s_clean}") from e
         cleaned.append(s_clean)
 
     if not cleaned:
@@ -36,12 +37,14 @@ def _normalize_and_validate_sources(query: dict[str, Any], *, require: bool) -> 
     query["sources"] = list(dict.fromkeys(cleaned))  # dedupe, preserve order
     return query
 
+
 class WatchRuleBase(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     query: dict[str, Any] = Field(default_factory=dict)
 
     is_active: bool = True
     poll_interval_seconds: int = Field(default=600, ge=30, le=24 * 60 * 60)
+
 
 class WatchRuleCreate(WatchRuleBase):
     @field_validator("query")
@@ -52,17 +55,18 @@ class WatchRuleCreate(WatchRuleBase):
 
 class WatchRuleUpdate(BaseModel):
     # PATCH: all optional
-    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
-    query: Optional[dict[str, Any]] = None
-    is_active: Optional[bool] = None
-    poll_interval_seconds: Optional[int] = Field(default=None, ge=30, le=24 * 60 * 60)
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    query: dict[str, Any] | None = None
+    is_active: bool | None = None
+    poll_interval_seconds: int | None = Field(default=None, ge=30, le=24 * 60 * 60)
 
     @field_validator("query")
     @classmethod
-    def validate_sources_if_present(cls, v: Optional[dict[str, Any]]) -> Optional[dict[str, Any]]:
+    def validate_sources_if_present(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is None:
             return v
         return _normalize_and_validate_sources(v, require=False)
+
 
 class WatchRuleOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -75,8 +79,8 @@ class WatchRuleOut(BaseModel):
     is_active: bool
     poll_interval_seconds: int
 
-    last_run_at: Optional[datetime]
-    next_run_at: Optional[datetime]
+    last_run_at: datetime | None
+    next_run_at: datetime | None
 
     created_at: datetime
     updated_at: datetime

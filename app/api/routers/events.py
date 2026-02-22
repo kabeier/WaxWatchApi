@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -41,7 +41,7 @@ def list_events(
             "events.list.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "limit": limit},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.debug(
         "events.list.success",

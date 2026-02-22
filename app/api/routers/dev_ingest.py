@@ -29,7 +29,6 @@ def ingest_listing(
 ):
     request_id = getattr(request.state, "request_id", "-")
 
-    
     logger.info(
         "dev.ingest_listing.call",
         extra={
@@ -51,13 +50,13 @@ def ingest_listing(
             "dev.ingest_listing.validation_error",
             extra={"request_id": request_id, "user_id": str(user_id), "error": str(e)[:500]},
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except SQLAlchemyError:
         logger.exception(
             "dev.ingest_listing.db_error",
             extra={"request_id": request_id, "user_id": str(user_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "dev.ingest_listing.success",

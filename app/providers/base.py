@@ -1,10 +1,14 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
-from sqlalchemy.orm import Session 
 from typing import Any, Protocol
+
+from sqlalchemy.orm import Session
+
 
 class ProviderError(Exception):
     """Raised when a provider request fails in a controlled way."""
+
     def __init__(
         self,
         message: str,
@@ -21,6 +25,7 @@ class ProviderError(Exception):
         self.endpoint = endpoint
         self.method = method
         self.duration_ms = duration_ms
+
 
 @dataclass(frozen=True)
 class ProviderListing:
@@ -42,9 +47,12 @@ class ProviderClient(Protocol):
     Provider client interface.
     Anything that implements this can be plugged into the runner.
     """
+
     name: str
 
-    def search(self, *, query: dict[str, Any], limit: int = 20, db: Session | None = None) -> list[ProviderListing]:
+    def search(
+        self, *, query: dict[str, Any], limit: int = 20, db: Session | None = None
+    ) -> list[ProviderListing]:
         """
         Perform a search against the provider using the rule query blob.
         Should return a list of normalized ProviderListing objects.

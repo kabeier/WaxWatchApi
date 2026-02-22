@@ -1,26 +1,28 @@
 from __future__ import annotations
 
-from datetime import datetime, UTC
-from uuid import UUID
+from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.db import models
-
 from app.core.config import settings
+from app.db import models
 
 
 def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
+    """
+    Ensures a user row exists.
+    """
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user:
         return user
 
     if not settings.dev_auto_create_users:
         raise HTTPException(status_code=401, detail="Unknown user")
-    
-    # dev  user - replace with real auth later
+
     user = models.User(
         id=user_id,
         email=f"dev+{user_id}@waxwatch.local",
@@ -29,12 +31,27 @@ def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
+
     db.add(user)
-    db.commit()
-    db.refresh(user)
+
+    try:
+        # SAVEPOINT so concurrent creation doesn’t kill outer transaction
+        with db.begin_nested():
+            db.flush()  # assign PK, validate constraints
+    except IntegrityError:
+        db.rollback()
+        # Another request created it concurrently — fetch it
+        user = db.query(models.User).filter(models.User.id == user_id).first()
+        if not user:
+            raise
+        return user
+
     return user
 
-def create_watch_rule(db: Session, *, user_id: UUID, name: str, query: dict, poll_interval_seconds: int) -> models.WatchSearchRule:
+
+def create_watch_rule(
+    db: Session, *, user_id: UUID, name: str, query: dict, poll_interval_seconds: int
+) -> models.WatchSearchRule:
     ensure_user_exists(db, user_id)
     rule = models.WatchSearchRule(
         user_id=user_id,
@@ -54,7 +71,9 @@ def create_watch_rule(db: Session, *, user_id: UUID, name: str, query: dict, pol
     return rule
 
 
-def list_watch_rules(db: Session, *, user_id: UUID, limit: int = 50, offset: int = 0) -> list[models.WatchSearchRule]:
+def list_watch_rules(
+    db: Session, *, user_id: UUID, limit: int = 50, offset: int = 0
+) -> list[models.WatchSearchRule]:
     q = (
         db.query(models.WatchSearchRule)
         .filter(models.WatchSearchRule.user_id == user_id)
@@ -95,7 +114,7 @@ def update_watch_rule(
     )
     if not rule:
         raise HTTPException(status_code=404, detail="Watch rule not found")
-    
+
     changed = False
     active_changed: bool | None = None  # None = unchanged, True/False = new value
 
@@ -147,6 +166,7 @@ def update_watch_rule(
     db.commit()
     db.refresh(rule)
     return rule
+
 
 def disable_watch_rule(db: Session, *, user_id: UUID, rule_id: UUID) -> models.WatchSearchRule:
     # soft-delete = disable

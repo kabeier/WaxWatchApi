@@ -38,15 +38,20 @@ def run_rule(
     except ValueError as e:
         logger.info(
             "dev.rule_run.not_found",
-            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id), "error": str(e)[:200]},
+            extra={
+                "request_id": request_id,
+                "user_id": str(user_id),
+                "rule_id": str(rule_id),
+                "error": str(e)[:200],
+            },
         )
-        raise HTTPException(status_code=404, detail="Rule not found")
+        raise HTTPException(status_code=404, detail="Rule not found") from e
     except SQLAlchemyError:
         logger.exception(
             "dev.rule_run.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "dev.rule_run.success",

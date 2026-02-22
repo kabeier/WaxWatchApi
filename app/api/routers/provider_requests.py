@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -55,13 +55,13 @@ def create_rule(
             "watch_rules.create.validation_error",
             extra={"request_id": request_id, "user_id": str(user_id), "error": str(e)[:500]},
         )
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except SQLAlchemyError:
         logger.exception(
             "watch_rules.create.db_error",
             extra={"request_id": request_id, "user_id": str(user_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     background_tasks.add_task(backfill_rule_matches_task, user_id, rule.id)
 
@@ -78,6 +78,7 @@ def create_rule(
     )
     return rule
 
+
 @router.get("/{rule_id}", response_model=WatchRuleOut)
 def get_rule(
     request: Request,
@@ -94,7 +95,7 @@ def get_rule(
             "watch_rules.get.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
     except HTTPException as e:
         if e.status_code == 404:
             logger.info(
@@ -102,33 +103,6 @@ def get_rule(
                 extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
             )
         raise
-
-
-@router.get("/{rule_id}", response_model=WatchRuleOut)
-def get_rule(
-    request: Request,
-    rule_id: UUID,
-    db: Session = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
-):
-    request_id = getattr(request.state, "request_id", "-")
-
-    try:
-        return service.get_watch_rule(db, user_id=user_id, rule_id=rule_id)
-    except HTTPException as e:
-        if e.status_code == 404:
-            # Optional — not strictly necessary because middleware logs status_code
-            logger.info(
-                "watch_rules.get.not_found",
-                extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
-            )
-        raise
-    except SQLAlchemyError:
-        logger.exception(
-            "watch_rules.get.db_error",
-            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
-        )
-        raise HTTPException(status_code=500, detail="db error")
 
 
 @router.patch("/{rule_id}", response_model=WatchRuleOut)
@@ -157,15 +131,20 @@ def patch_rule(
         event = "watch_rules.patch.not_found" if status == 404 else "watch_rules.patch.validation_error"
         logger.info(
             event,
-            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id), "error": msg[:500]},
+            extra={
+                "request_id": request_id,
+                "user_id": str(user_id),
+                "rule_id": str(rule_id),
+                "error": msg[:500],
+            },
         )
-        raise HTTPException(status_code=status, detail=msg)
+        raise HTTPException(status_code=status, detail=msg) from e
     except SQLAlchemyError:
         logger.exception(
             "watch_rules.patch.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "watch_rules.patch.success",
@@ -200,15 +179,20 @@ def disable_rule(
         event = "watch_rules.disable.not_found" if status == 404 else "watch_rules.disable.validation_error"
         logger.info(
             event,
-            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id), "error": msg[:500]},
+            extra={
+                "request_id": request_id,
+                "user_id": str(user_id),
+                "rule_id": str(rule_id),
+                "error": msg[:500],
+            },
         )
-        raise HTTPException(status_code=status, detail=msg)
+        raise HTTPException(status_code=status, detail=msg) from e
     except SQLAlchemyError:
         logger.exception(
             "watch_rules.disable.db_error",
             extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
         )
-        raise HTTPException(status_code=500, detail="db error")
+        raise HTTPException(status_code=500, detail="db error") from None
 
     logger.info(
         "watch_rules.disable.success",

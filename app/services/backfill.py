@@ -1,17 +1,23 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, UTC
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.db import models
-from app.services.ingest import normalize_title  # reuse your normalizer
+from app.services.ingest import normalize_title
+
+logger = get_logger(__name__)
 
 
-def _rule_matches_listing(rule: models.WatchSearchRule, listing: models.Listing, normalized_title: str) -> bool:
+def _rule_matches_listing(
+    rule: models.WatchSearchRule, listing: models.Listing, normalized_title: str
+) -> bool:
     q: dict[str, Any] = rule.query or {}
 
     sources = q.get("sources")
@@ -21,7 +27,7 @@ def _rule_matches_listing(rule: models.WatchSearchRule, listing: models.Listing,
             return False
 
     max_price = q.get("max_price")
-    if isinstance(max_price, (int, float)):
+    if isinstance(max_price, (int | float)):
         if float(listing.price) > float(max_price):
             return False
 
@@ -32,7 +38,6 @@ def _rule_matches_listing(rule: models.WatchSearchRule, listing: models.Listing,
             if kw not in normalized_title:
                 return False
 
-    # v1: ignore condition ranking; can add later
     return True
 
 
@@ -46,8 +51,6 @@ def backfill_matches_for_rule(
 ) -> int:
     """
     Backfill matches for an active rule by scanning recent listings.
-
-    Returns: number of NEW WatchMatch rows created.
     """
     if not settings.dev_backfill_on_rule_change:
         return 0
@@ -66,8 +69,6 @@ def backfill_matches_for_rule(
 
     since = datetime.now(UTC) - timedelta(days=days)
 
-    # Listings are not user-owned in your schema, so we scan “recent listings”
-    # and rely on rule_id/user_id on WatchMatch + Event to associate to the user.
     listings = (
         db.query(models.Listing)
         .filter(models.Listing.last_seen_at >= since)
@@ -85,7 +86,7 @@ def backfill_matches_for_rule(
         if not _rule_matches_listing(rule, listing, title_norm):
             continue
 
-        # Unique constraint prevents duplicates; we also check before insert for nicer behavior.
+        # still subject to race
         exists = (
             db.query(models.WatchMatch)
             .filter(models.WatchMatch.rule_id == rule.id)
@@ -101,8 +102,6 @@ def backfill_matches_for_rule(
             matched_at=now,
             match_context={"reason": "backfill_recent_listings", "days": days},
         )
-        db.add(match)
-
         ev = models.Event(
             user_id=user_id,
             type=models.EventType.NEW_MATCH,
@@ -120,11 +119,31 @@ def backfill_matches_for_rule(
             },
             created_at=now,
         )
+
+        db.add(match)
         db.add(ev)
+
+        try:
+            with db.begin_nested():
+                db.flush()
+        except IntegrityError:
+            db.rollback()
+            continue
 
         created += 1
 
     if created:
         db.commit()
+
+    logger.info(
+        "backfill.completed",
+        extra={
+            "user_id": str(user_id),
+            "rule_id": str(rule_id),
+            "days": days,
+            "limit": limit,
+            "created": created,
+        },
+    )
 
     return created

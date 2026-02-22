@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class ListingIngest(BaseModel):
-    provider: str = Field(min_length=1, max_length=50)  
+    provider: str = Field(min_length=1, max_length=50)
     external_id: str = Field(min_length=1, max_length=120)
 
     url: str
@@ -16,12 +16,12 @@ class ListingIngest(BaseModel):
     price: float = Field(ge=0)
     currency: str = Field(default="USD", min_length=3, max_length=3)
 
-    condition: Optional[str] = None
-    seller: Optional[str] = None
-    location: Optional[str] = None
-    discogs_release_id: Optional[int] = None
+    condition: str | None = None
+    seller: str | None = None
+    location: str | None = None
+    discogs_release_id: int | None = None
 
-    raw: Optional[dict[str, Any]] = None
+    raw: dict[str, Any] | None = None
 
 
 class ListingOut(BaseModel):
@@ -32,13 +32,13 @@ class ListingOut(BaseModel):
     external_id: str
     url: str
     title: str
-    normalized_title: Optional[str]
+    normalized_title: str | None
     price: float
     currency: str
-    condition: Optional[str]
-    seller: Optional[str]
-    location: Optional[str]
+    condition: str | None
+    seller: str | None
+    location: str | None
     status: str
-    discogs_release_id: Optional[int]
+    discogs_release_id: int | None
     first_seen_at: datetime
     last_seen_at: datetime

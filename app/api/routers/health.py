@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import text
-from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.logging import get_logger
@@ -25,6 +25,6 @@ def readyz(request: Request, db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
     except SQLAlchemyError:
         logger.exception("health.ready.db_error", extra={"request_id": request_id})
-        raise HTTPException(status_code=500, detail="db not ready")
+        raise HTTPException(status_code=500, detail="db not ready") from None
 
     return {"status": "ready"}

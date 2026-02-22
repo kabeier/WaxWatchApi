@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import enum
 import uuid
-from datetime import datetime, UTC
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import (
     Boolean,
@@ -14,11 +13,10 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
-    Numeric,
     String,
     Text,
-    text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
@@ -32,6 +30,7 @@ class Base(DeclarativeBase):
 # Enums
 # -------------------------
 
+
 class Provider(str, enum.Enum):
     discogs = "discogs"
     ebay = "ebay"
@@ -41,7 +40,7 @@ class Provider(str, enum.Enum):
 
 class ListingStatus(str, enum.Enum):
     active = "active"
-    ended = "ended"        # sold/removed/expired
+    ended = "ended"  # sold/removed/expired
     unknown = "unknown"
 
 
@@ -66,6 +65,7 @@ class EventType(str, enum.Enum):
     # matches / alerts
     NEW_MATCH = "NEW_MATCH"
 
+
 PROVIDER_ENUM = Enum(Provider, name="provider_enum", create_constraint=False)
 LISTING_STATUS_ENUM = Enum(ListingStatus, name="listing_status_enum", create_constraint=False)
 EVENT_TYPE_ENUM = Enum(EventType, name="event_type_enum", create_constraint=False)
@@ -74,6 +74,7 @@ EVENT_TYPE_ENUM = Enum(EventType, name="event_type_enum", create_constraint=Fals
 # Tables
 # -------------------------
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -81,17 +82,23 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    display_name: Mapped[Optional[str]] = mapped_column(String(120))
+    display_name: Mapped[str | None] = mapped_column(String(120))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
-    watch_releases: Mapped[list["WatchRelease"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    watch_search_rules: Mapped[list["WatchSearchRule"]] = relationship(back_populates="user", cascade="all, delete-orphan")
-    events: Mapped[list["Event"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    watch_releases: Mapped[list[WatchRelease]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    watch_search_rules: Mapped[list[WatchSearchRule]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    events: Mapped[list[Event]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class WatchRelease(Base):
@@ -99,6 +106,7 @@ class WatchRelease(Base):
     Tracks a specific release (Discogs Release ID is the anchor).
     Optionally stores target price and condition preference.
     """
+
     __tablename__ = "watch_releases"
     __table_args__ = (
         UniqueConstraint("user_id", "discogs_release_id", name="uq_watch_release_user_release"),
@@ -110,19 +118,23 @@ class WatchRelease(Base):
 
     discogs_release_id: Mapped[int] = mapped_column(Integer, nullable=False)
     title: Mapped[str] = mapped_column(String(300), nullable=False)  # cached display title
-    artist: Mapped[Optional[str]] = mapped_column(String(200))
-    year: Mapped[Optional[int]] = mapped_column(Integer)
+    artist: Mapped[str | None] = mapped_column(String(200))
+    year: Mapped[int | None] = mapped_column(Integer)
 
-    target_price: Mapped[Optional[float]] = mapped_column(Float)
+    target_price: Mapped[float | None] = mapped_column(Float)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
 
-    min_condition: Mapped[Optional[str]] = mapped_column(String(30))  # keep as string for v1; normalize later
+    min_condition: Mapped[str | None] = mapped_column(String(30))  # keep as string for v1; normalize later
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
-    user: Mapped["User"] = relationship(back_populates="watch_releases")
+    user: Mapped[User] = relationship(back_populates="watch_releases")
 
 
 class WatchSearchRule(Base):
@@ -130,6 +142,7 @@ class WatchSearchRule(Base):
     Saved search / alert rule.
     It's intentionally generic: store a normalized JSON query + a display name.
     """
+
     __tablename__ = "watch_search_rules"
     __table_args__ = (
         Index("ix_watch_search_rules_user_active", "user_id", "is_active"),
@@ -151,40 +164,39 @@ class WatchSearchRule(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
-    # scheduling knobs 
+    # scheduling knobs
     poll_interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=600)
-    last_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
-    next_run_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
-    user: Mapped["User"] = relationship(back_populates="watch_search_rules")
-    matches: Mapped[list["WatchMatch"]] = relationship(back_populates="rule", cascade="all, delete-orphan")
+    user: Mapped[User] = relationship(back_populates="watch_search_rules")
+    matches: Mapped[list[WatchMatch]] = relationship(back_populates="rule", cascade="all, delete-orphan")
 
 
 class Listing(Base):
     """
-    Normalized marketplace listing 
+    Normalized marketplace listing
     Uniqueness is provider + external_id.
     """
+
     __tablename__ = "listings"
     __table_args__ = (
-        UniqueConstraint("provider",
-                         "external_id",
-                          name="uq_listing_provider_external"
-                        ),
-        Index("ix_listings_provider_status_last_seen",
-              "provider",
-              "status",
-              "last_seen_at"
-            ),
-        Index("ix_listings_normalized_title_trgm",
-              "normalized_title",
-               postgresql_using="gin",
-               postgresql_ops={"normalized_title": "gin_trgm_ops"},
-               postgresql_where=text("normalized_title IS NOT NULL"), 
-            ),
+        UniqueConstraint("provider", "external_id", name="uq_listing_provider_external"),
+        Index("ix_listings_provider_status_last_seen", "provider", "status", "last_seen_at"),
+        Index(
+            "ix_listings_normalized_title_trgm",
+            "normalized_title",
+            postgresql_using="gin",
+            postgresql_ops={"normalized_title": "gin_trgm_ops"},
+            postgresql_where=text("normalized_title IS NOT NULL"),
+        ),
         CheckConstraint("price >= 0", name="ck_listings_price_nonnegative"),
     )
 
@@ -195,27 +207,35 @@ class Listing(Base):
 
     url: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
-    normalized_title: Mapped[Optional[str]] = mapped_column(Text)
+    normalized_title: Mapped[str | None] = mapped_column(Text)
 
     price: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
 
-    condition: Mapped[Optional[str]] = mapped_column(String(30))
-    seller: Mapped[Optional[str]] = mapped_column(String(120))
-    location: Mapped[Optional[str]] = mapped_column(String(120))
+    condition: Mapped[str | None] = mapped_column(String(30))
+    seller: Mapped[str | None] = mapped_column(String(120))
+    location: Mapped[str | None] = mapped_column(String(120))
 
-    status: Mapped[ListingStatus] = mapped_column(LISTING_STATUS_ENUM, nullable=False, default=ListingStatus.active)
+    status: Mapped[ListingStatus] = mapped_column(
+        LISTING_STATUS_ENUM, nullable=False, default=ListingStatus.active
+    )
 
     # If you can infer it, store.
-    discogs_release_id: Mapped[Optional[int]] = mapped_column(Integer, index=True)
+    discogs_release_id: Mapped[int | None] = mapped_column(Integer, index=True)
 
-    first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
-    last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
-    raw: Mapped[Optional[dict]] = mapped_column(JSONB)  # store raw provider payload (handy for debugging)
+    raw: Mapped[dict | None] = mapped_column(JSONB)  # store raw provider payload (handy for debugging)
 
-    price_snapshots: Mapped[list["PriceSnapshot"]] = relationship(back_populates="listing", cascade="all, delete-orphan")
-    matches: Mapped[list["WatchMatch"]] = relationship(back_populates="listing", cascade="all, delete-orphan")
+    price_snapshots: Mapped[list[PriceSnapshot]] = relationship(
+        back_populates="listing", cascade="all, delete-orphan"
+    )
+    matches: Mapped[list[WatchMatch]] = relationship(back_populates="listing", cascade="all, delete-orphan")
 
 
 class WatchMatch(Base):
@@ -223,6 +243,7 @@ class WatchMatch(Base):
     Join table between a WatchSearchRule and a Listing.
     Unique per (rule_id, listing_id) so we don't alert twice for the same match.
     """
+
     __tablename__ = "watch_matches"
     __table_args__ = (
         UniqueConstraint("rule_id", "listing_id", name="uq_match_rule_listing"),
@@ -231,16 +252,22 @@ class WatchMatch(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    rule_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("watch_search_rules.id", ondelete="CASCADE"), nullable=False)
-    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    rule_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("watch_search_rules.id", ondelete="CASCADE"), nullable=False
+    )
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+    )
 
-    matched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    matched_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
     # optionally store "why it matched" (which filters passed)
-    match_context: Mapped[Optional[dict]] = mapped_column(JSONB)
+    match_context: Mapped[dict | None] = mapped_column(JSONB)
 
-    rule: Mapped["WatchSearchRule"] = relationship(back_populates="matches")
-    listing: Mapped["Listing"] = relationship(back_populates="matches")
+    rule: Mapped[WatchSearchRule] = relationship(back_populates="matches")
+    listing: Mapped[Listing] = relationship(back_populates="matches")
 
 
 class Event(Base):
@@ -250,6 +277,7 @@ class Event(Base):
     - power the UI activity feed
     - publish websocket notifications
     """
+
     __tablename__ = "events"
     __table_args__ = (
         Index("ix_events_user_created_at", "user_id", "created_at"),
@@ -262,16 +290,22 @@ class Event(Base):
 
     type: Mapped[EventType] = mapped_column(EVENT_TYPE_ENUM, nullable=False)
 
-    watch_release_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("watch_releases.id", ondelete="SET NULL"))
-    rule_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("watch_search_rules.id", ondelete="SET NULL"))
-    listing_id: Mapped[Optional[uuid.UUID]] = mapped_column(ForeignKey("listings.id", ondelete="SET NULL"))
+    watch_release_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("watch_releases.id", ondelete="SET NULL")
+    )
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("watch_search_rules.id", ondelete="SET NULL")
+    )
+    listing_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("listings.id", ondelete="SET NULL"))
 
     # Event payload (safe subset for UI)
-    payload: Mapped[Optional[dict]] = mapped_column(JSONB)
+    payload: Mapped[dict | None] = mapped_column(JSONB)
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
-    user: Mapped["User"] = relationship(back_populates="events")
+    user: Mapped[User] = relationship(back_populates="events")
 
 
 class PriceSnapshot(Base):
@@ -279,6 +313,7 @@ class PriceSnapshot(Base):
     Time-series price history.
     Create one per polling observation (or only when price changes, your call).
     """
+
     __tablename__ = "price_snapshots"
     __table_args__ = (
         Index("ix_price_snapshots_listing_recorded_at", "listing_id", "recorded_at"),
@@ -287,21 +322,25 @@ class PriceSnapshot(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    listing_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("listings.id", ondelete="CASCADE"), nullable=False)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("listings.id", ondelete="CASCADE"), nullable=False
+    )
 
     price: Mapped[float] = mapped_column(Float, nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="USD")
 
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
 
-    listing: Mapped["Listing"] = relationship(back_populates="price_snapshots")
-
+    listing: Mapped[Listing] = relationship(back_populates="price_snapshots")
 
 
 class ProviderRequest(Base):
     """
     Observability: store provider call outcomes for debugging/rate limits.
     """
+
     __tablename__ = "provider_requests"
     __table_args__ = (
         Index("ix_provider_requests_provider_created_at", "provider", "created_at"),
@@ -313,10 +352,12 @@ class ProviderRequest(Base):
 
     endpoint: Mapped[str] = mapped_column(String(200), nullable=False)
     method: Mapped[str] = mapped_column(String(10), nullable=False, default="GET")
-    status_code: Mapped[Optional[int]] = mapped_column(Integer)
+    status_code: Mapped[int | None] = mapped_column(Integer)
 
-    duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
-    error: Mapped[Optional[str]] = mapped_column(Text)
-    meta: Mapped[Optional[dict]] = mapped_column(JSONB)  # e.g., rate-limit headers
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    meta: Mapped[dict | None] = mapped_column(JSONB)  # e.g., rate-limit headers
 
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )

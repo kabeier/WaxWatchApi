@@ -6,20 +6,12 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-env_file = os.environ.get("ALEMBIC_ENV_FILE")
-if env_file:
-    try:
-        from dotenv import load_dotenv
-        load_dotenv(env_file, override=False)
-    except Exception:
-        pass
+from app.db.models import Base
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
-
-from app.db.models import Base  # noqa: E402
 
 target_metadata = Base.metadata
 
@@ -27,7 +19,7 @@ target_metadata = Base.metadata
 def get_url() -> str:
     url = os.environ.get("DATABASE_URL")
     if not url:
-        raise RuntimeError("DATABASE_URL is not set for Alembic")
+        raise RuntimeError("DATABASE_URL is not set (required for alembic).")
     return url
 
 
@@ -35,7 +27,7 @@ def _poolclass_for_env():
     pool_mode = (os.environ.get("DB_POOL") or "queue").lower()
     if pool_mode == "null":
         return pool.NullPool
-    return None  
+    return None
 
 
 def run_migrations_offline() -> None:

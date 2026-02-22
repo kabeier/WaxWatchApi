@@ -11,6 +11,7 @@ class MockProvider(ProviderClient):
     Dev-only provider:
     deterministic results per rule/query so repeated runs are stable and idempotent.
     """
+
     name = "mock"
 
     def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:
@@ -45,7 +46,7 @@ class MockProvider(ProviderClient):
 
         for i in range(n):
             # Make the first listing a guaranteed match when it makes sense
-            if i == 0 and isinstance(max_price, (int, float)) and "primus" in kws and "vinyl" in kws:
+            if i == 0 and isinstance(max_price, (int | float)) and "primus" in kws and "vinyl" in kws:
                 title = "Primus - Sailing the Seas of Cheese (Vinyl)"
                 price = round(float(max_price) - 0.01, 2)
             else:

@@ -7,7 +7,6 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
 
-
 def _build_engine():
     pool_mode = (settings.db_pool or "queue").lower()
 

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
 
     # DB pooling
     # - "null" Supabase / pgbouncer handles pooling
-    # - "queue"  for  Postgres 
+    # - "queue"  for  Postgres
     db_pool: str = "queue"  # dev default
     db_pool_size: int = 5
     db_max_overflow: int = 10
