@@ -29,7 +29,6 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
     created_listing = False
     created_snapshot = False
 
-
     listing = (
         db.query(models.Listing)
         .filter(models.Listing.provider == provider)
@@ -38,7 +37,6 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
     )
 
     if listing is None:
-
         insert_values = {
             "provider": provider,
             "external_id": external_id,
@@ -70,7 +68,6 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
             created_listing = True
             listing = db.get(models.Listing, inserted_id)
             if listing is None:
-                
                 listing = (
                     db.query(models.Listing)
                     .filter(models.Listing.provider == provider)
