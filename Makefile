@@ -19,46 +19,49 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset ci-local gh
+.PHONY: help up down build logs ps sh test lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset ci-local ghu
 
 help:
 	@echo ""
-	@echo "WaxWatch / RecordAlert - common commands"
+	@echo "WaxWatch / RecordAlert — Command Reference"
+	@echo "------------------------------------------------------------"
 	@echo ""
-	@echo "Docker:"
-	@echo "  make up                  - dev up (uses docker-compose.override.yml automatically)"
-	@echo "  make down                - stop containers"
-	@echo "  make build               - rebuild images"
-	@echo "  make logs                - follow api logs"
-	@echo "  make ps                  - show running services"
-	@echo "  make sh                  - shell inside api container"
+	@echo "Docker (Dev Environment)"
+	@echo "  make up                    Start dev stack (builds if needed)"
+	@echo "  make down                  Stop containers"
+	@echo "  make build                 Rebuild images"
+	@echo "  make logs                  Follow API logs"
+	@echo "  make ps                    Show running services"
+	@echo "  make sh                    Shell inside API container"
 	@echo ""
-	@echo "Database (Dev / Local Docker DB):"
-	@echo "  make migrate             - alembic upgrade head (dev/local docker db)"
-	@echo "  make revision MSG='...'  - create alembic revision (autogenerate)"
-	@echo "  make revision-msg MSG='...' - create empty alembic revision"
-	@echo "  make downgrade REV=-1    - downgrade (e.g. -1 or <revision_id>)"
-	@echo "  make dbshell             - psql into local docker db"
-	@echo "  make dbreset             - WARNING: nukes local docker db volume"
+	@echo "Database (Dev / Local Docker DB)"
+	@echo "  make migrate               Apply migrations (upgrade head)"
+	@echo "  make revision MSG='...'    Create autogen Alembic revision"
+	@echo "  make revision-msg MSG='...' Create empty Alembic revision"
+	@echo "  make downgrade REV=-1      Downgrade migration"
+	@echo "  make dbshell               Open psql shell"
+	@echo "  make dbreset               Print instructions to remove DB volume"
 	@echo ""
-	@echo "Testing & Code Quality:"
-	@echo "  make lint [FIX=1] [RUFF_ARGS='...'] - ruff lint (optional auto-fix)"
-	@echo "  make fmt                 - ruff format (writes changes)"
-	@echo "  make fmt-check           - ruff format --check"
+	@echo "Code Quality"
+	@echo "  make lint                  Run ruff lint"
+	@echo "  make lint FIX=1            Run ruff with auto-fix"
+	@echo "  make lint RUFF_ARGS='...'  Pass extra args to ruff"
+	@echo "  make fmt                   Auto-format code"
+	@echo "  make fmt-check             Fail if formatting differs"
 	@echo ""
-	@echo "  make ci-local            - run CI steps locally (lint + fmt-check + migrate + drift + pytest)"
-	@echo "  make gh MSG='...' [TAG='ci'] - run ci-local, then commit+push if it passes"
+	@echo "Testing / CI"
+	@echo "  make ci-local              Run full CI flow locally"
+	@echo "                             (lint + fmt-check + migrate + drift + pytest)"
+	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
+	@echo "  make ci-check-migrations   Fail if schema drift detected"
 	@echo ""
-	@echo "  make ci-check-migrations - fail if models != DB schema (no new revision files)"
-	@echo "  make test-with-docker-db - spin up test Postgres, migrate, drift-check, run pytest (does NOT auto-down)"
-	@echo "  make test-db-up          - start test Postgres"
-	@echo "  make test-db-down        - stop test Postgres"
+	@echo "Git / Release Workflow"
+	@echo "  make gh MSG='...'          Run ci-local, then commit & push if successful"
 	@echo ""
-	@echo "Prod-ish (no .env in compose; uses env vars):"
-	@echo "  make migrate-prod        - alembic upgrade head against prod DB (uses --env-file .env.prod)"
-	@echo "  make prod-up             - run api using docker-compose.yml + --env-file .env.prod"
+	@echo "Production"
+	@echo "  make migrate-prod          Run migrations against prod DB"
+	@echo "  make prod-up               Run production compose stack"
 	@echo ""
-
 up:
 	$(COMPOSE) --env-file $(DEV_ENV_FILE) up --build
 
@@ -133,12 +136,28 @@ test-with-docker-db: test-db-up
 	DISCOGS_TOKEN=test-token \
 	pytest -q -rA
 
-# Mirrors the GitHub Actions CI job, but uses your dockerized test Postgres.
-# Ensures the test DB is torn down even if a step fails.
+wait-test-db:
+	@set -euo pipefail; \
+	echo "Waiting for Postgres (container + host port) ..."; \
+	for i in $$(seq 1 60); do \
+		if $(COMPOSE) -f $(TEST_DB_COMPOSE) exec -T $(TEST_DB_SERVICE) pg_isready -U waxwatch -d waxwatch_test >/dev/null 2>&1; then \
+			if PGPASSWORD=waxwatch psql "host=127.0.0.1 port=5433 user=waxwatch dbname=waxwatch_test sslmode=disable" -c "select 1" >/dev/null 2>&1; then \
+				echo "Postgres is ready (container + host)."; \
+				exit 0; \
+			fi; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "Postgres did not become ready in time. Showing logs:"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) logs --no-color $(TEST_DB_SERVICE) | tail -n 200; \
+	exit 1
+
+# Mirrors the GitHub Actions CI job
 ci-local:
 	@set -euo pipefail; \
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE); \
+	$(MAKE) wait-test-db; \
 	ruff check .; \
 	ruff format --check .; \
 	ENVIRONMENT=test \
@@ -172,19 +191,18 @@ ci-local:
 	DISCOGS_TOKEN=ci-token \
 	pytest -q --disable-warnings --maxfail=1
 
-# Run CI locally, then commit+push if it passes.
-
 gh: ci-local
-	@if [ -z "$(MSG)" ]; then echo "MSG is required. Example: make gh MSG='fix schema drift' TAG='api'"; exit 1; fi
+	@if [ -z "$(MSG)" ]; then echo "MSG is required. Example: make gh MSG='fix schema drift'"; exit 1; fi
 	@set -euo pipefail; \
-	if [ -z "$$(git status --porcelain)" ]; then \
+	# if nothing changed (tracked or untracked), bail
+	if git diff --quiet && git diff --cached --quiet && [ -z "$$(git ls-files --others --exclude-standard)" ]; then \
 		echo "Working tree clean — nothing to commit."; \
 		exit 0; \
 	fi; \
 	git add -A; \
-	git commit -m "[$(TAG)] $(MSG)"; \
+	git commit -m "$(MSG)"; \
 	git push $(GIT_REMOTE) $(GIT_BRANCH)
-
+	
 # --- Alembic (dev/local db) ---
 migrate:
 	$(COMPOSE) --env-file $(DEV_ENV_FILE) exec $(APP_SERVICE) alembic upgrade head
