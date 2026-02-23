@@ -25,7 +25,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset ci-local ghu
+.PHONY: help up down build logs ps sh test test-discogs-ingestion lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset ci-local ghu
 
 help:
 	@echo ""
@@ -58,6 +58,7 @@ help:
 	@echo "Testing / CI"
 	@echo "  make ci-local              Run full CI flow locally"
 	@echo "                             (lint + fmt-check + migrate + drift + pytest)"
+	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests"
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
 	@echo ""
@@ -159,6 +160,24 @@ test-with-docker-db: test-db-up
 	DISCOGS_USER_AGENT=test-agent \
 	DISCOGS_TOKEN=test-token \
 	pytest -q -rA
+
+test-discogs-ingestion:
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	pytest -q tests/test_discogs_retry.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
 
 wait-test-db:
 	@set -euo pipefail; \
