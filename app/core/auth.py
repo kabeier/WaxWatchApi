@@ -75,11 +75,11 @@ class SupabaseJWTVerifier:
         alg = header.get("alg")
 
         if alg not in self.algorithms:
-                    logger.info("auth.token.invalid_algorithm", extra={"alg": alg, "allowed": list(self.algorithms)})
-                    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token algorithm")
-        
+            logger.info("auth.token.invalid_algorithm", extra={"alg": alg, "allowed": list(self.algorithms)})
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token algorithm")
+
         jwks = self._fetch_jwks()
-        
+
         for key in jwks["keys"]:
             if key.get("kid") == kid:
                 return PyJWK.from_dict(key).key
