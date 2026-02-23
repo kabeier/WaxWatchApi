@@ -20,6 +20,14 @@ class Settings(BaseSettings):
 
     discogs_user_agent: str
     discogs_token: str
+    discogs_timeout_seconds: float = 10.0
+    discogs_max_attempts: int = 4
+    discogs_retry_base_delay_ms: int = 250
+    discogs_retry_max_delay_ms: int = 5_000
+
+    scheduler_poll_interval_seconds: int = 15
+    scheduler_batch_size: int = 100
+    scheduler_rule_limit: int = 20
 
     # Logging
     log_level: str = "INFO"
