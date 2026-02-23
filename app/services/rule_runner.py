@@ -28,15 +28,6 @@ def _providers_for_rule(rule: models.WatchSearchRule) -> list[str]:
     return [str(s).strip().lower() for s in sources if str(s).strip()]
 
 
-def _endpoint_guess_for_source(source: str) -> str:
-    # best-effort, for observability rows
-    if source == "discogs":
-        return "/database/search"
-    if source == "ebay":
-        return "/search"  # placeholder for later
-    return "/unknown"
-
-
 def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20) -> RuleRunSummary:
     rule = (
         db.query(models.WatchSearchRule)
@@ -96,6 +87,18 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
                 duration_ms=e.duration_ms,
                 error=str(e)[:500],
                 meta=e.meta,
+            )
+            continue
+        except Exception as e:  # pragma: no cover - defensive observability guard
+            log_provider_request(
+                db,
+                provider=provider_enum,
+                endpoint=endpoint,
+                method="GET",
+                status_code=None,
+                duration_ms=getattr(provider_client, "last_duration_ms", None),
+                error=str(e)[:500],
+                meta={"exception_type": e.__class__.__name__},
             )
             continue
 

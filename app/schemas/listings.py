@@ -4,7 +4,9 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
+
+from app.monetization.ebay_affiliate import to_affiliate_url
 
 
 class ListingIngest(BaseModel):
@@ -42,3 +44,10 @@ class ListingOut(BaseModel):
     discogs_release_id: int | None
     first_seen_at: datetime
     last_seen_at: datetime
+
+    @computed_field(return_type=str)
+    @property
+    def public_url(self) -> str:
+        if self.provider == "ebay":
+            return to_affiliate_url(self.url)
+        return self.url

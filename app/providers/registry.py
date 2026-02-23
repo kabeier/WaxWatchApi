@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 
 from app.providers.discogs import DiscogsClient
+from app.providers.ebay import EbayClient
 from app.providers.mock import MockDiscogsClient, MockProvider
 
 PROVIDERS: dict[str, type] = {
     "discogs": DiscogsClient,
     "mock": MockProvider,
+    "ebay": EbayClient,
 }
 
 

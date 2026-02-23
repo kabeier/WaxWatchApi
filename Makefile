@@ -127,6 +127,9 @@ test-with-docker-db: test-db-up
 	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
 	DISCOGS_USER_AGENT=test-agent \
 	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
 	alembic upgrade head
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
@@ -143,6 +146,9 @@ test-with-docker-db: test-db-up
 	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
 	DISCOGS_USER_AGENT=test-agent \
 	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
 	python -m scripts.schema_drift_check
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
@@ -159,6 +165,9 @@ test-with-docker-db: test-db-up
 	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
 	DISCOGS_USER_AGENT=test-agent \
 	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
 	pytest -q -rA
 
 test-discogs-ingestion:
@@ -177,7 +186,10 @@ test-discogs-ingestion:
 	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
 	DISCOGS_USER_AGENT=test-agent \
 	DISCOGS_TOKEN=test-token \
-	pytest -q tests/test_discogs_retry.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
+	pytest -q tests/test_discogs_retry.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
 
 wait-test-db:
 	@set -euo pipefail; \
@@ -218,6 +230,9 @@ ci-local:
 	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
 	DISCOGS_USER_AGENT=waxwatch-ci \
 	DISCOGS_TOKEN=ci-token \
+	EBAY_CLIENT_ID=ci-ebay-client-id \
+	EBAY_CLIENT_SECRET=ci-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
 	alembic upgrade head; \
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
@@ -234,6 +249,9 @@ ci-local:
 	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
 	DISCOGS_USER_AGENT=waxwatch-ci \
 	DISCOGS_TOKEN=ci-token \
+	EBAY_CLIENT_ID=ci-ebay-client-id \
+	EBAY_CLIENT_SECRET=ci-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
 	python -m scripts.schema_drift_check; \
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
@@ -250,6 +268,9 @@ ci-local:
 	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
 	DISCOGS_USER_AGENT=waxwatch-ci \
 	DISCOGS_TOKEN=ci-token \
+	EBAY_CLIENT_ID=ci-ebay-client-id \
+	EBAY_CLIENT_SECRET=ci-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
 	pytest -q --disable-warnings --maxfail=1
 
 ghu: ci-local

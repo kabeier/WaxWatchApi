@@ -25,6 +25,18 @@ class Settings(BaseSettings):
     discogs_retry_base_delay_ms: int = 250
     discogs_retry_max_delay_ms: int = 5_000
 
+    ebay_client_id: str | None = None
+    ebay_client_secret: str | None = None
+    ebay_oauth_scope: str = "https://api.ebay.com/oauth/api_scope"
+    ebay_marketplace_id: str = "EBAY_US"
+    ebay_timeout_seconds: float = 10.0
+    ebay_max_attempts: int = 4
+    ebay_retry_base_delay_ms: int = 250
+    ebay_retry_max_delay_ms: int = 5_000
+
+    ebay_campaign_id: str | None = None
+    ebay_custom_id: str | None = None
+
     scheduler_poll_interval_seconds: int = 15
     scheduler_batch_size: int = 100
     scheduler_rule_limit: int = 20

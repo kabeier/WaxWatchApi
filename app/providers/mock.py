@@ -13,6 +13,7 @@ class MockProvider(ProviderClient):
     """
 
     name = "mock"
+    default_endpoint = "/mock/search"
 
     def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:
         keywords = query.get("keywords") or []
@@ -77,3 +78,4 @@ class MockDiscogsClient(MockProvider):
     """
 
     name = "discogs"
+    default_endpoint = "/database/search"
