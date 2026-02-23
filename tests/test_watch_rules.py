@@ -123,6 +123,11 @@ def test_patch_rule_validation_invalid_provider(client, user, headers):
         headers=h,
     )
     assert r.status_code == 422, r.text
+    body = r.json()
+    assert body["error"]["code"] == "validation_error"
+    assert body["error"]["status"] == 422
+    assert isinstance(body["error"]["details"], list)
+    assert "not-a-real-provider" in str(body["error"]["details"])
 
 
 def test_delete_rule_disables(client, user, headers):
