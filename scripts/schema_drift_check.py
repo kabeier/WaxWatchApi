@@ -3,11 +3,12 @@ from __future__ import annotations
 import os
 import sys
 
-from alembic.autogenerate import compare_metadata
-from alembic.migration import MigrationContext
 from sqlalchemy import create_engine
 
+from alembic.autogenerate import compare_metadata
+from alembic.migration import MigrationContext
 from app.db.models import Base
+
 
 def main() -> int:
     url = os.environ.get("DATABASE_URL")
