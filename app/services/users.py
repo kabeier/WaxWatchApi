@@ -70,7 +70,9 @@ def update_user_profile(
     if preferences is not None:
         current_prefs.update(preferences.model_dump(exclude_none=True))
 
-    profile = get_user_profile(db, user_id=user_id, token_claims={"user_metadata": {"preferences": current_prefs}})
+    profile = get_user_profile(
+        db, user_id=user_id, token_claims={"user_metadata": {"preferences": current_prefs}}
+    )
     profile["updated_at"] = user.updated_at
     return profile
 
