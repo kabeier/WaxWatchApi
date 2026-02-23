@@ -74,15 +74,17 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
 
         try:
             provider_listings = provider_client.search(query=provider_query, limit=limit)
+            duration_ms = getattr(provider_client, "last_duration_ms", None)
+            meta = getattr(provider_client, "last_request_meta", None)
             log_provider_request(
                 db,
                 provider=provider_enum,
                 endpoint=endpoint,
                 method="GET",
                 status_code=200,
-                duration_ms=None,
+                duration_ms=duration_ms,
                 error=None,
-                meta=None,
+                meta=meta,
             )
         except ProviderError as e:
             log_provider_request(
