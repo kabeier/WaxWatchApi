@@ -122,6 +122,14 @@ python-dotenv==1.2.1
     # via
     #   -r requirements.in
     #   pydantic-settings
+cffi==2.0.0
+    # via cryptography
+cryptography==46.0.3
+    # via pyjwt
+pycparser==2.23
+    # via cffi
+pyjwt==2.10.1
+    # via -r requirements.in
 pyyaml==6.0.3
     # via
     #   -r requirements.in

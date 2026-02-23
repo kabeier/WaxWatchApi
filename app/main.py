@@ -21,6 +21,17 @@ logger = get_logger(__name__)
 def create_app() -> FastAPI:
     configure_logging(level=settings.log_level, json_logs=settings.json_logs)
 
+    logger.info(
+        "app.startup",
+        extra={
+            "app_name": settings.app_name,
+            "environment": settings.environment,
+            "json_logs": settings.json_logs,
+            "auth_issuer_configured": bool(settings.auth_issuer or settings.supabase_url),
+            "auth_jwks_url_configured": bool(settings.auth_jwks_url or settings.supabase_url),
+        },
+    )
+
     app = FastAPI(title=settings.app_name)
     app.add_middleware(RequestIDMiddleware)
 
