@@ -41,6 +41,16 @@ jobs:
       DISCOGS_USER_AGENT: "waxwatch-ci"
       DISCOGS_TOKEN: "ci-token"
 
+      # auth config for CI tests
+      # - defaults below match the local JWKS server used by tests/conftest.py
+      # - these can be overridden from GitHub Actions Variables if desired
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      AUTH_ISSUER: ${{ vars.AUTH_ISSUER || 'http://127.0.0.1:8765/auth/v1' }}
+      AUTH_AUDIENCE: ${{ vars.AUTH_AUDIENCE || 'authenticated' }}
+      AUTH_JWKS_URL: ${{ vars.AUTH_JWKS_URL || 'http://127.0.0.1:8765/auth/v1/.well-known/jwks.json' }}
+      AUTH_JWT_ALGORITHMS: ${{ vars.AUTH_JWT_ALGORITHMS || '["RS256"]' }}
+      AUTH_JWKS_CACHE_TTL_SECONDS: ${{ vars.AUTH_JWKS_CACHE_TTL_SECONDS || '300' }}
+      AUTH_CLOCK_SKEW_SECONDS: ${{ vars.AUTH_CLOCK_SKEW_SECONDS || '30' }}
       # dev behaviors off
       DEV_AUTO_CREATE_USERS: "false"
       DEV_BACKFILL_ON_RULE_CHANGE: "false"

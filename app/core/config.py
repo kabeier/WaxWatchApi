@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     app_name: str = "watch-wax-api"
     environment: str = "dev"
+    supabase_url: str | None = None
 
     database_url: str
 
@@ -23,6 +24,14 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
     json_logs: bool = True
+
+    # Auth (Supabase JWT)
+    auth_issuer: str | None = None
+    auth_audience: str = "authenticated"
+    auth_jwks_url: str | None = None
+    auth_jwt_algorithms: list[str] = ["RS256"]
+    auth_jwks_cache_ttl_seconds: int = 300
+    auth_clock_skew_seconds: int = 30
 
     # DB pooling
     # - "null" Supabase / pgbouncer handles pooling

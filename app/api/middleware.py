@@ -18,16 +18,13 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         start = time.perf_counter()
 
-        # Temporary auth header (UUID string). Fine to log for a demo/prod-like setup.
-        user_id = request.headers.get("x-user-id")
-
         logger.info(
             "request.start",
             extra={
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
-                "user_id": user_id,
+                "user_id": getattr(request.state, "user_id", None),
             },
         )
 
@@ -41,7 +38,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                     "request_id": request_id,
                     "method": request.method,
                     "path": request.url.path,
-                    "user_id": user_id,
+                    "user_id": getattr(request.state, "user_id", None),
                     "duration_ms": duration_ms,
                 },
             )
@@ -56,7 +53,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
                 "method": request.method,
                 "path": request.url.path,
                 "status_code": response.status_code,
-                "user_id": user_id,
+                "user_id": getattr(request.state, "user_id", None),
                 "duration_ms": duration_ms,
             },
         )
