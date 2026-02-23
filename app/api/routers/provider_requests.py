@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user_id, get_db
 from app.core.logging import get_logger
 from app.schemas.watch_rules import WatchRuleCreate, WatchRuleOut, WatchRuleUpdate
 from app.services import watch_rules as service
@@ -14,13 +14,6 @@ from app.services.background import backfill_rule_matches_task
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/watch-rules", tags=["watch-rules"])
-
-
-def get_current_user_id(x_user_id: str = Header(..., alias="X-User-Id")) -> UUID:
-    # Temporary auth stub:
-    # Pass a UUID in header X-User-Id.
-    # Replace this with JWT later.
-    return UUID(x_user_id)
 
 
 def _safe_sources(payload_query: dict | None) -> list[str] | None:

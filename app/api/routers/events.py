@@ -2,21 +2,17 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_db
+from app.api.deps import get_current_user_id, get_db
 from app.core.logging import get_logger
 from app.db import models
 from app.schemas.events import EventOut
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/events", tags=["events"])
-
-
-def get_current_user_id(x_user_id: str = Header(..., alias="X-User-Id")) -> UUID:
-    return UUID(x_user_id)
 
 
 @router.get("", response_model=list[EventOut])
