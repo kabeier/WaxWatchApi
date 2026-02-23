@@ -53,6 +53,8 @@ os.environ.setdefault("AUTH_ISSUER", AUTH_ISSUER)
 os.environ.setdefault("AUTH_AUDIENCE", AUTH_AUDIENCE)
 os.environ.setdefault("AUTH_JWKS_URL", AUTH_JWKS_URL)
 os.environ.setdefault("AUTH_JWT_ALGORITHMS", '["RS256"]')
+# Keep auth-expiry tests deterministic: avoid leeway masking short-expired tokens.
+os.environ.setdefault("AUTH_CLOCK_SKEW_SECONDS", "0")
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
