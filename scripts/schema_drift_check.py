@@ -9,7 +9,6 @@ from sqlalchemy import create_engine
 
 from app.db.models import Base
 
-
 def main() -> int:
     url = os.environ.get("DATABASE_URL")
     if not url:
