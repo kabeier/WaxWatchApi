@@ -39,7 +39,6 @@ def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
         with db.begin_nested():
             db.flush()  # assign PK, validate constraints
     except IntegrityError:
-        db.rollback()
         # Another request created it concurrently — fetch it
         user = db.query(models.User).filter(models.User.id == user_id).first()
         if not user:
@@ -63,7 +62,7 @@ def create_watch_rule(
         updated_at=datetime.now(UTC),
     )
     db.add(rule)
-    db.commit()
+    db.flush()
     db.refresh(rule)
 
     _create_event(db, user_id=user_id, event_type=models.EventType.RULE_CREATED, rule_id=rule.id)
@@ -163,7 +162,7 @@ def update_watch_rule(
             _create_event(db, user_id=user_id, event_type=models.EventType.RULE_DISABLED, rule_id=rule.id)
 
     db.add(rule)
-    db.commit()
+    db.flush()
     db.refresh(rule)
     return rule
 

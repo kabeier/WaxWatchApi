@@ -127,13 +127,12 @@ def backfill_matches_for_rule(
             with db.begin_nested():
                 db.flush()
         except IntegrityError:
-            db.rollback()
             continue
 
         created += 1
 
     if created:
-        db.commit()
+        db.flush()
 
     logger.info(
         "backfill.completed",

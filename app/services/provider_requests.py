@@ -30,4 +30,4 @@ def log_provider_request(
         created_at=datetime.now(UTC),
     )
     db.add(req)
-    db.commit()
+    db.flush()
