@@ -5,12 +5,12 @@ from uuid import uuid4
 
 def test_requires_bearer_token(client):
     response = client.get("/api/events")
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_rejects_x_user_id_header(client):
     response = client.get("/api/events", headers={"X-User-Id": str(uuid4())})
-    assert response.status_code == 403
+    assert response.status_code == 401
 
 
 def test_rejects_expired_token(client, sign_jwt):
