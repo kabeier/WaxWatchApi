@@ -103,6 +103,9 @@ jobs:
       - name: Auth tests (focused)
         run: pytest -q tests/test_auth.py -vv --disable-warnings --maxfail=1
 
+      - name: Profile API tests (focused)
+        run: pytest -q tests/test_profile_router.py --disable-warnings --maxfail=1
+
       - name: Provider ingestion readiness tests (focused)
         run: pytest -q tests/test_discogs_retry.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py --disable-warnings --maxfail=1
 
