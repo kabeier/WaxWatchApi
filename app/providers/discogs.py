@@ -101,7 +101,11 @@ class DiscogsClient(ProviderClient):
                         break
 
                     if attempt < attempts and self._is_retryable_status(resp.status_code):
-                        time.sleep(retry_after_seconds if retry_after_seconds is not None else self._compute_backoff_seconds(attempt))
+                        time.sleep(
+                            retry_after_seconds
+                            if retry_after_seconds is not None
+                            else self._compute_backoff_seconds(attempt)
+                        )
                         continue
 
                     duration_ms = int((time.perf_counter() - start) * 1000)
@@ -119,7 +123,9 @@ class DiscogsClient(ProviderClient):
             self.last_duration_ms = duration_ms
 
             if resp is None:
-                raise ProviderError("Discogs empty response", status_code=None, endpoint=endpoint, method=method)
+                raise ProviderError(
+                    "Discogs empty response", status_code=None, endpoint=endpoint, method=method
+                )
 
             data = resp.json()
             results = data.get("results", [])

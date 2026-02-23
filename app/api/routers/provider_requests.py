@@ -21,10 +21,7 @@ def list_provider_requests(
 ):
     _ = user_id
     rows = (
-        db.query(models.ProviderRequest)
-        .order_by(models.ProviderRequest.created_at.desc())
-        .limit(limit)
-        .all()
+        db.query(models.ProviderRequest).order_by(models.ProviderRequest.created_at.desc()).limit(limit).all()
     )
     return rows
 

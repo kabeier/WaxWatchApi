@@ -27,7 +27,9 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
                 models.WatchSearchRule.next_run_at <= now,
             )
         )
-        .order_by(models.WatchSearchRule.next_run_at.asc().nullsfirst(), models.WatchSearchRule.created_at.asc())
+        .order_by(
+            models.WatchSearchRule.next_run_at.asc().nullsfirst(), models.WatchSearchRule.created_at.asc()
+        )
         .limit(batch_size)
         .all()
     )
