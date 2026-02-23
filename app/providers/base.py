@@ -49,6 +49,7 @@ class ProviderClient(Protocol):
     """
 
     name: str
+    default_endpoint: str
 
     def search(
         self, *, query: dict[str, Any], limit: int = 20, db: Session | None = None

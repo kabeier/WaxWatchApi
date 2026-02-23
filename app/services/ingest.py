@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -12,6 +13,17 @@ from app.db import models
 from app.services.watch_rules import ensure_user_exists
 
 logger = get_logger(__name__)
+
+
+@contextmanager
+def _ingest_transaction(db: Session):
+    if db.in_transaction():
+        with db.begin_nested():
+            yield
+        return
+
+    with db.begin():
+        yield
 
 
 def normalize_title(s: str) -> str:
@@ -254,12 +266,15 @@ def ingest_and_match(
     listing_payload: dict[str, Any],
 ) -> tuple[models.Listing, bool, bool, int]:
     """
-    No transaction context manager here.
-    The request boundary (get_db) owns commit/rollback.
-    """
-    ensure_user_exists(db, user_id)
+    Transaction-safe ingest.
 
-    listing, created_listing, created_snapshot = upsert_listing(db, listing_payload)
-    created_matches = match_listing_to_rules(db, user_id=user_id, listing=listing)
+    Uses a SAVEPOINT when already in a transaction to avoid nesting errors in tests
+    and batched runner contexts, while still avoiding any inner commits.
+    """
+    with _ingest_transaction(db):
+        ensure_user_exists(db, user_id)
+
+        listing, created_listing, created_snapshot = upsert_listing(db, listing_payload)
+        created_matches = match_listing_to_rules(db, user_id=user_id, listing=listing)
 
     return listing, created_listing, created_snapshot, created_matches

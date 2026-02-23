@@ -34,6 +34,7 @@ class Base(DeclarativeBase):
 class Provider(str, enum.Enum):
     discogs = "discogs"
     ebay = "ebay"
+    mock = "mock"
     musicbrainz = "musicbrainz"
     spotify = "spotify"
 

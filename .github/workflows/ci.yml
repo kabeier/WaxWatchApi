@@ -41,6 +41,13 @@ jobs:
       DISCOGS_USER_AGENT: "waxwatch-ci"
       DISCOGS_TOKEN: "ci-token"
 
+      EBAY_CLIENT_ID: "ci-ebay-client-id"
+      EBAY_CLIENT_SECRET: "ci-ebay-client-secret"
+      EBAY_OAUTH_SCOPE: "https://api.ebay.com/oauth/api_scope"
+      EBAY_MARKETPLACE_ID: "EBAY_US"
+      EBAY_CAMPAIGN_ID: "1234567890"
+      EBAY_CUSTOM_ID: "waxwatch-ci"
+
       # auth config for CI tests
       # - defaults below match the local JWKS server used by tests/conftest.py
       # - these can be overridden from GitHub Actions Variables if desired
@@ -96,8 +103,8 @@ jobs:
       - name: Auth tests (focused)
         run: pytest -q tests/test_auth.py -vv --disable-warnings --maxfail=1
 
-      - name: Discogs ingestion readiness tests (focused)
-        run: pytest -q tests/test_discogs_retry.py tests/test_scheduler.py tests/test_provider_requests_router.py --disable-warnings --maxfail=1
+      - name: Provider ingestion readiness tests (focused)
+        run: pytest -q tests/test_discogs_retry.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py --disable-warnings --maxfail=1
 
       - name: Tests
         run: pytest -q --disable-warnings --maxfail=1
