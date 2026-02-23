@@ -252,7 +252,7 @@ ci-local:
 	DISCOGS_TOKEN=ci-token \
 	pytest -q --disable-warnings --maxfail=1
 
-gh: ci-local
+ghu: ci-local
 	@if [ -z "$(MSG)" ]; then echo "MSG is required. Example: make gh MSG='fix schema drift'"; exit 1; fi
 	@set -euo pipefail; \
 	# if nothing changed (tracked or untracked), bail
