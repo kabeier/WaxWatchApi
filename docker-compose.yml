@@ -25,4 +25,13 @@ services:
       DEV_BACKFILL_DAYS: ${DEV_BACKFILL_DAYS:-7}
       DEV_BACKFILL_LIMIT: ${DEV_BACKFILL_LIMIT:-500}
 
+      # Auth (Supabase JWT)
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      AUTH_ISSUER: ${AUTH_ISSUER:-}
+      AUTH_AUDIENCE: ${AUTH_AUDIENCE:-authenticated}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:-}
+      AUTH_JWT_ALGORITHMS: ${AUTH_JWT_ALGORITHMS:-["RS256"]}
+      AUTH_JWKS_CACHE_TTL_SECONDS: ${AUTH_JWKS_CACHE_TTL_SECONDS:-300}
+      AUTH_CLOCK_SKEW_SECONDS: ${AUTH_CLOCK_SKEW_SECONDS:-30}
+
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
