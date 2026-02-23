@@ -68,7 +68,8 @@ def test_discogs_network_error_has_attempt_metadata(monkeypatch):
 
     try:
         client.search(query={"keywords": ["primus"]}, limit=10)
-        assert False, "Expected ProviderError"
     except ProviderError as exc:
         assert exc.meta is not None
         assert exc.meta["attempts"] == 2
+    else:
+        raise AssertionError("Expected ProviderError")
