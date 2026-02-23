@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -9,8 +8,7 @@ from uuid import UUID
 import httpx
 import jwt
 from fastapi import HTTPException, status
-from jwt import InvalidTokenError
-from jwt.algorithms import RSAAlgorithm
+from jwt import InvalidTokenError, PyJWK
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -77,20 +75,21 @@ class SupabaseJWTVerifier:
         alg = header.get("alg")
 
         if alg not in self.algorithms:
-            logger.info("auth.token.invalid_algorithm", extra={"alg": alg, "allowed": list(self.algorithms)})
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token algorithm")
-
+                    logger.info("auth.token.invalid_algorithm", extra={"alg": alg, "allowed": list(self.algorithms)})
+                    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token algorithm")
+        
         jwks = self._fetch_jwks()
+        
         for key in jwks["keys"]:
             if key.get("kid") == kid:
-                return RSAAlgorithm.from_jwk(json.dumps(key))
+                return PyJWK.from_dict(key).key
 
         self._jwks = None
         logger.info("auth.jwks.kid_miss.refresh", extra={"kid": kid})
         jwks = self._fetch_jwks()
         for key in jwks["keys"]:
             if key.get("kid") == kid:
-                return RSAAlgorithm.from_jwk(json.dumps(key))
+                return PyJWK.from_dict(key).key
 
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="unknown token key id")
 
