@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -17,7 +17,7 @@ class SchedulerRunResult:
 
 
 def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 20) -> SchedulerRunResult:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     due_rules = (
         db.query(models.WatchSearchRule)
         .filter(models.WatchSearchRule.is_active.is_(True))
@@ -44,7 +44,7 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
         except Exception:
             failed += 1
 
-        current = datetime.now(UTC)
+        current = datetime.now(timezone.utc)
         rule.last_run_at = current
         rule.next_run_at = current + timedelta(seconds=rule.poll_interval_seconds)
         db.add(rule)

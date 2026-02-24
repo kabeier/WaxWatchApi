@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -30,7 +30,7 @@ class DiscogsImportService:
         token_metadata: dict[str, Any] | None,
     ) -> models.ExternalAccountLink:
         ensure_user_exists(db, user_id)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
 
         link = (
             db.query(models.ExternalAccountLink)
@@ -80,7 +80,7 @@ class DiscogsImportService:
         if not link:
             raise HTTPException(status_code=400, detail="Discogs is not connected")
 
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         job = models.ImportJob(
             user_id=user_id,
             external_account_link_id=link.id,
@@ -115,8 +115,8 @@ class DiscogsImportService:
                 self._import_source(db, link=link, job=job, source=selected_source)
 
             job.status = "completed"
-            job.completed_at = datetime.now(UTC)
-            job.updated_at = datetime.now(UTC)
+            job.completed_at = datetime.now(timezone.utc)
+            job.updated_at = datetime.now(timezone.utc)
             self._emit_import_event(
                 db,
                 user_id=user_id,
@@ -132,8 +132,8 @@ class DiscogsImportService:
             job.status = "failed"
             job.error_count += 1
             job.errors = [*(job.errors or []), {"error": str(exc)}]
-            job.completed_at = datetime.now(UTC)
-            job.updated_at = datetime.now(UTC)
+            job.completed_at = datetime.now(timezone.utc)
+            job.updated_at = datetime.now(timezone.utc)
             self._emit_import_event(
                 db,
                 user_id=user_id,
@@ -189,7 +189,7 @@ class DiscogsImportService:
 
             job.page = page
             job.cursor = f"{source}:{page}/{pages}"
-            job.updated_at = datetime.now(UTC)
+            job.updated_at = datetime.now(timezone.utc)
             db.add(job)
             db.flush()
             page += 1
@@ -252,7 +252,7 @@ class DiscogsImportService:
             .filter(models.WatchRelease.discogs_release_id == normalized["discogs_release_id"])
             .first()
         )
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
 
         if existing:
             existing.title = normalized["title"]
@@ -289,7 +289,7 @@ class DiscogsImportService:
             user_id=user_id,
             type=event_type,
             payload=payload,
-            created_at=datetime.now(UTC),
+            created_at=datetime.now(timezone.utc),
         )
         db.add(event)
         db.flush()

@@ -47,6 +47,17 @@ class WatchRuleBase(BaseModel):
 
 
 class WatchRuleCreate(WatchRuleBase):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "Rare techno under $40",
+                "query": {"q": "detroit techno", "max_price": 40, "sources": ["discogs"]},
+                "is_active": True,
+                "poll_interval_seconds": 600,
+            }
+        }
+    )
+
     @field_validator("query")
     @classmethod
     def require_sources_on_create(cls, v: dict[str, Any]) -> dict[str, Any]:
@@ -54,6 +65,17 @@ class WatchRuleCreate(WatchRuleBase):
 
 
 class WatchRuleUpdate(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "name": "Rare techno under $30",
+                "query": {"q": "detroit techno", "max_price": 30, "sources": ["discogs"]},
+                "is_active": True,
+                "poll_interval_seconds": 900,
+            }
+        }
+    )
+
     # PATCH: all optional
     name: str | None = Field(default=None, min_length=1, max_length=120)
     query: dict[str, Any] | None = None
@@ -69,7 +91,23 @@ class WatchRuleUpdate(BaseModel):
 
 
 class WatchRuleOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": "80dc6333-3c3c-49b8-a803-938783fbeb99",
+                "user_id": "8f2a5009-c0a2-4f90-8f1b-c1716c26bf06",
+                "name": "Rare techno under $40",
+                "query": {"q": "detroit techno", "max_price": 40, "sources": ["discogs"]},
+                "is_active": True,
+                "poll_interval_seconds": 600,
+                "last_run_at": "2026-01-20T12:00:00+00:00",
+                "next_run_at": "2026-01-20T12:10:00+00:00",
+                "created_at": "2026-01-20T11:52:00+00:00",
+                "updated_at": "2026-01-20T12:00:00+00:00",
+            }
+        },
+    )
 
     id: UUID
     user_id: UUID

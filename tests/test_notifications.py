@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 from app.db import models
 from app.services.notifications import enqueue_from_event, publish_realtime, send_email, stream_broker
@@ -13,7 +13,7 @@ def _create_event(db_session, user_id: uuid.UUID) -> models.Event:
         user_id=user_id,
         type=models.EventType.NEW_MATCH,
         payload={"title": "Test Match"},
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
     )
     db_session.add(event)
     db_session.flush()

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -27,7 +27,7 @@ def log_provider_request(
         duration_ms=duration_ms,
         error=error,
         meta=meta,
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(req)
     db.flush()

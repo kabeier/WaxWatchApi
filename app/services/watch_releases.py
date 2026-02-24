@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -23,7 +23,7 @@ def create_watch_release(
     min_condition: str | None,
     is_active: bool,
 ) -> models.WatchRelease:
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     watch = models.WatchRelease(
         user_id=user_id,
         discogs_release_id=discogs_release_id,
@@ -126,7 +126,7 @@ def update_watch_release(
         active_changed = is_active
 
     if changed:
-        row.updated_at = datetime.now(UTC)
+        row.updated_at = datetime.now(timezone.utc)
         _create_event(
             db,
             user_id=user_id,
@@ -169,7 +169,7 @@ def _create_event(
         user_id=user_id,
         type=event_type,
         watch_release_id=watch_release_id,
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(event)
     db.flush()

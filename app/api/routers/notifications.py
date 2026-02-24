@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -47,7 +47,7 @@ def mark_notification_read(
         raise HTTPException(status_code=404, detail="notification not found")
 
     if not notification.is_read:
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         notification.is_read = True
         notification.read_at = now
         notification.updated_at = now

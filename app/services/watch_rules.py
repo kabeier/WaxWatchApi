@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -29,8 +29,8 @@ def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
         email=f"dev+{user_id}@waxwatch.local",
         hashed_password="__dev_stub__",
         is_active=True,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
 
     db.add(user)
@@ -59,8 +59,8 @@ def create_watch_rule(
         query=query,
         poll_interval_seconds=poll_interval_seconds,
         is_active=True,
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(rule)
     db.flush()
@@ -153,7 +153,7 @@ def update_watch_rule(
             changed = True
 
     if changed:
-        rule.updated_at = datetime.now(UTC)
+        rule.updated_at = datetime.now(timezone.utc)
 
         _create_event(db, user_id=user_id, event_type=models.EventType.RULE_UPDATED, rule_id=rule.id)
 
@@ -201,7 +201,7 @@ def _create_event(
         type=event_type,
         rule_id=rule_id,
         payload=None,
-        created_at=datetime.now(UTC),
+        created_at=datetime.now(timezone.utc),
     )
     db.add(ev)
     db.flush()

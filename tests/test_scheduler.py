@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.db import models
 from app.services.scheduler import run_due_rules_once
@@ -13,7 +13,7 @@ def test_scheduler_runs_due_rules_and_advances_schedule(db_session, user):
         query={"keywords": ["primus"], "sources": ["discogs"]},
         is_active=True,
         poll_interval_seconds=120,
-        next_run_at=datetime.now(UTC) - timedelta(seconds=5),
+        next_run_at=datetime.now(timezone.utc) - timedelta(seconds=5),
     )
     db_session.add(rule)
     db_session.flush()
