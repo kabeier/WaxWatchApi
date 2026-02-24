@@ -7,7 +7,13 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.providers.base import ProviderClient, ProviderError, ProviderListing
+from app.providers.base import (
+    ProviderCapabilityContract,
+    ProviderClient,
+    ProviderError,
+    ProviderListing,
+    ProviderPaginationModel,
+)
 
 OAUTH_BASE_URL = "https://api.ebay.com"
 BROWSE_BASE_URL = "https://api.ebay.com"
@@ -16,6 +22,13 @@ BROWSE_BASE_URL = "https://api.ebay.com"
 class EbayClient(ProviderClient):
     name = "ebay"
     default_endpoint = "/buy/browse/v1/item_summary/search"
+    capability_contract = ProviderCapabilityContract(
+        supports_search=True,
+        requires_auth=True,
+        rate_limits_documented=True,
+        listing_completeness="listing-level metadata with price and seller fields",
+        pagination_model=ProviderPaginationModel.OFFSET,
+    )
 
     def __init__(self) -> None:
         self.last_request_meta: dict[str, Any] | None = None

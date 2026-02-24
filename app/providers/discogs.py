@@ -7,7 +7,13 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
-from app.providers.base import ProviderClient, ProviderError, ProviderListing
+from app.providers.base import (
+    ProviderCapabilityContract,
+    ProviderClient,
+    ProviderError,
+    ProviderListing,
+    ProviderPaginationModel,
+)
 
 BASE_URL = "https://api.discogs.com"
 
@@ -15,6 +21,13 @@ BASE_URL = "https://api.discogs.com"
 class DiscogsClient(ProviderClient):
     name = "discogs"
     default_endpoint = "/database/search"
+    capability_contract = ProviderCapabilityContract(
+        supports_search=True,
+        requires_auth=True,
+        rate_limits_documented=True,
+        listing_completeness="release-level metadata without marketplace price",
+        pagination_model=ProviderPaginationModel.OFFSET,
+    )
 
     def __init__(self) -> None:
         self.last_request_meta: dict[str, Any] | None = None

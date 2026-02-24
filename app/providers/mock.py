@@ -3,7 +3,12 @@ from __future__ import annotations
 import random
 from typing import Any
 
-from app.providers.base import ProviderClient, ProviderListing
+from app.providers.base import (
+    ProviderCapabilityContract,
+    ProviderClient,
+    ProviderListing,
+    ProviderPaginationModel,
+)
 
 
 class MockProvider(ProviderClient):
@@ -13,6 +18,13 @@ class MockProvider(ProviderClient):
     """
 
     name = "mock"
+    capability_contract = ProviderCapabilityContract(
+        supports_search=True,
+        requires_auth=False,
+        rate_limits_documented=False,
+        listing_completeness="synthetic deterministic fixtures for development/testing",
+        pagination_model=ProviderPaginationModel.NONE,
+    )
     default_endpoint = "/mock/search"
 
     def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:
