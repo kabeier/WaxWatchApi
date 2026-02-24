@@ -5,10 +5,13 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+ARG INSTALL_DEV_DEPS=false
+
 RUN useradd -m -u 10001 appuser
 
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt requirements-dev.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt \
+    && if [ "$INSTALL_DEV_DEPS" = "true" ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
 
 COPY . /app
 

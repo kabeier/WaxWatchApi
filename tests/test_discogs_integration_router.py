@@ -103,3 +103,46 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
     ]
     assert "IMPORT_STARTED" in event_types
     assert "IMPORT_COMPLETED" in event_types
+
+
+def test_discogs_import_failure_persists_job_and_event(client, user, headers, db_session, monkeypatch):
+    h = headers(user.id)
+    client.post(
+        "/api/integrations/discogs/connect",
+        json={"external_user_id": "discogs-user", "access_token": "token"},
+        headers=h,
+    )
+
+    def _fake_get(url, headers, params, timeout):
+        class _Resp:
+            status_code = 500
+
+            @staticmethod
+            def json():
+                return {"error": "boom"}
+
+        return _Resp()
+
+    monkeypatch.setattr("app.services.discogs_import.httpx.get", _fake_get)
+
+    run_import = client.post("/api/integrations/discogs/import", json={"source": "wantlist"}, headers=h)
+    assert run_import.status_code == 200, run_import.text
+    import_body = run_import.json()
+    assert import_body["status"] == "failed"
+    assert import_body["error_count"] == 1
+    assert import_body["errors"]
+
+    job_id = import_body["id"]
+    job_status = client.get(f"/api/integrations/discogs/import/{job_id}", headers=h)
+    assert job_status.status_code == 200, job_status.text
+    assert job_status.json()["status"] == "failed"
+
+    event_types = [
+        ev.type.value
+        for ev in db_session.query(models.Event)
+        .filter(models.Event.user_id == user.id)
+        .order_by(models.Event.created_at.asc())
+        .all()
+    ]
+    assert "IMPORT_STARTED" in event_types
+    assert "IMPORT_FAILED" in event_types

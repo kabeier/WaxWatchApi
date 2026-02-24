@@ -139,7 +139,6 @@ class DiscogsImportService:
                 event_type=models.EventType.IMPORT_FAILED,
                 payload={"job_id": str(job.id), "source": source, "error": str(exc)},
             )
-            raise
 
         db.add(job)
         db.flush()
