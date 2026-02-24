@@ -19,6 +19,7 @@ from app.api.routers.health import router as health_router
 from app.api.routers.notifications import router as notifications_router
 from app.api.routers.profile import router as profile_router
 from app.api.routers.provider_requests import router as provider_requests_router
+from app.api.routers.search import router as search_router
 from app.api.routers.watch_releases import router as watch_releases_router
 from app.api.routers.watch_rules import router as watch_rules_router
 from app.core.config import settings
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
     app.include_router(profile_router, prefix="/api")
     app.include_router(notifications_router, prefix="/api")
     app.include_router(watch_rules_router, prefix="/api")
+    app.include_router(search_router, prefix="/api")
     app.include_router(watch_releases_router, prefix="/api")
     app.include_router(discogs_router, prefix="/api")
 
