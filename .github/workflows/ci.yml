@@ -32,5 +32,5 @@ jobs:
       - name: Validate docker compose files
         run: make check-docker-config
 
-      - name: Run CI flow (lint, migration, drift, tests)
+      - name: Run CI flow (lint, migration, drift, tests incl token crypto/redaction)
         run: make ci-local

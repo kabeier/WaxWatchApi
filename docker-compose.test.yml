@@ -45,5 +45,6 @@ services:
       EBAY_CLIENT_ID: ci-ebay-client-id
       EBAY_CLIENT_SECRET: ci-ebay-client-secret
       EBAY_CAMPAIGN_ID: "1234567890"
+      TOKEN_CRYPTO_LOCAL_KEY: ${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}
     entrypoint: ["bash", "-lc"]
     command: "sleep infinity"

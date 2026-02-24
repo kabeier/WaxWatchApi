@@ -2,10 +2,43 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 from datetime import datetime, timezone
 from logging import Logger
 from typing import Any
+
+REDACTED_VALUE = "***redacted***"
+SENSITIVE_KEYS = {
+    "access_token",
+    "token",
+    "authorization",
+    "client_secret",
+    "refresh_token",
+    "password",
+}
+TOKEN_PATTERNS = [
+    re.compile(r"(Bearer\s+)([^\s]+)", flags=re.IGNORECASE),
+    re.compile(r"(Discogs\s+token=)([^\s]+)", flags=re.IGNORECASE),
+]
+
+
+def redact_sensitive_data(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            k: (REDACTED_VALUE if k.lower() in SENSITIVE_KEYS else redact_sensitive_data(v))
+            for k, v in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_sensitive_data(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(redact_sensitive_data(item) for item in value)
+    if isinstance(value, str):
+        redacted = value
+        for pattern in TOKEN_PATTERNS:
+            redacted = pattern.sub(rf"\1{REDACTED_VALUE}", redacted)
+        return redacted
+    return value
 
 
 class RequestIDFilter(logging.Filter):
@@ -16,21 +49,15 @@ class RequestIDFilter(logging.Filter):
 
 
 class JsonFormatter(logging.Formatter):
-    """
-    Stdout JSON logs suitable for containerized deployments.
-    Produces one JSON object per log line.
-    """
-
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, Any] = {
             "ts": datetime.now(timezone.utc).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "event": record.getMessage(),
+            "event": redact_sensitive_data(record.getMessage()),
             "request_id": getattr(record, "request_id", "-"),
         }
 
-        # Include any "extra" fields the caller attached
         reserved = {
             "name",
             "msg",
@@ -57,19 +84,18 @@ class JsonFormatter(logging.Formatter):
             if k in reserved:
                 continue
             if k not in payload:
-                payload[k] = v
+                if k.lower() in SENSITIVE_KEYS:
+                    payload[k] = REDACTED_VALUE
+                else:
+                    payload[k] = redact_sensitive_data(v)
 
         if record.exc_info:
-            payload["exc_info"] = self.formatException(record.exc_info)
+            payload["exc_info"] = redact_sensitive_data(self.formatException(record.exc_info))
 
         return json.dumps(payload, default=str)
 
 
 def configure_logging(*, level: str = "INFO", json_logs: bool = True) -> None:
-    """
-    Configure root logger to emit logs to stdout.
-    Intended for 12-factor / Docker deployments.
-    """
     handler = logging.StreamHandler(sys.stdout)
     handler.addFilter(RequestIDFilter())
 
@@ -83,7 +109,6 @@ def configure_logging(*, level: str = "INFO", json_logs: bool = True) -> None:
     root = logging.getLogger()
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
 
-    # Replace any existing handlers to avoid duplicate logs
     for h in list(root.handlers):
         root.removeHandler(h)
     root.addHandler(handler)

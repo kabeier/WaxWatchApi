@@ -18,6 +18,7 @@ TEST_AUTH_JWKS_URL ?= http://127.0.0.1:8765/auth/v1/.well-known/jwks.json
 TEST_AUTH_JWT_ALGORITHMS ?= ["RS256"]
 TEST_AUTH_JWKS_CACHE_TTL_SECONDS ?= 300
 TEST_AUTH_CLOCK_SKEW_SECONDS ?= 0
+TEST_TOKEN_CRYPTO_LOCAL_KEY ?= 5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=
 
 # Git helpers
 GIT_REMOTE ?= origin
@@ -28,7 +29,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security
 
 help:
 	@echo ""
@@ -64,6 +65,7 @@ help:
 	@echo "  make test-profile          Run focused profile API tests"
 	@echo "  make test-background-tasks Run focused background task transaction test"
 	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests"
+	@echo "  make test-token-security   Run token crypto + redaction focused tests"
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
@@ -128,9 +130,9 @@ test-db-reset:
 test-with-docker-db: test-db-up
 	$(MAKE) wait-test-db
 	$(MAKE) verify-test-deps
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "pytest -q -rA"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade head"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q -rA"
 
 test-discogs-ingestion:
 	ENVIRONMENT=test \
@@ -151,7 +153,8 @@ test-discogs-ingestion:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
-	$(PYTHON) -m pytest -q tests/test_discogs_retry.py tests/test_discogs_integration_router.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
+	$(PYTHON) -m pytest -q tests/test_discogs_retry.py tests/test_discogs_integration_router.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py tests/test_token_crypto_logging.py -rA
 
 
 test-notifications:
@@ -173,6 +176,7 @@ test-notifications:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
 	$(PYTHON) -m pytest -q tests/test_notifications.py -rA
 
 test-profile:
@@ -194,6 +198,7 @@ test-profile:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
 	$(PYTHON) -m pytest -q tests/test_profile_router.py -rA
 
 
@@ -216,6 +221,7 @@ test-search:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
 	$(PYTHON) -m pytest -q tests/test_search_router.py -rA
 
 
@@ -243,7 +249,30 @@ test-background-tasks:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
 	$(PYTHON) -m pytest -q tests/test_background_tasks.py -rA
+
+test-token-security:
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
+	$(PYTHON) -m pytest -q tests/test_token_crypto_logging.py tests/test_discogs_integration_router.py -rA
 
 check-docker-config:
 	DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@db:5432/waxwatch \
@@ -281,10 +310,10 @@ ci-local:
 	$(MAKE) verify-test-deps; \
 	ruff check .; \
 	ruff format --check .; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "pytest -q tests/test_background_tasks.py --disable-warnings --maxfail=1"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade head"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q tests/test_background_tasks.py tests/test_token_crypto_logging.py --disable-warnings --maxfail=1"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1"
 
 
 gh: ci-local

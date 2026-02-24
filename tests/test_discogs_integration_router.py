@@ -57,7 +57,8 @@ def test_discogs_oauth_connect_success(client, user, headers, db_session, monkey
     assert status.json()["connected"] is True
 
     link = db_session.query(models.ExternalAccountLink).filter_by(user_id=user.id).one()
-    assert link.access_token == "oauth-token"
+    assert link.access_token is not None
+    assert link.access_token.startswith("enc:v1:")
     assert link.token_metadata["oauth_connected"] is True
     assert link.token_metadata["oauth_state"] is None
 
@@ -130,7 +131,8 @@ def test_discogs_oauth_reconnect_reuses_link(client, user, headers, db_session, 
     links = db_session.query(models.ExternalAccountLink).filter_by(user_id=user.id).all()
     assert len(links) == 1
     assert links[0].external_user_id == "second-user"
-    assert links[0].access_token == "token-two"
+    assert links[0].access_token is not None
+    assert links[0].access_token.startswith("enc:v1:")
 
 
 def test_discogs_disconnect_removes_link(client, user, headers, db_session, monkeypatch):
@@ -285,3 +287,26 @@ def test_discogs_import_failure_persists_job_and_event(client, user, headers, db
     ]
     assert "IMPORT_STARTED" in event_types
     assert "IMPORT_FAILED" in event_types
+
+
+def test_discogs_status_lazy_migrates_plaintext_token(client, user, headers, db_session):
+    h = headers(user.id)
+    now = datetime.now(timezone.utc)
+    link = models.ExternalAccountLink(
+        user_id=user.id,
+        provider=models.Provider.discogs,
+        external_user_id="discogs-user",
+        access_token="legacy-plaintext-token",
+        token_metadata={"oauth_connected": True},
+        connected_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    db_session.add(link)
+    db_session.flush()
+
+    status = client.get("/api/integrations/discogs/status", headers=h)
+    assert status.status_code == 200, status.text
+    db_session.refresh(link)
+    assert link.access_token is not None
+    assert link.access_token.startswith("enc:v1:")
