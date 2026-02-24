@@ -5,11 +5,12 @@ import json
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db
+from app.api.pagination import PaginationParams, apply_created_id_pagination, get_pagination_params
 from app.db import models
 from app.schemas.notifications import NotificationOut, UnreadCountOut
 from app.services.notifications import stream_broker
@@ -21,15 +22,13 @@ router = APIRouter(tags=["notifications"])
 def list_notifications(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination_params),
 ):
-    return (
-        db.query(models.Notification)
-        .filter(models.Notification.user_id == user_id)
-        .order_by(models.Notification.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    return apply_created_id_pagination(
+        db.query(models.Notification).filter(models.Notification.user_id == user_id),
+        models.Notification,
+        pagination,
+    ).all()
 
 
 @router.post("/notifications/{notification_id}/read", response_model=NotificationOut)

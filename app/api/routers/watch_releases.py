@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db
+from app.api.pagination import PaginationParams, get_pagination_params
 from app.schemas.watch_releases import WatchReleaseCreate, WatchReleaseOut, WatchReleaseUpdate
 from app.services import watch_releases as service
 
@@ -40,11 +41,17 @@ def create_watch_release(
 def list_watch_releases(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    pagination: PaginationParams = Depends(get_pagination_params),
 ):
     try:
-        return service.list_watch_releases(db, user_id=user_id, limit=limit, offset=offset)
+        return service.list_watch_releases(
+            db,
+            user_id=user_id,
+            limit=pagination.limit,
+            offset=pagination.offset,
+            cursor_created_at=pagination.cursor_created_at,
+            cursor_id=pagination.cursor_id,
+        )
     except SQLAlchemyError:
         raise HTTPException(status_code=500, detail="db error") from None
 

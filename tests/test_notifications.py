@@ -4,6 +4,7 @@ import asyncio
 import uuid
 from datetime import datetime, timezone
 
+from app.api.pagination import encode_created_id_cursor
 from app.db import models
 from app.services.notifications import enqueue_from_event, publish_realtime, send_email, stream_broker
 
@@ -85,3 +86,47 @@ def test_send_and_publish_are_idempotent(db_session, user):
     first_payload, delivered_at = asyncio.run(_run_realtime())
     assert first_payload["event_id"] == str(event.id)
     assert realtime_notification.delivered_at == delivered_at
+
+
+def test_notifications_pagination_offset_cursor_and_empty_page(client, db_session, user, headers):
+    shared_ts = datetime.now(timezone.utc)
+    event = models.Event(user_id=user.id, type=models.EventType.NEW_MATCH, payload=None, created_at=shared_ts)
+    db_session.add(event)
+    db_session.flush()
+
+    notification_a = models.Notification(
+        user_id=user.id,
+        event_id=event.id,
+        event_type=models.EventType.NEW_MATCH,
+        channel=models.NotificationChannel.email,
+        status=models.NotificationStatus.pending,
+        created_at=shared_ts,
+        updated_at=shared_ts,
+    )
+    notification_b = models.Notification(
+        user_id=user.id,
+        event_id=event.id,
+        event_type=models.EventType.NEW_MATCH,
+        channel=models.NotificationChannel.realtime,
+        status=models.NotificationStatus.pending,
+        created_at=shared_ts,
+        updated_at=shared_ts,
+    )
+    db_session.add_all([notification_a, notification_b])
+    db_session.flush()
+
+    ordered = sorted([notification_a, notification_b], key=lambda n: n.id, reverse=True)
+    cursor = encode_created_id_cursor(created_at=ordered[0].created_at, row_id=ordered[0].id)
+    auth_headers = headers(user.id)
+
+    offset_resp = client.get("/api/notifications?limit=1&offset=1", headers=auth_headers)
+    assert offset_resp.status_code == 200
+    assert offset_resp.json()[0]["id"] == str(ordered[1].id)
+
+    cursor_resp = client.get(f"/api/notifications?limit=2&cursor={cursor}", headers=auth_headers)
+    assert cursor_resp.status_code == 200
+    assert [r["id"] for r in cursor_resp.json()] == [str(ordered[1].id)]
+
+    empty_resp = client.get("/api/notifications?limit=2&offset=99", headers=auth_headers)
+    assert empty_resp.status_code == 200
+    assert empty_resp.json() == []

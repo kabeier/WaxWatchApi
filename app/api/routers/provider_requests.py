@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db
+from app.api.pagination import PaginationParams, apply_created_id_pagination, get_pagination_params
 from app.db import models
 from app.schemas.provider_requests import ProviderRequestOut, ProviderRequestSummaryOut
 
@@ -17,15 +18,13 @@ router = APIRouter(prefix="/provider-requests", tags=["provider-requests"])
 def list_provider_requests(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
-    limit: int = Query(50, ge=1, le=200),
+    pagination: PaginationParams = Depends(get_pagination_params),
 ):
-    rows = (
-        db.query(models.ProviderRequest)
-        .filter(models.ProviderRequest.user_id == user_id)
-        .order_by(models.ProviderRequest.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    rows = apply_created_id_pagination(
+        db.query(models.ProviderRequest).filter(models.ProviderRequest.user_id == user_id),
+        models.ProviderRequest,
+        pagination,
+    ).all()
     return rows
 
 

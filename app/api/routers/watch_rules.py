@@ -2,11 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db
+from app.api.pagination import PaginationParams, get_pagination_params
 from app.core.logging import get_logger
 from app.schemas.watch_rules import WatchRuleCreate, WatchRuleOut, WatchRuleUpdate
 from app.services import watch_rules as service
@@ -81,21 +82,39 @@ def list_rules(
     request: Request,
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
-    limit: int = Query(50, ge=1, le=200),
-    offset: int = Query(0, ge=0),
+    pagination: PaginationParams = Depends(get_pagination_params),
 ):
     request_id = getattr(request.state, "request_id", "-")
     logger.debug(
         "watch_rules.list.call",
-        extra={"request_id": request_id, "user_id": str(user_id), "limit": limit, "offset": offset},
+        extra={
+            "request_id": request_id,
+            "user_id": str(user_id),
+            "limit": pagination.limit,
+            "offset": pagination.offset,
+            "cursor": pagination.cursor,
+        },
     )
 
     try:
-        rows = service.list_watch_rules(db, user_id=user_id, limit=limit, offset=offset)
+        rows = service.list_watch_rules(
+            db,
+            user_id=user_id,
+            limit=pagination.limit,
+            offset=pagination.offset,
+            cursor_created_at=pagination.cursor_created_at,
+            cursor_id=pagination.cursor_id,
+        )
     except SQLAlchemyError:
         logger.exception(
             "watch_rules.list.db_error",
-            extra={"request_id": request_id, "user_id": str(user_id), "limit": limit, "offset": offset},
+            extra={
+                "request_id": request_id,
+                "user_id": str(user_id),
+                "limit": pagination.limit,
+                "offset": pagination.offset,
+                "cursor": pagination.cursor,
+            },
         )
         raise HTTPException(status_code=500, detail="db error") from None
 
@@ -105,8 +124,9 @@ def list_rules(
             "request_id": request_id,
             "user_id": str(user_id),
             "count": len(rows),
-            "limit": limit,
-            "offset": offset,
+            "limit": pagination.limit,
+            "offset": pagination.offset,
+            "cursor": pagination.cursor,
         },
     )
     return rows

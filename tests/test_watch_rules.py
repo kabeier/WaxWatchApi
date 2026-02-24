@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
+from app.api.pagination import encode_created_id_cursor
 from app.db import models
 
 
@@ -255,3 +257,20 @@ def test_patch_rule_rejects_whitespace_only_keywords(client, user, headers):
         headers=h,
     )
     assert r.status_code == 422, r.text
+
+
+def test_watch_rules_cursor_pagination(client, user, headers):
+    h = headers(user.id)
+    first = _create_rule(client, h, name="A")
+    second = _create_rule(client, h, name="B")
+    assert first.status_code == 201 and second.status_code == 201
+
+    rows = client.get("/api/watch-rules?limit=2", headers=h).json()
+    cursor = encode_created_id_cursor(
+        created_at=datetime.fromisoformat(rows[0]["created_at"]),
+        row_id=uuid.UUID(rows[0]["id"]),
+    )
+
+    resp = client.get(f"/api/watch-rules?limit=2&cursor={cursor}", headers=h)
+    assert resp.status_code == 200
+    assert len(resp.json()) >= 1

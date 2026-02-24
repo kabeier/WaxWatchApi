@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.db import models
@@ -56,15 +57,29 @@ def list_watch_releases(
     user_id: UUID,
     limit: int = 50,
     offset: int = 0,
+    cursor_created_at: datetime | None = None,
+    cursor_id: UUID | None = None,
 ) -> list[models.WatchRelease]:
-    rows = (
+    query = (
         db.query(models.WatchRelease)
         .filter(models.WatchRelease.user_id == user_id)
-        .order_by(models.WatchRelease.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-        .all()
+        .order_by(models.WatchRelease.created_at.desc(), models.WatchRelease.id.desc())
     )
+
+    if cursor_created_at is not None and cursor_id is not None:
+        query = query.filter(
+            or_(
+                models.WatchRelease.created_at < cursor_created_at,
+                and_(
+                    models.WatchRelease.created_at == cursor_created_at,
+                    models.WatchRelease.id < cursor_id,
+                ),
+            )
+        )
+    elif offset:
+        query = query.offset(offset)
+
+    rows = query.limit(limit).all()
     return list(rows)
 
 
