@@ -10,5 +10,9 @@ def backfill_rule_matches_task(user_id: UUID, rule_id: UUID) -> None:
     db = SessionLocal()
     try:
         backfill_matches_for_rule(db, user_id=user_id, rule_id=rule_id)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
