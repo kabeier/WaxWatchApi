@@ -9,9 +9,7 @@ from app.db import models
 from app.services.background import backfill_rule_matches_task
 
 
-def test_backfill_rule_matches_task_commits_rows_visible_across_sessions(
-    db_session: Session, monkeypatch
-):
+def test_backfill_rule_matches_task_commits_rows_visible_across_sessions(db_session: Session, monkeypatch):
     testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
     monkeypatch.setattr("app.services.background.SessionLocal", testing_session_local)
 
@@ -77,9 +75,7 @@ def test_backfill_rule_matches_task_commits_rows_visible_across_sessions(
         assert event is not None
 
         notifications = (
-            verify_session.query(models.Notification)
-            .filter(models.Notification.event_id == event.id)
-            .all()
+            verify_session.query(models.Notification).filter(models.Notification.event_id == event.id).all()
         )
         assert len(notifications) == 2
         assert {notification.channel for notification in notifications} == {
@@ -90,9 +86,7 @@ def test_backfill_rule_matches_task_commits_rows_visible_across_sessions(
         verify_session.close()
 
 
-def test_backfill_rule_matches_task_rolls_back_when_enqueue_raises(
-    db_session: Session, monkeypatch
-):
+def test_backfill_rule_matches_task_rolls_back_when_enqueue_raises(db_session: Session, monkeypatch):
     testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
     monkeypatch.setattr("app.services.background.SessionLocal", testing_session_local)
 
@@ -169,9 +163,7 @@ def test_backfill_rule_matches_task_rolls_back_when_enqueue_raises(
             == 0
         )
         assert (
-            verify_session.query(models.Notification)
-            .filter(models.Notification.user_id == user_id)
-            .count()
+            verify_session.query(models.Notification).filter(models.Notification.user_id == user_id).count()
             == 0
         )
     finally:
