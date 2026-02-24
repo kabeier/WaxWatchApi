@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from secrets import token_urlsafe
 from typing import Any
+from urllib.parse import urlencode
 from uuid import UUID
 
 import httpx
@@ -14,6 +16,9 @@ from app.services.notifications import enqueue_from_event
 from app.services.watch_rules import ensure_user_exists
 
 BASE_URL = "https://api.discogs.com"
+AUTHORIZE_URL = "https://www.discogs.com/oauth/authorize"
+TOKEN_URL = "https://api.discogs.com/oauth/access_token"
+REVOKE_URL = "https://api.discogs.com/oauth/revoke"
 
 
 class DiscogsImportService:
@@ -61,6 +66,140 @@ class DiscogsImportService:
         db.refresh(link)
         return link
 
+    def start_oauth(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        scopes: list[str] | None,
+    ) -> dict[str, Any]:
+        ensure_user_exists(db, user_id)
+        now = datetime.now(timezone.utc)
+        requested_scopes = scopes or [s for s in settings.discogs_oauth_scopes.split(" ") if s]
+        state = token_urlsafe(24)
+        expires_at = now + timedelta(seconds=settings.discogs_oauth_state_ttl_seconds)
+
+        metadata = {
+            "oauth_state": state,
+            "oauth_state_expires_at": expires_at.isoformat(),
+            "oauth_scopes": requested_scopes,
+            "oauth_connected": False,
+        }
+        link = self.connect_account(
+            db,
+            user_id=user_id,
+            external_user_id="pending",
+            access_token=None,
+            token_metadata=metadata,
+        )
+        link.connected_at = now
+        link.updated_at = now
+        db.add(link)
+        db.flush()
+
+        params = {
+            "client_id": settings.discogs_oauth_client_id,
+            "response_type": "code",
+            "redirect_uri": settings.discogs_oauth_redirect_uri,
+            "scope": " ".join(requested_scopes),
+            "state": state,
+        }
+        query = urlencode({k: v for k, v in params.items() if v})
+        return {
+            "provider": models.Provider.discogs.value,
+            "authorize_url": f"{AUTHORIZE_URL}?{query}",
+            "state": state,
+            "scopes": requested_scopes,
+            "expires_at": expires_at,
+        }
+
+    def complete_oauth(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        state: str,
+        code: str,
+    ) -> models.ExternalAccountLink:
+        link = self.get_status(db, user_id=user_id)
+        if not link:
+            raise HTTPException(status_code=400, detail="OAuth session not started")
+
+        metadata = link.token_metadata or {}
+        expected_state = metadata.get("oauth_state")
+        expires_raw = metadata.get("oauth_state_expires_at")
+        expires_at = datetime.fromisoformat(expires_raw) if expires_raw else None
+        if not expected_state or expected_state != state:
+            raise HTTPException(status_code=400, detail="Invalid OAuth state")
+        if expires_at and datetime.now(timezone.utc) > expires_at:
+            raise HTTPException(status_code=400, detail="OAuth state expired")
+
+        token_resp = httpx.post(
+            TOKEN_URL,
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": settings.discogs_oauth_redirect_uri,
+                "client_id": settings.discogs_oauth_client_id,
+                "client_secret": settings.discogs_oauth_client_secret,
+            },
+            timeout=settings.discogs_timeout_seconds,
+        )
+        if token_resp.status_code != 200:
+            raise HTTPException(status_code=502, detail="Discogs token exchange failed")
+        token_payload = token_resp.json()
+        access_token = token_payload.get("access_token")
+        if not access_token:
+            raise HTTPException(status_code=502, detail="Discogs token exchange missing access_token")
+
+        identity_resp = httpx.get(
+            f"{BASE_URL}/oauth/identity",
+            headers={**self._base_headers, "Authorization": f"Discogs token={access_token}"},
+            timeout=settings.discogs_timeout_seconds,
+        )
+        if identity_resp.status_code != 200:
+            raise HTTPException(status_code=502, detail="Discogs identity lookup failed")
+
+        identity = identity_resp.json()
+        username = str(identity.get("username") or "").strip()
+        if not username:
+            raise HTTPException(status_code=502, detail="Discogs identity missing username")
+
+        completed_metadata = {
+            **metadata,
+            "oauth_state": None,
+            "oauth_state_expires_at": None,
+            "oauth_connected": True,
+            "oauth_scopes": metadata.get("oauth_scopes") or token_payload.get("scope", "").split(" "),
+            "token_type": token_payload.get("token_type"),
+        }
+        return self.connect_account(
+            db,
+            user_id=user_id,
+            external_user_id=username,
+            access_token=access_token,
+            token_metadata=completed_metadata,
+        )
+
+    def disconnect_account(self, db: Session, *, user_id: UUID, revoke: bool) -> bool:
+        link = self.get_status(db, user_id=user_id)
+        if not link:
+            return False
+
+        if revoke and link.access_token:
+            try:
+                httpx.post(
+                    REVOKE_URL,
+                    data={"token": link.access_token, "client_id": settings.discogs_oauth_client_id},
+                    timeout=settings.discogs_timeout_seconds,
+                )
+            except Exception:
+                pass
+
+        db.delete(link)
+        db.flush()
+        return True
+
     def get_status(self, db: Session, *, user_id: UUID) -> models.ExternalAccountLink | None:
         return (
             db.query(models.ExternalAccountLink)
@@ -79,6 +218,8 @@ class DiscogsImportService:
         link = self.get_status(db, user_id=user_id)
         if not link:
             raise HTTPException(status_code=400, detail="Discogs is not connected")
+        if not link.access_token:
+            raise HTTPException(status_code=400, detail="Discogs OAuth callback not completed")
 
         now = datetime.now(timezone.utc)
         job = models.ImportJob(

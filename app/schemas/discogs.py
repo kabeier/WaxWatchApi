@@ -23,6 +23,32 @@ class DiscogsConnectIn(BaseModel):
     token_metadata: dict[str, Any] | None = None
 
 
+class DiscogsOAuthStartIn(BaseModel):
+    scopes: list[str] | None = Field(default=None, min_length=1)
+
+
+class DiscogsOAuthStartOut(BaseModel):
+    provider: str
+    authorize_url: str
+    state: str
+    scopes: list[str]
+    expires_at: datetime
+
+
+class DiscogsOAuthCallbackIn(BaseModel):
+    state: str = Field(min_length=8)
+    code: str = Field(min_length=1)
+
+
+class DiscogsDisconnectIn(BaseModel):
+    revoke: bool = True
+
+
+class DiscogsDisconnectOut(BaseModel):
+    provider: str
+    disconnected: bool
+
+
 class DiscogsConnectOut(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={

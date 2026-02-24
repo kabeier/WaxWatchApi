@@ -23,6 +23,11 @@ class Settings(BaseSettings):
 
     discogs_user_agent: str | None = None
     discogs_token: str | None = None
+    discogs_oauth_client_id: str | None = None
+    discogs_oauth_client_secret: str | None = None
+    discogs_oauth_redirect_uri: str | None = None
+    discogs_oauth_scopes: str = "identity wantlist collection"
+    discogs_oauth_state_ttl_seconds: int = 600
     discogs_timeout_seconds: float = 10.0
     discogs_max_attempts: int = 4
     discogs_retry_base_delay_ms: int = 250
