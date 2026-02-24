@@ -88,23 +88,33 @@ def build_logout_marker(*, user_id: UUID) -> dict:
 def deactivate_user_account(db: Session, *, user_id: UUID) -> datetime:
     user = _owned_active_user(db, user_id=user_id)
 
-    active_rule_count = (
+    now = datetime.now(timezone.utc)
+    (
         db.query(models.WatchSearchRule)
         .filter(models.WatchSearchRule.user_id == user_id)
         .filter(models.WatchSearchRule.is_active.is_(True))
-        .count()
-    )
-    if active_rule_count > 0:
-        raise HTTPException(
-            status_code=409,
-            detail="Cannot deactivate account while active watch rules exist",
+        .update(
+            {
+                models.WatchSearchRule.is_active: False,
+                models.WatchSearchRule.updated_at: now,
+            },
+            synchronize_session=False,
         )
+    )
 
     user.is_active = False
-    user.updated_at = datetime.now(timezone.utc)
+    user.updated_at = now
     db.add(user)
     db.flush()
     return user.updated_at
+
+
+def hard_delete_user_account(db: Session, *, user_id: UUID) -> datetime:
+    user = _owned_active_user(db, user_id=user_id)
+    deleted_at = datetime.now(timezone.utc)
+    db.delete(user)
+    db.flush()
+    return deleted_at
 
 
 def _owned_active_user(db: Session, *, user_id: UUID) -> models.User:

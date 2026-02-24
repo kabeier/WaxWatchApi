@@ -91,3 +91,8 @@ class LogoutResponse(BaseModel):
 class DeactivateAccountResponse(BaseModel):
     success: bool = True
     deactivated_at: datetime
+
+
+class HardDeleteAccountResponse(BaseModel):
+    success: bool = True
+    deleted_at: datetime
