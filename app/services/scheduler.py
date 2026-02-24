@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from app.db import models
 from app.services.rule_runner import run_rule_once
 
-
 logger = logging.getLogger(__name__)
 FAILURE_RETRY_DELAY_SECONDS = 30
 
