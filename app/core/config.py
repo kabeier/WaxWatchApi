@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from pydantic import PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -53,6 +55,12 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     json_logs: bool = True
 
+    # CORS
+    cors_allowed_origins: list[str] = []
+    cors_allowed_methods: list[str] = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    cors_allowed_headers: list[str] = ["Authorization", "Content-Type"]
+    cors_allow_credentials: bool = False
+
     # Token crypto (at-rest encryption for provider credentials)
     token_crypto_kms_key_id: str | None = None
     token_crypto_local_key_path: str | None = None
@@ -75,6 +83,19 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_provider_config(self) -> Settings:
+        self.cors_allowed_origins = self._parse_env_list(self.cors_allowed_origins)
+        self.cors_allowed_methods = self._parse_env_list(self.cors_allowed_methods)
+        self.cors_allowed_headers = self._parse_env_list(self.cors_allowed_headers)
+
+        if self.cors_allow_credentials and any(origin == "*" for origin in self.cors_allowed_origins):
+            raise ValueError("cors_allowed_origins cannot include '*' when cors_allow_credentials is true")
+
+        if self.cors_allow_credentials and any(method == "*" for method in self.cors_allowed_methods):
+            raise ValueError("cors_allowed_methods cannot include '*' when cors_allow_credentials is true")
+
+        if self.cors_allow_credentials and any(header == "*" for header in self.cors_allowed_headers):
+            raise ValueError("cors_allowed_headers cannot include '*' when cors_allow_credentials is true")
+
         self._provider_availability = {
             "discogs": self._validate_required_fields(
                 [self.discogs_user_agent, self.discogs_token], ["discogs_user_agent", "discogs_token"]
@@ -98,6 +119,23 @@ class Settings(BaseSettings):
             return True, None
 
         return False, f"missing required config: {', '.join(missing)}"
+
+    @staticmethod
+    def _parse_env_list(raw_value: list[str] | str) -> list[str]:
+        if isinstance(raw_value, list):
+            return [item.strip() for item in raw_value if item.strip()]
+
+        value = raw_value.strip()
+        if not value:
+            return []
+
+        if value.startswith("["):
+            parsed = json.loads(value)
+            if not isinstance(parsed, list):
+                raise ValueError("list config must deserialize to a list")
+            return [str(item).strip() for item in parsed if str(item).strip()]
+
+        return [item.strip() for item in value.split(",") if item.strip()]
 
     def provider_enabled(self, provider_name: str) -> tuple[bool, str | None]:
         return self._provider_availability.get(provider_name, (False, "provider is not configured"))
