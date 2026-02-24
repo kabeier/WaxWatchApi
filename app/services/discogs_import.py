@@ -430,7 +430,6 @@ class DiscogsImportService:
         db.add(watch)
         return True
 
-
     def _encrypt_access_token(self, access_token: str | None) -> str | None:
         return self._token_crypto.encrypt(access_token)
 

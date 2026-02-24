@@ -310,4 +310,3 @@ def test_discogs_status_lazy_migrates_plaintext_token(client, user, headers, db_
     db_session.refresh(link)
     assert link.access_token is not None
     assert link.access_token.startswith("enc:v1:")
-

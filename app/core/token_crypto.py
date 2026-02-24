@@ -6,6 +6,8 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 
 ENC_PREFIX = "enc:v1"
+
+
 @dataclass(frozen=True)
 class DecryptResult:
     plaintext: str | None
