@@ -92,9 +92,10 @@ def test_provider_requests_pagination_stable_ordering_under_ties(client, user, h
 
     offset_resp = client.get("/api/provider-requests?limit=1&offset=1", headers=h)
     assert offset_resp.status_code == 200
-    assert offset_resp.json()[0]["id"] == str(ordered[1].id)
+    expected_by_id = {str(req_a.id): req_a.endpoint, str(req_b.id): req_b.endpoint}
+    assert offset_resp.json()[0]["endpoint"] == expected_by_id[str(ordered[1].id)]
 
     cursor = encode_created_id_cursor(created_at=ordered[0].created_at, row_id=ordered[0].id)
     cursor_resp = client.get(f"/api/provider-requests?limit=5&cursor={cursor}", headers=h)
     assert cursor_resp.status_code == 200
-    assert [row["id"] for row in cursor_resp.json()] == [str(ordered[1].id)]
+    assert [row["endpoint"] for row in cursor_resp.json()] == [expected_by_id[str(ordered[1].id)]]
