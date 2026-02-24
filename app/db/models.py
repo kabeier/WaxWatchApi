@@ -72,9 +72,30 @@ class EventType(str, enum.Enum):
     IMPORT_FAILED = "IMPORT_FAILED"
 
 
+class NotificationChannel(str, enum.Enum):
+    email = "email"
+    realtime = "realtime"
+
+
+class NotificationStatus(str, enum.Enum):
+    pending = "pending"
+    sent = "sent"
+    failed = "failed"
+
+
 PROVIDER_ENUM = Enum(Provider, name="provider_enum", create_constraint=False)
 LISTING_STATUS_ENUM = Enum(ListingStatus, name="listing_status_enum", create_constraint=False)
 EVENT_TYPE_ENUM = Enum(EventType, name="event_type_enum", create_constraint=False)
+NOTIFICATION_CHANNEL_ENUM = Enum(
+    NotificationChannel,
+    name="notification_channel_enum",
+    create_constraint=False,
+)
+NOTIFICATION_STATUS_ENUM = Enum(
+    NotificationStatus,
+    name="notification_status_enum",
+    create_constraint=False,
+)
 
 # -------------------------
 # Tables
@@ -109,6 +130,12 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    notifications: Mapped[list[Notification]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    notification_preferences: Mapped[UserNotificationPreference | None] = relationship(
+        back_populates="user", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class ExternalAccountLink(Base):
@@ -387,6 +414,61 @@ class Event(Base):
     )
 
     user: Mapped[User] = relationship(back_populates="events")
+    notifications: Mapped[list[Notification]] = relationship(back_populates="event")
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (
+        UniqueConstraint("event_id", "channel", name="uq_notifications_event_channel"),
+        Index("ix_notifications_user_created_at", "user_id", "created_at"),
+        Index("ix_notifications_user_read", "user_id", "is_read"),
+        Index("ix_notifications_status", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    event_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
+    event_type: Mapped[EventType] = mapped_column(EVENT_TYPE_ENUM, nullable=False)
+    channel: Mapped[NotificationChannel] = mapped_column(NOTIFICATION_CHANNEL_ENUM, nullable=False)
+    status: Mapped[NotificationStatus] = mapped_column(
+        NOTIFICATION_STATUS_ENUM, nullable=False, default=NotificationStatus.pending
+    )
+    is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    delivered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    user: Mapped[User] = relationship(back_populates="notifications")
+    event: Mapped[Event] = relationship(back_populates="notifications")
+
+
+class UserNotificationPreference(Base):
+    __tablename__ = "user_notification_preferences"
+    __table_args__ = (Index("ix_user_notification_preferences_user", "user_id", unique=True),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    quiet_hours_start: Mapped[int | None] = mapped_column(Integer)
+    quiet_hours_end: Mapped[int | None] = mapped_column(Integer)
+    event_toggles: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    user: Mapped[User] = relationship(back_populates="notification_preferences")
 
 
 class PriceSnapshot(Base):

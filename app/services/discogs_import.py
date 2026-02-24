@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import models
+from app.services.notifications import enqueue_from_event
 from app.services.watch_rules import ensure_user_exists
 
 BASE_URL = "https://api.discogs.com"
@@ -291,6 +292,8 @@ class DiscogsImportService:
             created_at=datetime.now(UTC),
         )
         db.add(event)
+        db.flush()
+        enqueue_from_event(db, event=event)
 
 
 discogs_import_service = DiscogsImportService()

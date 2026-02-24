@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.db import models
 from app.services.ingest import normalize_title
+from app.services.notifications import enqueue_from_event
 
 logger = get_logger(__name__)
 
@@ -129,6 +130,7 @@ def backfill_matches_for_rule(
         except IntegrityError:
             continue
 
+        enqueue_from_event(db, event=ev)
         created += 1
 
     if created:
