@@ -11,6 +11,8 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.logging import redact_sensitive_data
+from app.core.token_crypto import TokenCrypto
 from app.db import models
 from app.services.notifications import enqueue_from_event
 from app.services.watch_rules import ensure_user_exists
@@ -24,6 +26,7 @@ REVOKE_URL = "https://api.discogs.com/oauth/revoke"
 class DiscogsImportService:
     def __init__(self) -> None:
         self._base_headers = {"User-Agent": settings.discogs_user_agent}
+        self._token_crypto = TokenCrypto.from_settings(settings)
 
     def connect_account(
         self,
@@ -48,7 +51,7 @@ class DiscogsImportService:
                 user_id=user_id,
                 provider=models.Provider.discogs,
                 external_user_id=external_user_id,
-                access_token=access_token,
+                access_token=self._encrypt_access_token(access_token),
                 token_metadata=token_metadata,
                 connected_at=now,
                 created_at=now,
@@ -56,7 +59,7 @@ class DiscogsImportService:
             )
         else:
             link.external_user_id = external_user_id
-            link.access_token = access_token
+            link.access_token = self._encrypt_access_token(access_token)
             link.token_metadata = token_metadata
             link.connected_at = now
             link.updated_at = now
@@ -186,11 +189,12 @@ class DiscogsImportService:
         if not link:
             return False
 
-        if revoke and link.access_token:
+        decrypted_token = self._get_decrypted_access_token(db, link=link)
+        if revoke and decrypted_token:
             try:
                 httpx.post(
                     REVOKE_URL,
-                    data={"token": link.access_token, "client_id": settings.discogs_oauth_client_id},
+                    data={"token": decrypted_token, "client_id": settings.discogs_oauth_client_id},
                     timeout=settings.discogs_timeout_seconds,
                 )
             except Exception:
@@ -201,12 +205,17 @@ class DiscogsImportService:
         return True
 
     def get_status(self, db: Session, *, user_id: UUID) -> models.ExternalAccountLink | None:
-        return (
+        link = (
             db.query(models.ExternalAccountLink)
             .filter(models.ExternalAccountLink.user_id == user_id)
             .filter(models.ExternalAccountLink.provider == models.Provider.discogs)
             .first()
         )
+        if not link:
+            return None
+
+        self._ensure_token_encrypted(db, link=link)
+        return link
 
     def run_import(
         self,
@@ -218,7 +227,8 @@ class DiscogsImportService:
         link = self.get_status(db, user_id=user_id)
         if not link:
             raise HTTPException(status_code=400, detail="Discogs is not connected")
-        if not link.access_token:
+        access_token = self._get_decrypted_access_token(db, link=link)
+        if not access_token:
             raise HTTPException(status_code=400, detail="Discogs OAuth callback not completed")
 
         now = datetime.now(timezone.utc)
@@ -253,7 +263,7 @@ class DiscogsImportService:
         try:
             import_sources = ["wantlist", "collection"] if source == "both" else [source]
             for selected_source in import_sources:
-                self._import_source(db, link=link, job=job, source=selected_source)
+                self._import_source(db, link=link, job=job, source=selected_source, access_token=access_token)
 
             job.status = "completed"
             job.completed_at = datetime.now(timezone.utc)
@@ -272,14 +282,15 @@ class DiscogsImportService:
         except Exception as exc:
             job.status = "failed"
             job.error_count += 1
-            job.errors = [*(job.errors or []), {"error": str(exc)}]
+            safe_error = str(redact_sensitive_data(str(exc)))
+            job.errors = [*(job.errors or []), {"error": safe_error}]
             job.completed_at = datetime.now(timezone.utc)
             job.updated_at = datetime.now(timezone.utc)
             self._emit_import_event(
                 db,
                 user_id=user_id,
                 event_type=models.EventType.IMPORT_FAILED,
-                payload={"job_id": str(job.id), "source": source, "error": str(exc)},
+                payload={"job_id": str(job.id), "source": source, "error": safe_error},
             )
 
         db.add(job)
@@ -305,13 +316,14 @@ class DiscogsImportService:
         link: models.ExternalAccountLink,
         job: models.ImportJob,
         source: str,
+        access_token: str,
     ) -> None:
         endpoint = self._endpoint_for(source=source, username=link.external_user_id)
         page = 1
         pages = 1
 
         while page <= pages:
-            data = self._fetch_page(endpoint=endpoint, token=link.access_token, page=page)
+            data = self._fetch_page(endpoint=endpoint, token=access_token, page=page)
             pages = int((data.get("pagination") or {}).get("pages") or 1)
             releases = data.get("releases") or data.get("wants") or []
 
@@ -417,6 +429,31 @@ class DiscogsImportService:
         )
         db.add(watch)
         return True
+
+
+    def _encrypt_access_token(self, access_token: str | None) -> str | None:
+        return self._token_crypto.encrypt(access_token)
+
+    def _ensure_token_encrypted(self, db: Session, *, link: models.ExternalAccountLink) -> None:
+        if not link.access_token or self._token_crypto.is_encrypted(link.access_token):
+            return
+
+        link.access_token = self._encrypt_access_token(link.access_token)
+        link.updated_at = datetime.now(timezone.utc)
+        db.add(link)
+        db.flush()
+
+    def _get_decrypted_access_token(self, db: Session, *, link: models.ExternalAccountLink) -> str | None:
+        if not link.access_token:
+            return None
+
+        result = self._token_crypto.decrypt(link.access_token)
+        if result.requires_migration:
+            link.access_token = self._encrypt_access_token(result.plaintext)
+            link.updated_at = datetime.now(timezone.utc)
+            db.add(link)
+            db.flush()
+        return result.plaintext
 
     def _emit_import_event(
         self,

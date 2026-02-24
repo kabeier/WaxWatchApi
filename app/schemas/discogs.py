@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class DiscogsConnectIn(BaseModel):
@@ -21,6 +21,12 @@ class DiscogsConnectIn(BaseModel):
     external_user_id: str = Field(min_length=1, max_length=120)
     access_token: str | None = Field(default=None, min_length=1)
     token_metadata: dict[str, Any] | None = None
+
+    @field_serializer("access_token", when_used="always")
+    def _serialize_access_token(self, access_token: str | None) -> str | None:
+        if not access_token:
+            return access_token
+        return "***redacted***"
 
 
 class DiscogsOAuthStartIn(BaseModel):

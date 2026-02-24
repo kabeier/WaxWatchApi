@@ -44,6 +44,7 @@ os.environ.setdefault("PROVIDER_FORCE_MOCK", "1")
 
 os.environ.setdefault("DISCOGS_USER_AGENT", "test-agent")
 os.environ.setdefault("DISCOGS_TOKEN", "test-token")
+os.environ.setdefault("TOKEN_CRYPTO_LOCAL_KEY", "5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=")
 
 os.environ.setdefault("DB_POOL", "queue")
 os.environ.setdefault("DB_POOL_SIZE", "5")

@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     json_logs: bool = True
 
+    # Token crypto (at-rest encryption for provider credentials)
+    token_crypto_kms_key_id: str | None = None
+    token_crypto_local_key_path: str | None = None
+    token_crypto_local_key: str | None = None
+
     # Auth (Supabase JWT)
     auth_issuer: str | None = None
     auth_audience: str = "authenticated"
