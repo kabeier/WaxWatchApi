@@ -28,7 +28,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete
 
 help:
 	@echo ""
@@ -194,6 +194,28 @@ test-profile:
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
 	$(PYTHON) -m pytest -q tests/test_profile_router.py -rA
+
+
+test-search:
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
+	$(PYTHON) -m pytest -q tests/test_search_router.py -rA
 
 
 test-watch-rules-hard-delete:
