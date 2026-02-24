@@ -9,6 +9,8 @@ COMPOSE := docker compose
 TEST_DB_COMPOSE ?= docker-compose.test.yml
 TEST_DB_SERVICE ?= postgres
 TEST_DATABASE_URL ?= postgresql+psycopg://waxwatch:waxwatch@localhost:5433/waxwatch_test
+TEST_DATABASE_URL_DOCKER ?= postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test
+TEST_APP_SERVICE ?= api-test
 TEST_AUTH_ISSUER ?= http://127.0.0.1:8765/auth/v1
 TEST_AUTH_AUDIENCE ?= authenticated
 TEST_AUTH_JWKS_URL ?= http://127.0.0.1:8765/auth/v1/.well-known/jwks.json
@@ -114,63 +116,10 @@ test-db-reset:
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) down -v
 
 test-with-docker-db: test-db-up
-	ENVIRONMENT=test \
-	LOG_LEVEL=INFO \
-	JSON_LOGS=false \
-	DATABASE_URL=$(TEST_DATABASE_URL) \
-	DB_POOL=queue \
-	DB_POOL_SIZE=5 \
-	DB_MAX_OVERFLOW=10 \
-	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
-	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
-	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
-	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
-	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
-	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
-	DISCOGS_USER_AGENT=test-agent \
-	DISCOGS_TOKEN=test-token \
-	EBAY_CLIENT_ID=test-ebay-client-id \
-	EBAY_CLIENT_SECRET=test-ebay-client-secret \
-	EBAY_CAMPAIGN_ID=1234567890 \
-	alembic upgrade head
-	ENVIRONMENT=test \
-	LOG_LEVEL=INFO \
-	JSON_LOGS=false \
-	DATABASE_URL=$(TEST_DATABASE_URL) \
-	DB_POOL=queue \
-	DB_POOL_SIZE=5 \
-	DB_MAX_OVERFLOW=10 \
-	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
-	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
-	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
-	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
-	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
-	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
-	DISCOGS_USER_AGENT=test-agent \
-	DISCOGS_TOKEN=test-token \
-	EBAY_CLIENT_ID=test-ebay-client-id \
-	EBAY_CLIENT_SECRET=test-ebay-client-secret \
-	EBAY_CAMPAIGN_ID=1234567890 \
-	python -m scripts.schema_drift_check
-	ENVIRONMENT=test \
-	LOG_LEVEL=INFO \
-	JSON_LOGS=false \
-	DATABASE_URL=$(TEST_DATABASE_URL) \
-	DB_POOL=queue \
-	DB_POOL_SIZE=5 \
-	DB_MAX_OVERFLOW=10 \
-	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
-	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
-	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
-	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
-	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
-	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
-	DISCOGS_USER_AGENT=test-agent \
-	DISCOGS_TOKEN=test-token \
-	EBAY_CLIENT_ID=test-ebay-client-id \
-	EBAY_CLIENT_SECRET=test-ebay-client-secret \
-	EBAY_CAMPAIGN_ID=1234567890 \
-	pytest -q -rA
+	$(MAKE) wait-test-db
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "pytest -q -rA"
 
 test-discogs-ingestion:
 	ENVIRONMENT=test \
@@ -191,7 +140,7 @@ test-discogs-ingestion:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
-	pytest -q tests/test_discogs_retry.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
+	pytest -q tests/test_discogs_retry.py tests/test_discogs_integration_router.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
 
 test-profile:
 	ENVIRONMENT=test \
@@ -244,63 +193,10 @@ ci-local:
 	$(MAKE) wait-test-db; \
 	ruff check .; \
 	ruff format --check .; \
-	ENVIRONMENT=test \
-	LOG_LEVEL=INFO \
-	JSON_LOGS=false \
-	DATABASE_URL=$(TEST_DATABASE_URL) \
-	DB_POOL=queue \
-	DB_POOL_SIZE=5 \
-	DB_MAX_OVERFLOW=10 \
-	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
-	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
-	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
-	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
-	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
-	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
-	DISCOGS_USER_AGENT=waxwatch-ci \
-	DISCOGS_TOKEN=ci-token \
-	EBAY_CLIENT_ID=ci-ebay-client-id \
-	EBAY_CLIENT_SECRET=ci-ebay-client-secret \
-	EBAY_CAMPAIGN_ID=1234567890 \
-	alembic upgrade head; \
-	ENVIRONMENT=test \
-	LOG_LEVEL=INFO \
-	JSON_LOGS=false \
-	DATABASE_URL=$(TEST_DATABASE_URL) \
-	DB_POOL=queue \
-	DB_POOL_SIZE=5 \
-	DB_MAX_OVERFLOW=10 \
-	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
-	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
-	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
-	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
-	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
-	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
-	DISCOGS_USER_AGENT=waxwatch-ci \
-	DISCOGS_TOKEN=ci-token \
-	EBAY_CLIENT_ID=ci-ebay-client-id \
-	EBAY_CLIENT_SECRET=ci-ebay-client-secret \
-	EBAY_CAMPAIGN_ID=1234567890 \
-	python -m scripts.schema_drift_check; \
-	ENVIRONMENT=test \
-	LOG_LEVEL=INFO \
-	JSON_LOGS=false \
-	DATABASE_URL=$(TEST_DATABASE_URL) \
-	DB_POOL=queue \
-	DB_POOL_SIZE=5 \
-	DB_MAX_OVERFLOW=10 \
-	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
-	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
-	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
-	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
-	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
-	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
-	DISCOGS_USER_AGENT=waxwatch-ci \
-	DISCOGS_TOKEN=ci-token \
-	EBAY_CLIENT_ID=ci-ebay-client-id \
-	EBAY_CLIENT_SECRET=ci-ebay-client-secret \
-	EBAY_CAMPAIGN_ID=1234567890 \
-	pytest -q --disable-warnings --maxfail=1
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1"
+
 
 gh: ci-local
 	@if [ -z "$(MSG)" ]; then echo "MSG is required. Example: make gh MSG='fix schema drift'"; exit 1; fi

@@ -9,59 +9,6 @@ jobs:
   backend:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: waxwatch
-          POSTGRES_USER: waxwatch
-          POSTGRES_PASSWORD: waxwatch
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U waxwatch -d waxwatch"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=20
-
-    env:
-      ENVIRONMENT: test
-      LOG_LEVEL: INFO
-      JSON_LOGS: "false"
-
-      # local CI postgres
-      DATABASE_URL: postgresql+psycopg://waxwatch:waxwatch@localhost:5432/waxwatch
-
-      # DB pool for local CI
-      DB_POOL: queue
-      DB_POOL_SIZE: "5"
-      DB_MAX_OVERFLOW: "10"
-
-      # provider config (tests don't hit provider, but Settings requires them)
-      DISCOGS_USER_AGENT: "waxwatch-ci"
-      DISCOGS_TOKEN: "ci-token"
-
-      EBAY_CLIENT_ID: "ci-ebay-client-id"
-      EBAY_CLIENT_SECRET: "ci-ebay-client-secret"
-      EBAY_OAUTH_SCOPE: "https://api.ebay.com/oauth/api_scope"
-      EBAY_MARKETPLACE_ID: "EBAY_US"
-      EBAY_CAMPAIGN_ID: "1234567890"
-      EBAY_CUSTOM_ID: "waxwatch-ci"
-
-      # auth config for CI tests
-      # - defaults below match the local JWKS server used by tests/conftest.py
-      # - these can be overridden from GitHub Actions Variables if desired
-      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
-      AUTH_ISSUER: ${{ vars.AUTH_ISSUER || 'http://127.0.0.1:8765/auth/v1' }}
-      AUTH_AUDIENCE: ${{ vars.AUTH_AUDIENCE || 'authenticated' }}
-      AUTH_JWKS_URL: ${{ vars.AUTH_JWKS_URL || 'http://127.0.0.1:8765/auth/v1/.well-known/jwks.json' }}
-      AUTH_JWT_ALGORITHMS: ${{ vars.AUTH_JWT_ALGORITHMS || '["RS256"]' }}
-      AUTH_JWKS_CACHE_TTL_SECONDS: ${{ vars.AUTH_JWKS_CACHE_TTL_SECONDS || '300' }}
-      AUTH_CLOCK_SKEW_SECONDS: ${{ vars.AUTH_CLOCK_SKEW_SECONDS || '0' }}
-      # dev behaviors off
-      DEV_AUTO_CREATE_USERS: "false"
-      DEV_BACKFILL_ON_RULE_CHANGE: "false"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -79,35 +26,8 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
 
-      - name: Ruff (lint)
-        run: ruff check .
+      - name: Validate docker compose files
+        run: make check-docker-config
 
-      - name: Ruff (format check)
-        run: ruff format --check .
-
-      - name: Run migrations
-        run: alembic upgrade head
-
-      - name: Schema drift check (models vs DB)
-        run: python -m scripts.schema_drift_check
-
-      - name: Debug auth test environment
-        run: |
-          echo "AUTH_ISSUER=${AUTH_ISSUER}"
-          echo "AUTH_AUDIENCE=${AUTH_AUDIENCE}"
-          echo "AUTH_JWKS_URL=${AUTH_JWKS_URL}"
-          echo "AUTH_JWT_ALGORITHMS=${AUTH_JWT_ALGORITHMS}"
-          echo "AUTH_JWKS_CACHE_TTL_SECONDS=${AUTH_JWKS_CACHE_TTL_SECONDS}"
-          echo "AUTH_CLOCK_SKEW_SECONDS=${AUTH_CLOCK_SKEW_SECONDS}"
-
-      - name: Auth tests (focused)
-        run: pytest -q tests/test_auth.py -vv --disable-warnings --maxfail=1
-
-      - name: Profile API tests (focused)
-        run: pytest -q tests/test_profile_router.py --disable-warnings --maxfail=1
-
-      - name: Provider ingestion readiness tests (focused)
-        run: pytest -q tests/test_discogs_retry.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py --disable-warnings --maxfail=1
-
-      - name: Tests
-        run: pytest -q --disable-warnings --maxfail=1
+      - name: Run CI flow (lint, migration, drift, tests)
+        run: make ci-local
