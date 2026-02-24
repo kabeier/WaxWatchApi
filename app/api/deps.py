@@ -40,7 +40,7 @@ def _get_auth_verifier():
 def get_current_user_id(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-    db: Session = Depends(get_db),
+    db: Annotated[Session, Depends(get_db)],
 ) -> UUID:
     if credentials is None:
         logger.info(
