@@ -27,7 +27,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh
+.PHONY: help up down build logs ps sh test test-profile test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps
 
 help:
 	@echo ""
@@ -103,6 +103,14 @@ fmt-check:
 
 # --- Testing ---
 
+# Installs the local Python test toolchain (includes PyJWT/cryptography used in tests/conftest.py)
+bootstrap-test-deps:
+	python -m pip install --upgrade pip
+	python -m pip install -r requirements-dev.txt
+
+verify-test-deps:
+	python -c "import jwt, cryptography; print('ok: jwt+cryptography available')"
+
 test-db-up:
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE)
 
@@ -117,6 +125,7 @@ test-db-reset:
 
 test-with-docker-db: test-db-up
 	$(MAKE) wait-test-db
+	$(MAKE) verify-test-deps
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "pytest -q -rA"
@@ -219,6 +228,7 @@ ci-local:
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE); \
 	$(MAKE) wait-test-db; \
+	$(MAKE) verify-test-deps; \
 	ruff check .; \
 	ruff format --check .; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"; \

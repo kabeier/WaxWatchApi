@@ -18,6 +18,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
+        # INSTALL_DEV_DEPS=true ensures pytest + jwt deps are available in api-test container
         INSTALL_DEV_DEPS: "true"
     depends_on:
       postgres:

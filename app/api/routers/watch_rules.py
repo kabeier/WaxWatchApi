@@ -211,6 +211,51 @@ def patch_rule(
     return updated
 
 
+
+@router.post("/{rule_id}/disable", response_model=WatchRuleOut)
+def disable_rule_explicit(
+    request: Request,
+    rule_id: UUID,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    return disable_rule(request=request, rule_id=rule_id, db=db, user_id=user_id)
+
+
+@router.delete("/{rule_id}/hard", status_code=204)
+def delete_rule_hard(
+    request: Request,
+    rule_id: UUID,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    request_id = getattr(request.state, "request_id", "-")
+    logger.info(
+        "watch_rules.delete_hard.call",
+        extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
+    )
+
+    try:
+        service.delete_watch_rule(db, user_id=user_id, rule_id=rule_id)
+    except HTTPException as e:
+        if e.status_code == 404:
+            logger.info(
+                "watch_rules.delete_hard.not_found",
+                extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
+            )
+        raise
+    except SQLAlchemyError:
+        logger.exception(
+            "watch_rules.delete_hard.db_error",
+            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
+        )
+        raise HTTPException(status_code=500, detail="db error") from None
+
+    logger.info(
+        "watch_rules.delete_hard.success",
+        extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
+    )
+
 @router.delete("/{rule_id}", response_model=WatchRuleOut)
 def disable_rule(
     request: Request,
