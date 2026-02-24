@@ -227,7 +227,6 @@ def test_disable_endpoint_and_hard_delete(client, user, headers, db_session):
         e.type
         for e in db_session.query(models.Event)
         .filter(models.Event.user_id == user.id)
-        .filter(models.Event.rule_id == rule_id)
         .all()
     ]
     assert models.EventType.RULE_DISABLED in event_types

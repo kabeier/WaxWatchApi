@@ -183,10 +183,10 @@ def delete_watch_rule(db: Session, *, user_id: UUID, rule_id: UUID) -> None:
     if not rule:
         raise HTTPException(status_code=404, detail="Watch rule not found")
 
+    _create_event(db, user_id=user_id, event_type=models.EventType.RULE_DELETED, rule_id=rule_id)
+
     db.delete(rule)
     db.flush()
-
-    _create_event(db, user_id=user_id, event_type=models.EventType.RULE_DELETED, rule_id=rule_id)
 
 
 def _create_event(
