@@ -26,7 +26,8 @@ jobs:
           pip install -e .
 
       - name: Verify jwt test dependency
-        run: python -c "import jwt, cryptography; print('ok: jwt dependency available')"
+        run: |
+          python -c "import jwt, cryptography; print('ok: jwt dependency available')"
 
       - name: Validate docker compose files
         run: make check-docker-config
