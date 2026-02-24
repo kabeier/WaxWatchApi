@@ -19,9 +19,12 @@ def list_provider_requests(
     user_id: UUID = Depends(get_current_user_id),
     limit: int = Query(50, ge=1, le=200),
 ):
-    _ = user_id
     rows = (
-        db.query(models.ProviderRequest).order_by(models.ProviderRequest.created_at.desc()).limit(limit).all()
+        db.query(models.ProviderRequest)
+        .filter(models.ProviderRequest.user_id == user_id)
+        .order_by(models.ProviderRequest.created_at.desc())
+        .limit(limit)
+        .all()
     )
     return rows
 
@@ -31,8 +34,6 @@ def provider_request_summary(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    _ = user_id
-
     rows = (
         db.query(
             models.ProviderRequest.provider.label("provider"),
@@ -40,6 +41,7 @@ def provider_request_summary(
             func.sum(case((models.ProviderRequest.status_code >= 400, 1), else_=0)).label("error_requests"),
             func.avg(models.ProviderRequest.duration_ms).label("avg_duration_ms"),
         )
+        .filter(models.ProviderRequest.user_id == user_id)
         .group_by(models.ProviderRequest.provider)
         .order_by(models.ProviderRequest.provider.asc())
         .all()

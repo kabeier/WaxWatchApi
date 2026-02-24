@@ -19,8 +19,7 @@ def search_listings(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    _ = user_id
-    return search_service.run_search(db, query=payload)
+    return search_service.run_search(db, user_id=user_id, query=payload)
 
 
 @router.post("/save-alert", response_model=WatchRuleOut)

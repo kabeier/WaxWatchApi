@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -11,6 +12,7 @@ from app.db import models
 def log_provider_request(
     db: Session,
     *,
+    user_id: UUID,
     provider: models.Provider,
     endpoint: str,
     method: str = "GET",
@@ -20,6 +22,7 @@ def log_provider_request(
     meta: dict[str, Any] | None = None,
 ) -> None:
     req = models.ProviderRequest(
+        user_id=user_id,
         provider=provider,
         endpoint=endpoint,
         method=method,

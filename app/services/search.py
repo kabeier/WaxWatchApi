@@ -85,7 +85,7 @@ def _to_listing_out(item: ProviderListing) -> SearchListingOut:
     )
 
 
-def run_search(db: Session, *, query: SearchQuery) -> SearchResponse:
+def run_search(db: Session, *, user_id: UUID, query: SearchQuery) -> SearchResponse:
     providers = _resolve_providers(query)
     providers_searched: list[str] = []
     provider_errors: dict[str, str] = {}
@@ -111,6 +111,7 @@ def run_search(db: Session, *, query: SearchQuery) -> SearchResponse:
             provider_results = provider_client.search(query=provider_query, limit=per_provider_limit)
             log_provider_request(
                 db,
+                user_id=user_id,
                 provider=provider_enum,
                 endpoint=endpoint,
                 method="GET",
@@ -124,6 +125,7 @@ def run_search(db: Session, *, query: SearchQuery) -> SearchResponse:
             provider_errors[provider_name] = str(exc)
             log_provider_request(
                 db,
+                user_id=user_id,
                 provider=provider_enum,
                 endpoint=exc.endpoint or endpoint,
                 method=exc.method or "GET",
@@ -136,6 +138,7 @@ def run_search(db: Session, *, query: SearchQuery) -> SearchResponse:
             provider_errors[provider_name] = str(exc)
             log_provider_request(
                 db,
+                user_id=user_id,
                 provider=provider_enum,
                 endpoint=endpoint,
                 method="GET",
