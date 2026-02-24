@@ -137,6 +137,9 @@ class User(Base):
     notification_preferences: Mapped[UserNotificationPreference | None] = relationship(
         back_populates="user", cascade="all, delete-orphan", uselist=False
     )
+    provider_requests: Mapped[list[ProviderRequest]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class ExternalAccountLink(Base):
@@ -507,11 +510,14 @@ class ProviderRequest(Base):
 
     __tablename__ = "provider_requests"
     __table_args__ = (
+        Index("ix_provider_requests_user_created_at", "user_id", "created_at"),
+        Index("ix_provider_requests_user_provider_created_at", "user_id", "provider", "created_at"),
         Index("ix_provider_requests_provider_created_at", "provider", "created_at"),
         Index("ix_provider_requests_status_code", "status_code"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     provider: Mapped[Provider] = mapped_column(PROVIDER_ENUM, nullable=False)
 
     endpoint: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -525,3 +531,5 @@ class ProviderRequest(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
     )
+
+    user: Mapped[User] = relationship(back_populates="provider_requests")

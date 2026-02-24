@@ -71,6 +71,7 @@ def test_run_rule_once_logs_provider_request_success(db_session, user, monkeypat
     req = db_session.query(models.ProviderRequest).order_by(models.ProviderRequest.created_at.desc()).first()
     assert req is not None
     assert req.provider == models.Provider.ebay
+    assert req.user_id == user.id
     assert req.endpoint == "/buy/browse/v1/item_summary/search"
     assert req.status_code == 200
     assert summary.fetched == 1
@@ -84,6 +85,7 @@ def test_run_rule_once_logs_provider_request_providererror(db_session, user, mon
 
     req = db_session.query(models.ProviderRequest).order_by(models.ProviderRequest.created_at.desc()).first()
     assert req is not None
+    assert req.user_id == user.id
     assert req.status_code == 429
     assert req.error is not None
     assert summary.fetched == 0
@@ -97,6 +99,7 @@ def test_run_rule_once_logs_provider_request_unexpected_exception(db_session, us
 
     req = db_session.query(models.ProviderRequest).order_by(models.ProviderRequest.created_at.desc()).first()
     assert req is not None
+    assert req.user_id == user.id
     assert req.status_code is None
     assert req.error is not None
     assert req.meta is not None

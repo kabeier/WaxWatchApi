@@ -69,6 +69,7 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
             meta = getattr(provider_client, "last_request_meta", None)
             log_provider_request(
                 db,
+                user_id=user_id,
                 provider=provider_enum,
                 endpoint=endpoint,
                 method="GET",
@@ -80,6 +81,7 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
         except ProviderError as e:
             log_provider_request(
                 db,
+                user_id=user_id,
                 provider=provider_enum,
                 endpoint=e.endpoint or endpoint,
                 method=e.method or "GET",
@@ -92,6 +94,7 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
         except Exception as e:  # pragma: no cover - defensive observability guard
             log_provider_request(
                 db,
+                user_id=user_id,
                 provider=provider_enum,
                 endpoint=endpoint,
                 method="GET",
