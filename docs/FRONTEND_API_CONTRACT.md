@@ -47,15 +47,62 @@ All framework/HTTP and validation failures are returned as:
 
 ### 2.2 Pagination conventions
 
-Current API uses **query-param pagination** (not envelope pagination):
+Current API uses **query-param pagination** (not envelope pagination) with a shared contract:
 
-- `limit` (default `50`, max `200`)
-- `offset` (default `0`) on endpoints that support offsetting
+- `limit` (default `50`, min `1`, max `200`)
+- `offset` (default `0`, min `0`) for index-based paging
+- `cursor` (optional) for keyset paging based on stable sort key: `created_at DESC, id DESC`
 
-For frontend scaffolding:
+Rules:
 
-- Treat list responses as arrays with cursorless paging controls.
-- Persist `{ limit, offset }` in route/search state for repeatable screen reloads.
+- Provide **either** `offset` or `cursor`.
+- If `cursor` is present, `offset` must be `0`.
+- Invalid cursor format returns `422`.
+- Requesting a page past available rows returns `200 []` (empty array).
+
+Stable ordering guarantee:
+
+- All major list endpoints (`watch-rules`, `watch-releases`, `events`, `notifications`, `provider-requests`) sort by:
+  - primary: `created_at DESC`
+  - tie-breaker: `id DESC`
+
+Cursor examples:
+
+```http
+GET /api/events?limit=2
+```
+
+Response (array). Use the last row to create the next cursor:
+
+```json
+[
+  {"id": "c7f...", "created_at": "2026-01-20T12:00:05+00:00", "type": "RULE_UPDATED"},
+  {"id": "9a1...", "created_at": "2026-01-20T12:00:05+00:00", "type": "NEW_MATCH"}
+]
+```
+
+Then fetch next page:
+
+```http
+GET /api/events?limit=2&cursor=MjAyNi0wMS0yMFQxMjowMDowNSswMDowMHw5YTEuLi4=
+```
+
+Offset examples:
+
+```http
+GET /api/notifications?limit=25&offset=0
+GET /api/notifications?limit=25&offset=25
+```
+
+Boundary behavior examples:
+
+```http
+GET /api/events?limit=200        # allowed
+GET /api/events?limit=201        # 422 validation_error
+GET /api/events?offset=-1        # 422 validation_error
+GET /api/events?offset=10&cursor=<token>  # 422 (cannot combine)
+GET /api/events?offset=99999     # 200 []
+```
 
 ---
 
@@ -208,4 +255,3 @@ Frontend teams should generate API clients from OpenAPI and use examples for:
 - mocked storybook fixtures
 - e2e happy-path payload contracts
 - typed form defaults for create/edit flows
-

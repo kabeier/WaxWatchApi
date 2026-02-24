@@ -5,6 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -85,15 +86,34 @@ def create_watch_rule(
 
 
 def list_watch_rules(
-    db: Session, *, user_id: UUID, limit: int = 50, offset: int = 0
+    db: Session,
+    *,
+    user_id: UUID,
+    limit: int = 50,
+    offset: int = 0,
+    cursor_created_at: datetime | None = None,
+    cursor_id: UUID | None = None,
 ) -> list[models.WatchSearchRule]:
     q = (
         db.query(models.WatchSearchRule)
         .filter(models.WatchSearchRule.user_id == user_id)
-        .order_by(models.WatchSearchRule.created_at.desc())
-        .limit(limit)
-        .offset(offset)
+        .order_by(models.WatchSearchRule.created_at.desc(), models.WatchSearchRule.id.desc())
     )
+
+    if cursor_created_at is not None and cursor_id is not None:
+        q = q.filter(
+            or_(
+                models.WatchSearchRule.created_at < cursor_created_at,
+                and_(
+                    models.WatchSearchRule.created_at == cursor_created_at,
+                    models.WatchSearchRule.id < cursor_id,
+                ),
+            )
+        )
+    elif offset:
+        q = q.offset(offset)
+
+    q = q.limit(limit)
     return list(q.all())
 
 

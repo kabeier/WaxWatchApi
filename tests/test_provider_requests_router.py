@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
+from app.api.pagination import encode_created_id_cursor
 from app.db import models
 
 
@@ -55,3 +58,43 @@ def test_provider_requests_router_does_not_shadow_watch_rule_routes(client, user
 
     invalid = client.post("/api/provider-requests", headers=h, json={})
     assert invalid.status_code == 405
+
+
+def test_provider_requests_pagination_stable_ordering_under_ties(client, user, headers, db_session):
+    shared_ts = datetime.now(timezone.utc)
+    req_a = models.ProviderRequest(
+        user_id=user.id,
+        provider=models.Provider.discogs,
+        endpoint="/a",
+        method="GET",
+        status_code=200,
+        duration_ms=10,
+        error=None,
+        meta=None,
+        created_at=shared_ts,
+    )
+    req_b = models.ProviderRequest(
+        user_id=user.id,
+        provider=models.Provider.discogs,
+        endpoint="/b",
+        method="GET",
+        status_code=200,
+        duration_ms=20,
+        error=None,
+        meta=None,
+        created_at=shared_ts,
+    )
+    db_session.add_all([req_a, req_b])
+    db_session.flush()
+
+    ordered = sorted([req_a, req_b], key=lambda r: r.id, reverse=True)
+    h = headers(user.id)
+
+    offset_resp = client.get("/api/provider-requests?limit=1&offset=1", headers=h)
+    assert offset_resp.status_code == 200
+    assert offset_resp.json()[0]["id"] == str(ordered[1].id)
+
+    cursor = encode_created_id_cursor(created_at=ordered[0].created_at, row_id=ordered[0].id)
+    cursor_resp = client.get(f"/api/provider-requests?limit=5&cursor={cursor}", headers=h)
+    assert cursor_resp.status_code == 200
+    assert [row["id"] for row in cursor_resp.json()] == [str(ordered[1].id)]
