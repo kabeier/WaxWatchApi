@@ -53,7 +53,11 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
             rule.next_run_at = current + timedelta(seconds=FAILURE_RETRY_DELAY_SECONDS)
             logger.exception(
                 "Scheduler rule execution failed",
-                extra={"rule_id": str(rule.id), "user_id": str(rule.user_id), "retry_delay_seconds": FAILURE_RETRY_DELAY_SECONDS},
+                extra={
+                    "rule_id": str(rule.id),
+                    "user_id": str(rule.user_id),
+                    "retry_delay_seconds": FAILURE_RETRY_DELAY_SECONDS,
+                },
             )
 
         db.add(rule)
