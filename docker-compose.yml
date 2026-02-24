@@ -7,9 +7,9 @@ services:
       - "8000:8000"
     environment:
       # Required
-      DATABASE_URL: ${DATABASE_URL}
-      DISCOGS_USER_AGENT: ${DISCOGS_USER_AGENT}
-      DISCOGS_TOKEN: ${DISCOGS_TOKEN}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://waxwatch:waxwatch@db:5432/waxwatch}
+      DISCOGS_USER_AGENT: ${DISCOGS_USER_AGENT:-waxwatch-local-agent}
+      DISCOGS_TOKEN: ${DISCOGS_TOKEN:-waxwatch-local-token}
 
       # Optional / defaults exist in config.py
       ENVIRONMENT: ${ENVIRONMENT:-prod}
@@ -41,9 +41,9 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      DISCOGS_USER_AGENT: ${DISCOGS_USER_AGENT}
-      DISCOGS_TOKEN: ${DISCOGS_TOKEN}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://waxwatch:waxwatch@db:5432/waxwatch}
+      DISCOGS_USER_AGENT: ${DISCOGS_USER_AGENT:-waxwatch-local-agent}
+      DISCOGS_TOKEN: ${DISCOGS_TOKEN:-waxwatch-local-token}
       ENVIRONMENT: ${ENVIRONMENT:-prod}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       JSON_LOGS: ${JSON_LOGS:-true}

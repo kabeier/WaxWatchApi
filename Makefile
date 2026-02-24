@@ -165,8 +165,14 @@ test-profile:
 
 
 check-docker-config:
+	DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@db:5432/waxwatch \
+	DISCOGS_USER_AGENT=waxwatch-config-check \
+	DISCOGS_TOKEN=waxwatch-config-check \
 	$(COMPOSE) -f docker-compose.yml config >/dev/null
-	$(COMPOSE) -f docker-compose.override.yml config >/dev/null
+	DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@db:5432/waxwatch \
+	DISCOGS_USER_AGENT=waxwatch-config-check \
+	DISCOGS_TOKEN=waxwatch-config-check \
+	$(COMPOSE) -f docker-compose.yml -f docker-compose.override.yml config >/dev/null
 	$(COMPOSE) -f docker-compose.test.yml config >/dev/null
 
 wait-test-db:
