@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import uuid
 
+from app.db import models
+
 
 def _create_rule(client, headers: dict[str, str], *, name: str = "Primus under $70", query=None, poll=600):
     if query is None:
@@ -202,3 +204,27 @@ def test_create_rule_poll_interval_bounds(client, user, headers):
     }
     r2 = client.post("/api/watch-rules", json=payload_high, headers=h)
     assert r2.status_code == 422, r2.text
+
+
+def test_disable_endpoint_and_hard_delete(client, user, headers, db_session):
+    h = headers(user.id)
+
+    created = _create_rule(client, h)
+    assert created.status_code == 201, created.text
+    rule_id = created.json()["id"]
+
+    disabled = client.post(f"/api/watch-rules/{rule_id}/disable", headers=h)
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["is_active"] is False
+
+    hard_deleted = client.delete(f"/api/watch-rules/{rule_id}/hard", headers=h)
+    assert hard_deleted.status_code == 204, hard_deleted.text
+
+    fetched = client.get(f"/api/watch-rules/{rule_id}", headers=h)
+    assert fetched.status_code == 404, fetched.text
+
+    event_types = [
+        e.type for e in db_session.query(models.Event).filter(models.Event.user_id == user.id).all()
+    ]
+    assert models.EventType.RULE_DISABLED in event_types
+    assert models.EventType.RULE_DELETED in event_types

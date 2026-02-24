@@ -11,7 +11,8 @@ RUN useradd -m -u 10001 appuser
 
 COPY requirements.txt requirements-dev.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt \
-    && if [ "$INSTALL_DEV_DEPS" = "true" ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
+    && if [ "$INSTALL_DEV_DEPS" = "true" ]; then pip install --no-cache-dir -r requirements-dev.txt; fi \
+    && python -m pip check
 
 COPY . /app
 

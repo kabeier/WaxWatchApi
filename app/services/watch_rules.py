@@ -173,6 +173,22 @@ def disable_watch_rule(db: Session, *, user_id: UUID, rule_id: UUID) -> models.W
     return update_watch_rule(db, user_id=user_id, rule_id=rule_id, is_active=False)
 
 
+def delete_watch_rule(db: Session, *, user_id: UUID, rule_id: UUID) -> None:
+    rule = (
+        db.query(models.WatchSearchRule)
+        .filter(models.WatchSearchRule.id == rule_id)
+        .filter(models.WatchSearchRule.user_id == user_id)
+        .first()
+    )
+    if not rule:
+        raise HTTPException(status_code=404, detail="Watch rule not found")
+
+    _create_event(db, user_id=user_id, event_type=models.EventType.RULE_DELETED, rule_id=rule_id)
+
+    db.delete(rule)
+    db.flush()
+
+
 def _create_event(
     db: Session,
     *,

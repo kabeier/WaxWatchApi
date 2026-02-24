@@ -5,6 +5,7 @@ DEV_ENV_FILE ?= .env.dev
 PROD_ENV_FILE ?= .env.prod
 
 COMPOSE := docker compose
+PYTHON ?= python
 
 TEST_DB_COMPOSE ?= docker-compose.test.yml
 TEST_DB_SERVICE ?= postgres
@@ -27,7 +28,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh
+.PHONY: help up down build logs ps sh test test-profile test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete
 
 help:
 	@echo ""
@@ -103,6 +104,14 @@ fmt-check:
 
 # --- Testing ---
 
+# Installs the local Python test toolchain (includes PyJWT/cryptography used in tests/conftest.py)
+bootstrap-test-deps:
+	$(PYTHON) -m pip install --upgrade pip
+	$(PYTHON) -m pip install -r requirements-dev.txt
+
+verify-test-deps:
+	$(PYTHON) -c "import sys, jwt, cryptography; print(f'ok: jwt+cryptography available on {sys.executable}')"
+
 test-db-up:
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE)
 
@@ -117,6 +126,7 @@ test-db-reset:
 
 test-with-docker-db: test-db-up
 	$(MAKE) wait-test-db
+	$(MAKE) verify-test-deps
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "pytest -q -rA"
@@ -140,7 +150,7 @@ test-discogs-ingestion:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
-	pytest -q tests/test_discogs_retry.py tests/test_discogs_integration_router.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
+	$(PYTHON) -m pytest -q tests/test_discogs_retry.py tests/test_discogs_integration_router.py tests/test_ebay_provider.py tests/test_ebay_affiliate.py tests/test_rule_runner_provider_logging.py tests/test_scheduler.py tests/test_provider_requests_router.py -rA
 
 
 test-notifications:
@@ -162,7 +172,7 @@ test-notifications:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
-	pytest -q tests/test_notifications.py -rA
+	$(PYTHON) -m pytest -q tests/test_notifications.py -rA
 
 test-profile:
 	ENVIRONMENT=test \
@@ -183,8 +193,12 @@ test-profile:
 	EBAY_CLIENT_ID=test-ebay-client-id \
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
-	pytest -q tests/test_profile_router.py -rA
+	$(PYTHON) -m pytest -q tests/test_profile_router.py -rA
 
+
+test-watch-rules-hard-delete:
+	$(MAKE) verify-test-deps
+	$(PYTHON) -m pytest -q tests/test_watch_rules.py -k hard_delete -rA
 
 check-docker-config:
 	DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@db:5432/waxwatch \
@@ -219,6 +233,7 @@ ci-local:
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE); \
 	$(MAKE) wait-test-db; \
+	$(MAKE) verify-test-deps; \
 	ruff check .; \
 	ruff format --check .; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) $(TEST_APP_SERVICE) "alembic upgrade head"; \
