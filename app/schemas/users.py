@@ -14,7 +14,17 @@ class IntegrationSummary(BaseModel):
 
 
 class UserPreferences(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(
+        extra="allow",
+        json_schema_extra={
+            "example": {
+                "timezone": "America/New_York",
+                "currency": "USD",
+                "notifications_email": True,
+                "notifications_push": True,
+            }
+        },
+    )
 
     timezone: str | None = Field(default=None, max_length=64)
     currency: str | None = Field(default=None, min_length=3, max_length=3)
@@ -23,7 +33,26 @@ class UserPreferences(BaseModel):
 
 
 class UserProfileOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "id": "8f2a5009-c0a2-4f90-8f1b-c1716c26bf06",
+                "email": "collector@example.com",
+                "display_name": "Wax Hunter",
+                "is_active": True,
+                "preferences": {
+                    "timezone": "America/New_York",
+                    "currency": "USD",
+                    "notifications_email": True,
+                    "notifications_push": True,
+                },
+                "integrations": [{"provider": "discogs", "linked": True, "watch_rule_count": 4}],
+                "created_at": "2026-01-10T15:34:12.123456+00:00",
+                "updated_at": "2026-01-20T09:10:44.987654+00:00",
+            }
+        },
+    )
 
     id: UUID
     email: EmailStr
@@ -36,6 +65,20 @@ class UserProfileOut(BaseModel):
 
 
 class UserProfileUpdate(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "display_name": "Wax Hunter",
+                "preferences": {
+                    "timezone": "America/Chicago",
+                    "currency": "USD",
+                    "notifications_email": True,
+                    "notifications_push": False,
+                },
+            }
+        }
+    )
+
     display_name: str | None = Field(default=None, min_length=1, max_length=120)
     preferences: UserPreferences | None = None
 

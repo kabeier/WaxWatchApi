@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from app.db import models
 
 
 def test_list_events_filters_by_user_and_orders_desc(client, user, user2, headers, db_session):
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     e1 = models.Event(
         user_id=user.id,
         type=models.EventType.RULE_CREATED,
@@ -52,7 +52,7 @@ def test_list_events_filters_by_user_and_orders_desc(client, user, user2, header
 
 
 def test_list_events_limit(client, user, headers, db_session):
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     for i in range(5):
         db_session.add(
             models.Event(

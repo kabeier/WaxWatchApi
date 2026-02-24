@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from uuid import UUID
 
@@ -68,7 +68,7 @@ def backfill_matches_for_rule(
     if not rule or not rule.is_active:
         return 0
 
-    since = datetime.now(UTC) - timedelta(days=days)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
 
     listings = (
         db.query(models.Listing)
@@ -79,7 +79,7 @@ def backfill_matches_for_rule(
     )
 
     created = 0
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     for listing in listings:
         title_norm = listing.normalized_title or normalize_title(listing.title)

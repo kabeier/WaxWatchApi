@@ -6,7 +6,7 @@ import threading
 import time
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import jwt
@@ -180,7 +180,7 @@ def sign_jwt():
         exp_delta_seconds: int = 3600,
         kid: str = TEST_KID,
     ) -> str:
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         payload = {
             "sub": sub,
             "iss": iss,
@@ -196,7 +196,7 @@ def sign_jwt():
 @pytest.fixture()
 def headers():
     def _headers(user_id: uuid.UUID) -> dict[str, str]:
-        now = datetime.now(tz=UTC)
+        now = datetime.now(tz=timezone.utc)
         payload = {
             "sub": str(user_id),
             "iss": AUTH_ISSUER,

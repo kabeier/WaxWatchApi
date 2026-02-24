@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -62,7 +62,7 @@ def update_user_profile(
         changed = True
 
     if changed:
-        user.updated_at = datetime.now(UTC)
+        user.updated_at = datetime.now(timezone.utc)
         db.add(user)
         db.flush()
 
@@ -80,8 +80,8 @@ def update_user_profile(
 def build_logout_marker(*, user_id: UUID) -> dict:
     return {
         "user_id": str(user_id),
-        "logged_out_at": datetime.now(UTC).isoformat(),
-        "invalidate_before": datetime.now(UTC).isoformat(),
+        "logged_out_at": datetime.now(timezone.utc).isoformat(),
+        "invalidate_before": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -101,7 +101,7 @@ def deactivate_user_account(db: Session, *, user_id: UUID) -> datetime:
         )
 
     user.is_active = False
-    user.updated_at = datetime.now(UTC)
+    user.updated_at = datetime.now(timezone.utc)
     db.add(user)
     db.flush()
     return user.updated_at

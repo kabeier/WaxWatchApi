@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
@@ -37,7 +37,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
     """
     provider = models.Provider(payload["provider"])
     external_id = str(payload["external_id"])
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     created_listing = False
     created_snapshot = False
@@ -221,7 +221,7 @@ def _create_match_if_needed(
     """
     Create WatchMatch + Event if not already present.
     """
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
 
     # Insert match idempotently
     stmt = (

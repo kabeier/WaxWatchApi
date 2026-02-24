@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from threading import Lock
 from uuid import UUID
 
@@ -121,7 +121,7 @@ def send_email(db: Session, *, notification: models.Notification) -> models.Noti
     if not preference.email_enabled:
         return notification
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     notification.status = models.NotificationStatus.sent
     notification.delivered_at = now
     notification.failed_at = None
@@ -150,7 +150,7 @@ async def publish_realtime(db: Session, *, notification: models.Notification) ->
     }
     await stream_broker.publish(notification.user_id, payload)
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     notification.status = models.NotificationStatus.sent
     notification.delivered_at = now
     notification.failed_at = None
