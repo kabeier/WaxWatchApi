@@ -143,7 +143,7 @@ def backfill_matches_for_rule(
             "rule_id": str(rule_id),
             "days": days,
             "limit": limit,
-            "created": created,
+            "created_matches": created,
         },
     )
 
