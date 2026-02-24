@@ -38,7 +38,7 @@ def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
 
     user = models.User(
         id=user_id,
-        email=f"dev+{user_id}@waxwatch.local",
+        email=f"dev+{user_id}@waxwatch.dev",
         hashed_password="__dev_stub__",
         is_active=True,
         created_at=datetime.now(timezone.utc),

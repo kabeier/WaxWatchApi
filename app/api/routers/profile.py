@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db
 from app.core.logging import get_logger
-from app.schemas.users import DeactivateAccountResponse, LogoutResponse, UserProfileOut, UserProfileUpdate
+from app.schemas.users import (
+    DeactivateAccountResponse,
+    HardDeleteAccountResponse,
+    LogoutResponse,
+    UserProfileOut,
+    UserProfileUpdate,
+)
 from app.services import users as users_service
 
 logger = get_logger(__name__)
@@ -75,3 +81,15 @@ def deactivate_me(
     logger.info("profile.deactivate.call", extra={"request_id": request_id, "user_id": str(user_id)})
     deactivated_at = users_service.deactivate_user_account(db, user_id=user_id)
     return DeactivateAccountResponse(deactivated_at=deactivated_at)
+
+
+@router.delete("/hard-delete", response_model=HardDeleteAccountResponse)
+def hard_delete_me(
+    request: Request,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    request_id = getattr(request.state, "request_id", "-")
+    logger.info("profile.hard_delete.call", extra={"request_id": request_id, "user_id": str(user_id)})
+    deleted_at = users_service.hard_delete_user_account(db, user_id=user_id)
+    return HardDeleteAccountResponse(deleted_at=deleted_at)
