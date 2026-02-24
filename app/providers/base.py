@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
@@ -42,6 +43,23 @@ class ProviderListing:
     raw: dict[str, Any] | None = None
 
 
+class ProviderPaginationModel(str, Enum):
+    OFFSET = "offset"
+    CURSOR = "cursor"
+    NONE = "none"
+
+
+@dataclass(frozen=True)
+class ProviderCapabilityContract:
+    """Describes what feature surface a provider implementation supports."""
+
+    supports_search: bool
+    requires_auth: bool
+    rate_limits_documented: bool
+    listing_completeness: str
+    pagination_model: ProviderPaginationModel
+
+
 class ProviderClient(Protocol):
     """
     Provider client interface.
@@ -50,6 +68,7 @@ class ProviderClient(Protocol):
 
     name: str
     default_endpoint: str
+    capability_contract: ProviderCapabilityContract
 
     def search(
         self, *, query: dict[str, Any], limit: int = 20, db: Session | None = None

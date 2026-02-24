@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.providers.base import ProviderError, ProviderListing
-from app.providers.registry import PROVIDERS, get_provider_class
+from app.providers.registry import get_provider_class, list_available_providers
 from app.schemas.search import SearchListingOut, SearchPagination, SearchQuery, SearchResponse
 from app.services.provider_requests import log_provider_request
 from app.services.watch_rules import create_watch_rule
@@ -26,7 +26,7 @@ _CONDITION_RANK: dict[str, int] = {
 
 def _default_providers() -> list[str]:
     supported: list[str] = []
-    for key in PROVIDERS:
+    for key in list_available_providers():
         try:
             models.Provider(key)
         except ValueError:

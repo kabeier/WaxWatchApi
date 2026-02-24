@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.db import models
 from app.monetization.ebay_affiliate import to_affiliate_url
-from app.providers.registry import PROVIDERS
+from app.providers.registry import get_provider_registration
 
 
 class SearchQuery(BaseModel):
@@ -32,8 +32,10 @@ class SearchQuery(BaseModel):
                 models.Provider(key)
             except ValueError as exc:
                 raise ValueError(f"Invalid provider: {key}") from exc
-            if key not in PROVIDERS:
-                raise ValueError(f"Unsupported provider: {key}")
+            try:
+                get_provider_registration(key)
+            except ValueError as exc:
+                raise ValueError(f"Unsupported provider: {key}") from exc
             cleaned.append(key)
 
         if not cleaned:
