@@ -100,3 +100,31 @@ def test_dev_ingest_can_create_match_when_rule_exists(client, user, headers, db_
         .first()
     )
     assert match is not None
+
+
+def test_dev_ingest_does_not_match_whitespace_only_keywords_rule(client, user, headers, db_session):
+    rule = models.WatchSearchRule(
+        user_id=user.id,
+        name="Malformed keywords",
+        query={"keywords": ["", "   "], "sources": ["discogs"], "max_price": 70},
+        is_active=True,
+        poll_interval_seconds=600,
+    )
+    db_session.add(rule)
+    db_session.flush()
+
+    h = headers(user.id)
+    r = client.post("/api/dev/listings/ingest", json=_listing_payload(price=50.0), headers=h)
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    assert body["created_matches"] == 0
+
+    listing_id = uuid.UUID(body["listing"]["id"])
+    match = (
+        db_session.query(models.WatchMatch)
+        .filter(models.WatchMatch.rule_id == rule.id)
+        .filter(models.WatchMatch.listing_id == listing_id)
+        .first()
+    )
+    assert match is None

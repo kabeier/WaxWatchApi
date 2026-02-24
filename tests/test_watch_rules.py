@@ -228,3 +228,30 @@ def test_disable_endpoint_and_hard_delete(client, user, headers, db_session):
     ]
     assert models.EventType.RULE_DISABLED in event_types
     assert models.EventType.RULE_DELETED in event_types
+
+
+def test_create_rule_rejects_whitespace_only_keywords(client, user, headers):
+    h = headers(user.id)
+
+    payload = {
+        "name": "Bad keywords",
+        "query": {"keywords": ["", "   "], "sources": ["discogs"], "max_price": 70},
+        "poll_interval_seconds": 600,
+    }
+    r = client.post("/api/watch-rules", json=payload, headers=h)
+    assert r.status_code == 422, r.text
+
+
+def test_patch_rule_rejects_whitespace_only_keywords(client, user, headers):
+    h = headers(user.id)
+
+    created = _create_rule(client, h)
+    assert created.status_code == 201, created.text
+    rule_id = created.json()["id"]
+
+    r = client.patch(
+        f"/api/watch-rules/{rule_id}",
+        json={"query": {"keywords": ["", "   "]}},
+        headers=h,
+    )
+    assert r.status_code == 422, r.text
