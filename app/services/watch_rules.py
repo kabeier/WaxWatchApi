@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db import models
+from app.services.notifications import enqueue_from_event
 
 
 def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
@@ -187,4 +188,6 @@ def _create_event(
         created_at=datetime.now(UTC),
     )
     db.add(ev)
+    db.flush()
+    enqueue_from_event(db, event=ev)
     return ev

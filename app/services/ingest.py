@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.db import models
+from app.services.notifications import enqueue_from_event
 from app.services.watch_rules import ensure_user_exists
 
 logger = get_logger(__name__)
@@ -256,6 +257,7 @@ def _create_match_if_needed(
     )
     db.add(ev)
     db.flush()
+    enqueue_from_event(db, event=ev)
     return 1
 
 
