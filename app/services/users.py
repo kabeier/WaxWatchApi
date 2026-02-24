@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.schemas.users import IntegrationSummary, UserPreferences
-from app.services.watch_rules import ensure_user_exists
 
 DEFAULT_PROVIDER_SUMMARY = tuple(p.value for p in models.Provider)
 
@@ -31,7 +30,7 @@ def get_user_profile(
     user_id: UUID,
     token_claims: dict | None = None,
 ) -> dict:
-    user = ensure_user_exists(db, user_id)
+    user = _owned_user(db, user_id=user_id)
     integrations = _integration_summary_for_user(db, user_id=user_id)
 
     return {
@@ -115,6 +114,13 @@ def hard_delete_user_account(db: Session, *, user_id: UUID) -> datetime:
     db.delete(user)
     db.flush()
     return deleted_at
+
+
+def _owned_user(db: Session, *, user_id: UUID) -> models.User:
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if user is None:
+        raise HTTPException(status_code=404, detail="User profile not found")
+    return user
 
 
 def _owned_active_user(db: Session, *, user_id: UUID) -> models.User:
