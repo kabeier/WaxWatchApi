@@ -13,6 +13,18 @@ from app.db import models
 from app.services.notifications import enqueue_from_event
 
 
+def _validate_rule_keywords(query: dict[str, Any]) -> None:
+    keywords = query.get("keywords")
+    if keywords is None:
+        return
+    if not isinstance(keywords, list):
+        raise ValueError("query.keywords must be a list when provided")
+
+    cleaned = [str(k).strip().lower() for k in keywords if str(k).strip()]
+    if keywords and not cleaned:
+        raise ValueError("query.keywords must contain at least one non-empty keyword when provided")
+
+
 def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
     """
     Ensures a user row exists.
@@ -53,6 +65,7 @@ def create_watch_rule(
     db: Session, *, user_id: UUID, name: str, query: dict, poll_interval_seconds: int
 ) -> models.WatchSearchRule:
     ensure_user_exists(db, user_id)
+    _validate_rule_keywords(query)
     rule = models.WatchSearchRule(
         user_id=user_id,
         name=name,
@@ -147,6 +160,8 @@ def update_watch_rule(
         merged_sources = existing.get("sources")
         if not isinstance(merged_sources, list) or not merged_sources:
             raise ValueError("query.sources must remain a non-empty list")
+
+        _validate_rule_keywords(existing)
 
         if existing != (rule.query or {}):
             rule.query = existing

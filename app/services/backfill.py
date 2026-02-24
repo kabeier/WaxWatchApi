@@ -35,6 +35,8 @@ def _rule_matches_listing(
     keywords = q.get("keywords")
     if isinstance(keywords, list) and keywords:
         kws = [str(k).strip().lower() for k in keywords if str(k).strip()]
+        if not kws:
+            return False
         for kw in kws:
             if kw not in normalized_title:
                 return False

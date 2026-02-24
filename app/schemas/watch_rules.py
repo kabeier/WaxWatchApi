@@ -38,6 +38,26 @@ def _normalize_and_validate_sources(query: dict[str, Any], *, require: bool) -> 
     return query
 
 
+def _normalize_and_validate_keywords(
+    query: dict[str, Any], *, require_non_empty_when_present: bool
+) -> dict[str, Any]:
+    keywords = query.get("keywords", None)
+
+    if keywords is None:
+        return query
+
+    if not isinstance(keywords, list):
+        raise ValueError("query.keywords must be a list when provided")
+
+    cleaned = [str(k).strip().lower() for k in keywords if str(k).strip()]
+
+    if require_non_empty_when_present and keywords and not cleaned:
+        raise ValueError("query.keywords must contain at least one non-empty keyword when provided")
+
+    query["keywords"] = cleaned
+    return query
+
+
 class WatchRuleBase(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     query: dict[str, Any] = Field(default_factory=dict)
@@ -61,7 +81,8 @@ class WatchRuleCreate(WatchRuleBase):
     @field_validator("query")
     @classmethod
     def require_sources_on_create(cls, v: dict[str, Any]) -> dict[str, Any]:
-        return _normalize_and_validate_sources(v, require=True)
+        v = _normalize_and_validate_sources(v, require=True)
+        return _normalize_and_validate_keywords(v, require_non_empty_when_present=True)
 
 
 class WatchRuleUpdate(BaseModel):
@@ -87,7 +108,8 @@ class WatchRuleUpdate(BaseModel):
     def validate_sources_if_present(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is None:
             return v
-        return _normalize_and_validate_sources(v, require=False)
+        v = _normalize_and_validate_sources(v, require=False)
+        return _normalize_and_validate_keywords(v, require_non_empty_when_present=True)
 
 
 class WatchRuleOut(BaseModel):
