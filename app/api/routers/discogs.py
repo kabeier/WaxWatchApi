@@ -9,13 +9,48 @@ from app.api.deps import get_current_user_id, get_db
 from app.schemas.discogs import (
     DiscogsConnectIn,
     DiscogsConnectOut,
+    DiscogsDisconnectIn,
+    DiscogsDisconnectOut,
     DiscogsImportIn,
     DiscogsImportJobOut,
+    DiscogsOAuthCallbackIn,
+    DiscogsOAuthStartIn,
+    DiscogsOAuthStartOut,
     DiscogsStatusOut,
 )
 from app.services.discogs_import import discogs_import_service
 
 router = APIRouter(prefix="/integrations/discogs", tags=["integrations", "discogs"])
+
+
+@router.post("/oauth/start", response_model=DiscogsOAuthStartOut)
+def start_discogs_oauth(
+    payload: DiscogsOAuthStartIn,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    started = discogs_import_service.start_oauth(db, user_id=user_id, scopes=payload.scopes)
+    return DiscogsOAuthStartOut(**started)
+
+
+@router.post("/oauth/callback", response_model=DiscogsConnectOut)
+def complete_discogs_oauth(
+    payload: DiscogsOAuthCallbackIn,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    link = discogs_import_service.complete_oauth(
+        db,
+        user_id=user_id,
+        state=payload.state,
+        code=payload.code,
+    )
+    return DiscogsConnectOut(
+        provider=link.provider.value,
+        external_user_id=link.external_user_id,
+        connected=True,
+        connected_at=link.connected_at,
+    )
 
 
 @router.post("/connect", response_model=DiscogsConnectOut)
@@ -39,6 +74,20 @@ def connect_discogs(
     )
 
 
+@router.post("/disconnect", response_model=DiscogsDisconnectOut)
+def disconnect_discogs(
+    payload: DiscogsDisconnectIn,
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    disconnected = discogs_import_service.disconnect_account(
+        db,
+        user_id=user_id,
+        revoke=payload.revoke,
+    )
+    return DiscogsDisconnectOut(provider="discogs", disconnected=disconnected)
+
+
 @router.get("/status", response_model=DiscogsStatusOut)
 def discogs_status(
     db: Session = Depends(get_db),
@@ -48,8 +97,9 @@ def discogs_status(
     if not link:
         return DiscogsStatusOut(connected=False, provider="discogs")
 
+    connected = bool(link.access_token and link.external_user_id != "pending")
     return DiscogsStatusOut(
-        connected=True,
+        connected=connected,
         provider=link.provider.value,
         external_user_id=link.external_user_id,
         connected_at=link.connected_at,

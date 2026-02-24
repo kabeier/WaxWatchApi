@@ -1,34 +1,173 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from app.db import models
 
 
-def test_discogs_connect_and_status(client, user, headers, db_session):
+def test_discogs_oauth_connect_success(client, user, headers, db_session, monkeypatch):
     h = headers(user.id)
 
-    connect = client.post(
-        "/api/integrations/discogs/connect",
-        json={
-            "external_user_id": "discogs-user",
-            "access_token": "secret-token",
-            "token_metadata": {"scope": "identity"},
-        },
+    start = client.post(
+        "/api/integrations/discogs/oauth/start",
+        json={"scopes": ["identity", "wantlist"]},
         headers=h,
     )
-    assert connect.status_code == 200, connect.text
-    body = connect.json()
+    assert start.status_code == 200, start.text
+    start_body = start.json()
+    assert start_body["provider"] == "discogs"
+    assert "state" in start_body
+    assert "authorize_url" in start_body
+
+    def _fake_post(url, data, timeout):
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"access_token": "oauth-token", "scope": "identity wantlist", "token_type": "Bearer"}
+
+        return _Resp()
+
+    def _fake_get(url, headers, timeout):
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"username": "discogs-user"}
+
+        return _Resp()
+
+    monkeypatch.setattr("app.services.discogs_import.httpx.post", _fake_post)
+    monkeypatch.setattr("app.services.discogs_import.httpx.get", _fake_get)
+
+    callback = client.post(
+        "/api/integrations/discogs/oauth/callback",
+        json={"state": start_body["state"], "code": "auth-code"},
+        headers=h,
+    )
+    assert callback.status_code == 200, callback.text
+    body = callback.json()
     assert body["connected"] is True
-    assert body["provider"] == "discogs"
     assert body["external_user_id"] == "discogs-user"
 
     status = client.get("/api/integrations/discogs/status", headers=h)
     assert status.status_code == 200, status.text
-    status_body = status.json()
-    assert status_body["connected"] is True
-    assert status_body["has_access_token"] is True
+    assert status.json()["connected"] is True
+
+    link = db_session.query(models.ExternalAccountLink).filter_by(user_id=user.id).one()
+    assert link.access_token == "oauth-token"
+    assert link.token_metadata["oauth_connected"] is True
+    assert link.token_metadata["oauth_state"] is None
+
+
+def test_discogs_oauth_callback_invalid_state(client, user, headers):
+    h = headers(user.id)
+    start = client.post("/api/integrations/discogs/oauth/start", json={}, headers=h)
+    assert start.status_code == 200, start.text
+
+    callback = client.post(
+        "/api/integrations/discogs/oauth/callback",
+        json={"state": "bad-state", "code": "auth-code"},
+        headers=h,
+    )
+    assert callback.status_code == 400, callback.text
+    assert callback.json()["error"]["message"] == "Invalid OAuth state"
+
+
+def test_discogs_oauth_reconnect_reuses_link(client, user, headers, db_session, monkeypatch):
+    h = headers(user.id)
+
+    def _fake_post(url, data, timeout):
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {
+                    "access_token": f"token-{data['code']}",
+                    "scope": "identity",
+                    "token_type": "Bearer",
+                }
+
+        return _Resp()
+
+    monkeypatch.setattr("app.services.discogs_import.httpx.post", _fake_post)
+
+    usernames = ["first-user", "second-user"]
+
+    def _fake_get(url, headers, timeout):
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {"username": usernames.pop(0)}
+
+        return _Resp()
+
+    monkeypatch.setattr("app.services.discogs_import.httpx.get", _fake_get)
+
+    first_start = client.post("/api/integrations/discogs/oauth/start", json={}, headers=h)
+    first_state = first_start.json()["state"]
+    first_callback = client.post(
+        "/api/integrations/discogs/oauth/callback",
+        json={"state": first_state, "code": "one"},
+        headers=h,
+    )
+    assert first_callback.status_code == 200, first_callback.text
+
+    second_start = client.post("/api/integrations/discogs/oauth/start", json={}, headers=h)
+    second_state = second_start.json()["state"]
+    second_callback = client.post(
+        "/api/integrations/discogs/oauth/callback",
+        json={"state": second_state, "code": "two"},
+        headers=h,
+    )
+    assert second_callback.status_code == 200, second_callback.text
 
     links = db_session.query(models.ExternalAccountLink).filter_by(user_id=user.id).all()
     assert len(links) == 1
+    assert links[0].external_user_id == "second-user"
+    assert links[0].access_token == "token-two"
+
+
+def test_discogs_disconnect_removes_link(client, user, headers, db_session, monkeypatch):
+    h = headers(user.id)
+    now = datetime.now(timezone.utc)
+    link = models.ExternalAccountLink(
+        user_id=user.id,
+        provider=models.Provider.discogs,
+        external_user_id="discogs-user",
+        access_token="old-token",
+        token_metadata={"oauth_connected": True},
+        connected_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    db_session.add(link)
+    db_session.flush()
+
+    def _fake_post(url, data, timeout):
+        class _Resp:
+            status_code = 200
+
+            @staticmethod
+            def json():
+                return {}
+
+        return _Resp()
+
+    monkeypatch.setattr("app.services.discogs_import.httpx.post", _fake_post)
+
+    disconnect = client.post("/api/integrations/discogs/disconnect", json={"revoke": True}, headers=h)
+    assert disconnect.status_code == 200, disconnect.text
+    assert disconnect.json()["disconnected"] is True
+
+    assert db_session.query(models.ExternalAccountLink).filter_by(user_id=user.id).count() == 0
+    status = client.get("/api/integrations/discogs/status", headers=h)
+    assert status.json()["connected"] is False
 
 
 def test_discogs_import_and_job_status(client, user, headers, db_session, monkeypatch):

@@ -85,13 +85,25 @@ For frontend scaffolding:
 
 ## 3.2 Discogs Integration + Import Lifecycle
 
+### `POST /api/integrations/discogs/oauth/start`
+- **Screen:** `IntegrationsScreen` connect CTA.
+- **Action:** Start OAuth flow, receive `authorize_url`, `state`, selected `scopes`, and expiry metadata.
+
+### `POST /api/integrations/discogs/oauth/callback`
+- **Screen:** `DiscogsOAuthCallbackScreen` route action.
+- **Action:** Exchange callback `code` + `state` for provider token. Backend validates stored state nonce + expiry before linking account.
+
 ### `POST /api/integrations/discogs/connect`
-- **Screen:** `IntegrationsScreen` or `DiscogsConnectModal`.
-- **Action:** User completes connect/reconnect flow and submits token/user id.
+- **Screen:** Internal/admin fallback only.
+- **Action:** Directly store Discogs account/token metadata without OAuth redirect.
 
 ### `GET /api/integrations/discogs/status`
 - **Screen:** `IntegrationsScreen`.
-- **Action:** Determine whether to show **Connect**, **Reconnect**, or **Import** CTA.
+- **Action:** Determine whether to show **Connect**, **Reconnect**, or **Import** CTA. `connected=true` only after OAuth callback has completed and an access token exists.
+
+### `POST /api/integrations/discogs/disconnect`
+- **Screen:** `IntegrationsScreen` disconnect action.
+- **Action:** Revoke provider token (best effort) and remove local link/token metadata.
 
 ### `POST /api/integrations/discogs/import`
 - **Screen:** `DiscogsImportScreen`.
@@ -105,9 +117,12 @@ For frontend scaffolding:
 
 Lifecycle summary:
 1. `status` load
-2. `connect` if needed (or reconnect)
-3. `import` start
-4. Poll `import/{job_id}` until finished
+2. `oauth/start` to create state nonce + redirect URL
+3. Redirect to Discogs auth and return to frontend
+4. `oauth/callback` to validate state + finalize account link
+5. `import` start
+6. Poll `import/{job_id}` until finished
+7. Optional `disconnect` when user unlinks account
 
 ---
 
