@@ -58,7 +58,7 @@ def upgrade() -> None:
         sa.text(
             """
             UPDATE provider_requests
-            SET user_id = :id::uuid
+            SET user_id = CAST(:id AS uuid)
             WHERE user_id IS NULL
             """
         ),
