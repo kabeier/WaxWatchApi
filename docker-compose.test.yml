@@ -12,3 +12,37 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  api-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      ENVIRONMENT: test
+      LOG_LEVEL: INFO
+      JSON_LOGS: "false"
+      DATABASE_URL: postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test
+      DB_POOL: queue
+      DB_POOL_SIZE: "5"
+      DB_MAX_OVERFLOW: "10"
+      AUTH_ISSUER: http://127.0.0.1:8765/auth/v1
+      AUTH_AUDIENCE: authenticated
+      AUTH_JWKS_URL: http://127.0.0.1:8765/auth/v1/.well-known/jwks.json
+      AUTH_JWT_ALGORITHMS: '["RS256"]'
+      AUTH_JWKS_CACHE_TTL_SECONDS: "300"
+      AUTH_CLOCK_SKEW_SECONDS: "0"
+      DISCOGS_USER_AGENT: waxwatch-ci
+      DISCOGS_TOKEN: ci-token
+      EBAY_CLIENT_ID: ci-ebay-client-id
+      EBAY_CLIENT_SECRET: ci-ebay-client-secret
+      EBAY_CAMPAIGN_ID: "1234567890"
+    entrypoint: ["bash", "-lc"]
+    command: "sleep infinity"

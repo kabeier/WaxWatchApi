@@ -66,6 +66,11 @@ class EventType(str, enum.Enum):
     # matches / alerts
     NEW_MATCH = "NEW_MATCH"
 
+    # imports
+    IMPORT_STARTED = "IMPORT_STARTED"
+    IMPORT_COMPLETED = "IMPORT_COMPLETED"
+    IMPORT_FAILED = "IMPORT_FAILED"
+
 
 PROVIDER_ENUM = Enum(Provider, name="provider_enum", create_constraint=False)
 LISTING_STATUS_ENUM = Enum(ListingStatus, name="listing_status_enum", create_constraint=False)
@@ -100,6 +105,81 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     events: Mapped[list[Event]] = relationship(back_populates="user", cascade="all, delete-orphan")
+    external_account_links: Mapped[list[ExternalAccountLink]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    import_jobs: Mapped[list[ImportJob]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class ExternalAccountLink(Base):
+    __tablename__ = "external_account_links"
+    __table_args__ = (
+        UniqueConstraint("user_id", "provider", name="uq_external_account_links_user_provider"),
+        Index("ix_external_account_links_provider_external_user", "provider", "external_user_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    provider: Mapped[Provider] = mapped_column(PROVIDER_ENUM, nullable=False)
+    external_user_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    access_token: Mapped[str | None] = mapped_column(Text)
+    token_metadata: Mapped[dict | None] = mapped_column(JSONB)
+
+    connected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    user: Mapped[User] = relationship(back_populates="external_account_links")
+    import_jobs: Mapped[list[ImportJob]] = relationship(
+        back_populates="external_account_link", cascade="all, delete-orphan"
+    )
+
+
+class ImportJob(Base):
+    __tablename__ = "import_jobs"
+    __table_args__ = (
+        Index("ix_import_jobs_user_created", "user_id", "created_at"),
+        Index("ix_import_jobs_status", "status"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    external_account_link_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("external_account_links.id", ondelete="SET NULL")
+    )
+
+    provider: Mapped[Provider] = mapped_column(PROVIDER_ENUM, nullable=False)
+    import_scope: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending")
+
+    cursor: Mapped[str | None] = mapped_column(String(255))
+    page: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    processed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    imported_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    errors: Mapped[list[dict] | None] = mapped_column(JSONB)
+
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    user: Mapped[User] = relationship(back_populates="import_jobs")
+    external_account_link: Mapped[ExternalAccountLink | None] = relationship(back_populates="import_jobs")
 
 
 class WatchRelease(Base):

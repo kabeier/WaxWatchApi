@@ -9,10 +9,11 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.middleware import RequestIDMiddleware
-
-# dev routers
 from app.api.routers.dev_ingest import router as dev_ingest_router
 from app.api.routers.dev_runner import router as dev_runner_router
+
+# dev routers
+from app.api.routers.discogs import router as discogs_router
 from app.api.routers.events import router as events_router
 from app.api.routers.health import router as health_router
 from app.api.routers.profile import router as profile_router
@@ -92,6 +93,7 @@ def create_app() -> FastAPI:
     app.include_router(provider_requests_router, prefix="/api")
     app.include_router(profile_router, prefix="/api")
     app.include_router(watch_rules_router, prefix="/api")
+    app.include_router(discogs_router, prefix="/api")
 
     if settings.environment.lower() != "prod":
         logger.info("dev_routes.enabled", extra={"environment": settings.environment})
