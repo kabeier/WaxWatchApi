@@ -17,9 +17,28 @@ This contract captures **current API behavior** and maps it to intended React su
 
 ---
 
-## 2) Standardized Response Envelopes
+## 2) CORS Configuration by Environment
 
-### 2.1 Error format (global)
+Backend CORS is controlled by env vars and should be set per deployment target:
+
+- `CORS_ALLOWED_ORIGINS`: Comma-separated or JSON list of exact frontend origins.
+- `CORS_ALLOWED_METHODS`: Allowed HTTP methods (`GET,POST,PUT,PATCH,DELETE,OPTIONS` by default).
+- `CORS_ALLOWED_HEADERS`: Allowed request headers (`Authorization,Content-Type` by default).
+- `CORS_ALLOW_CREDENTIALS`: `true` only when frontend must send cookies/auth credentials cross-origin.
+
+Recommended values:
+
+- **Local dev**: `CORS_ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000`
+- **Staging**: `CORS_ALLOWED_ORIGINS=https://staging.your-frontend.example`
+- **Production**: `CORS_ALLOWED_ORIGINS=https://app.your-frontend.example`
+
+Security rule: when `CORS_ALLOW_CREDENTIALS=true`, do **not** use wildcard (`*`) for origins, methods, or headers.
+
+---
+
+## 3) Standardized Response Envelopes
+
+### 3.1 Error format (global)
 
 All framework/HTTP and validation failures are returned as:
 
@@ -45,7 +64,7 @@ All framework/HTTP and validation failures are returned as:
   - `http_error`
 - Domain not-found and business-rule failures are emitted through `http_error` with useful `message` text.
 
-### 2.2 Pagination conventions
+### 3.2 Pagination conventions
 
 Current API uses **query-param pagination** (not envelope pagination) with a shared contract:
 
@@ -106,9 +125,9 @@ GET /api/events?offset=99999     # 200 []
 
 ---
 
-## 3) Endpoint → React Screen + Action Map
+## 4) Endpoint → React Screen + Action Map
 
-## 3.1 Profile / Account
+## 4.1 Profile / Account
 
 ### `GET /api/me`
 - **Screen:** `SettingsProfileScreen` (initial load).
@@ -130,7 +149,7 @@ GET /api/events?offset=99999     # 200 []
 
 ---
 
-## 3.2 Discogs Integration + Import Lifecycle
+## 4.2 Discogs Integration + Import Lifecycle
 
 ### `POST /api/integrations/discogs/oauth/start`
 - **Screen:** `IntegrationsScreen` connect CTA.
@@ -173,7 +192,7 @@ Lifecycle summary:
 
 ---
 
-## 3.3 Watch List / Alert CRUD
+## 4.3 Watch List / Alert CRUD
 
 The API has two watch paradigms; frontend can present both under a single “Alerts” IA with tabs.
 
@@ -206,7 +225,7 @@ The API has two watch paradigms; frontend can present both under a single “Ale
 
 ---
 
-## 3.4 Notification Inbox + Realtime
+## 4.4 Notification Inbox + Realtime
 
 ### `GET /api/notifications?limit=`
 - **Screen:** `NotificationInboxScreen`.
@@ -242,7 +261,7 @@ Recommended client behavior:
 
 ---
 
-## 4) OpenAPI Example Alignment (frontend scaffolding guidance)
+## 5) OpenAPI Example Alignment (frontend scaffolding guidance)
 
 The OpenAPI schema now includes representative examples for:
 - Profile read/update and auth-required operations.
