@@ -56,9 +56,7 @@ def test_deactivate_me_auto_disables_rules_and_blocks_auth(client, user, headers
     assert payload["deactivated_at"]
 
     disabled_rule = (
-        db_session.query(models.WatchSearchRule)
-        .filter(models.WatchSearchRule.user_id == user.id)
-        .one()
+        db_session.query(models.WatchSearchRule).filter(models.WatchSearchRule.user_id == user.id).one()
     )
     assert disabled_rule.is_active is False
 
@@ -124,12 +122,23 @@ def test_hard_delete_me_cascades_related_entities_and_blocks_access(client, user
     assert payload["deleted_at"]
 
     assert db_session.query(models.User).filter(models.User.id == user.id).count() == 0
-    assert db_session.query(models.WatchSearchRule).filter(models.WatchSearchRule.user_id == user.id).count() == 0
+    assert (
+        db_session.query(models.WatchSearchRule).filter(models.WatchSearchRule.user_id == user.id).count()
+        == 0
+    )
     assert db_session.query(models.Event).filter(models.Event.user_id == user.id).count() == 0
     assert db_session.query(models.Notification).filter(models.Notification.user_id == user.id).count() == 0
-    assert db_session.query(models.ExternalAccountLink).filter(models.ExternalAccountLink.user_id == user.id).count() == 0
+    assert (
+        db_session.query(models.ExternalAccountLink)
+        .filter(models.ExternalAccountLink.user_id == user.id)
+        .count()
+        == 0
+    )
     assert db_session.query(models.ImportJob).filter(models.ImportJob.user_id == user.id).count() == 0
-    assert db_session.query(models.ProviderRequest).filter(models.ProviderRequest.user_id == user.id).count() == 0
+    assert (
+        db_session.query(models.ProviderRequest).filter(models.ProviderRequest.user_id == user.id).count()
+        == 0
+    )
 
     follow_up = client.get("/api/me", headers=headers(user.id))
     assert follow_up.status_code == 404
