@@ -211,7 +211,6 @@ def patch_rule(
     return updated
 
 
-
 @router.post("/{rule_id}/disable", response_model=WatchRuleOut)
 def disable_rule_explicit(
     request: Request,
@@ -255,6 +254,7 @@ def delete_rule_hard(
         "watch_rules.delete_hard.success",
         extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule_id)},
     )
+
 
 @router.delete("/{rule_id}", response_model=WatchRuleOut)
 def disable_rule(

@@ -224,10 +224,7 @@ def test_disable_endpoint_and_hard_delete(client, user, headers, db_session):
     assert fetched.status_code == 404, fetched.text
 
     event_types = [
-        e.type
-        for e in db_session.query(models.Event)
-        .filter(models.Event.user_id == user.id)
-        .all()
+        e.type for e in db_session.query(models.Event).filter(models.Event.user_id == user.id).all()
     ]
     assert models.EventType.RULE_DISABLED in event_types
     assert models.EventType.RULE_DELETED in event_types
