@@ -10,3 +10,4 @@ known-first-party = ["app"]
 
 [lint.per-file-ignores]
 "app/api/routers/*.py" = ["B008"]
+"scripts/schema_drift_check.py" = ["I001"]
