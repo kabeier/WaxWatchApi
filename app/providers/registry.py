@@ -107,12 +107,22 @@ def get_provider_class(name: str):
     In tests (ENVIRONMENT=test), we can swap a provider to its test implementation.
     You can also force this with PROVIDER_FORCE_MOCK=1 in any environment.
     """
-    registration = get_provider_registration(name)
+    key = (name or "").strip().lower()
+    if not key:
+        raise ValueError("Provider name is required")
+
+    registration = PROVIDERS.get(key)
+    if not registration:
+        raise ValueError(f"Unknown provider: {key}")
 
     env = (os.getenv("ENVIRONMENT") or "dev").lower()
     force_mock = (os.getenv("PROVIDER_FORCE_MOCK") or "").strip().lower() in {"1", "true", "yes"}
 
     if registration.test_client_class and (env == "test" or force_mock):
         return registration.test_client_class
+
+    if not registration.enabled:
+        reason = registration.disabled_reason or "provider configuration unavailable"
+        raise ValueError(f"Provider '{key}' is disabled: {reason}")
 
     return registration.client_class
