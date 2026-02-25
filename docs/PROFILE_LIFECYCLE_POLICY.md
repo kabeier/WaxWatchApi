@@ -17,14 +17,15 @@ This document defines profile lifecycle behavior for the `/api/me` endpoints.
 - Endpoint: `DELETE /api/me/hard-delete`.
 - Behavior:
   - Requires bearer authentication and subject authorization; route dependency (`get_current_user_id_allow_inactive`) still enforces token validity/user identity while allowing inactive subjects to proceed.
-  - Checks that the user record exists, then permanently deletes it regardless of `users.is_active` state (active and previously deactivated accounts are both eligible).
+  - Checks that the user record exists, then permanently deletes it immediately regardless of `users.is_active` state (active and previously deactivated accounts are both eligible).
   - Returns `404 User profile not found` when the account does not exist (including repeated hard-delete attempts after successful deletion).
   - Current implementation executes synchronously in-request.
 
-## Retention Window
+## Retention and Compliance Note
 
-- Soft-deactivated accounts are retained for **30 days** before hard delete eligibility.
-- Operationally, hard delete can still be invoked explicitly for immediate removal when policy/admin rules allow.
+- The API does **not** enforce a minimum retention window before hard delete.
+- `DELETE /api/me/hard-delete` is an immediate, user-invoked permanent deletion operation.
+- Any legal hold, compliance retention, or operational backup/restore policy is handled outside endpoint-level enforcement and should be documented in legal/operations policy artifacts.
 
 ## Cascade Strategy and Related Entities
 
