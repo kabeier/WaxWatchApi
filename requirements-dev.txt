@@ -211,7 +211,7 @@ pyyaml==6.0.3
     #   pop
     #   pre-commit
     #   rend
-redis==5.2.1
+redis==7.2.1
     # via -r requirements-dev.in
 rend==7.0.2
     # via
