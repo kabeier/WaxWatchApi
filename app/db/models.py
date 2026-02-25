@@ -31,7 +31,7 @@ class Base(DeclarativeBase):
 # -------------------------
 
 
-class Provider(str, enum.Enum):
+class Provider(enum.StrEnum):
     discogs = "discogs"
     ebay = "ebay"
     mock = "mock"
@@ -39,13 +39,13 @@ class Provider(str, enum.Enum):
     spotify = "spotify"
 
 
-class ListingStatus(str, enum.Enum):
+class ListingStatus(enum.StrEnum):
     active = "active"
     ended = "ended"  # sold/removed/expired
     unknown = "unknown"
 
 
-class EventType(str, enum.Enum):
+class EventType(enum.StrEnum):
     # rule / watch lifecycle
     RULE_CREATED = "RULE_CREATED"
     RULE_UPDATED = "RULE_UPDATED"
@@ -73,12 +73,12 @@ class EventType(str, enum.Enum):
     IMPORT_FAILED = "IMPORT_FAILED"
 
 
-class NotificationChannel(str, enum.Enum):
+class NotificationChannel(enum.StrEnum):
     email = "email"
     realtime = "realtime"
 
 
-class NotificationStatus(str, enum.Enum):
+class NotificationStatus(enum.StrEnum):
     pending = "pending"
     sent = "sent"
     failed = "failed"
