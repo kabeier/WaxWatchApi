@@ -137,7 +137,13 @@ def test_provider_requests_admin_filtering_and_pagination(client, user, user2, d
     admin_headers = {"Authorization": f"Bearer {admin_token}"}
 
     filtered = client.get(
-        f"/api/provider-requests/admin?provider=discogs&status_code_gte=400&created_from={(now - timedelta(hours=1)).isoformat()}&user_id={user.id}",
+        "/api/provider-requests/admin",
+        params={
+            "provider": "discogs",
+            "status_code_gte": 400,
+            "created_from": (now - timedelta(hours=1)).isoformat(),
+            "user_id": str(user.id),
+        },
         headers=admin_headers,
     )
     assert filtered.status_code == 200, filtered.text
