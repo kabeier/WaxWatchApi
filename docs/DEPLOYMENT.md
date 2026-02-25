@@ -6,6 +6,15 @@ This project uses **runtime-injected environment variables** for production.
 - Inject secrets via your CI/CD platform or secret manager (GitHub Actions secrets, AWS/GCP secret managers, Vault, etc.).
 - Keep `.env.sample` as a local/dev reference only.
 
+## Environment naming and behavior
+
+Set `ENVIRONMENT` to one of the documented values so route gating and observability behave predictably:
+
+- `dev`, `test`, `local`: development/test environments; `/api/dev-*` routes are enabled.
+- `prod`, `production`, `staging`: production-like environments; `/api/dev-*` routes are disabled.
+
+Avoid custom aliases where possible. If you must use a non-standard value, treat it as production-like unless you explicitly intend to expose dev routes.
+
 ## Local development (Docker Compose)
 
 For local development only, use the dev override and optional `.env.dev` file:

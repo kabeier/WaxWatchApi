@@ -29,6 +29,8 @@ from app.core.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
 
+DEV_ROUTE_ENV_ALLOWLIST = {"dev", "test", "local"}
+
 
 def _error_response_payload(
     *,
@@ -117,12 +119,15 @@ def create_app() -> FastAPI:
     app.include_router(watch_releases_router, prefix="/api")
     app.include_router(discogs_router, prefix="/api")
 
-    if settings.environment.lower() != "prod":
+    if settings.environment.lower() in DEV_ROUTE_ENV_ALLOWLIST:
         logger.info("dev_routes.enabled", extra={"environment": settings.environment})
         app.include_router(dev_ingest_router, prefix="/api")
         app.include_router(dev_runner_router, prefix="/api")
     else:
-        logger.info("dev_routes.disabled", extra={"environment": settings.environment})
+        logger.info(
+            "dev_routes.disabled",
+            extra={"environment": settings.environment, "allowlist": sorted(DEV_ROUTE_ENV_ALLOWLIST)},
+        )
 
     return app
 
