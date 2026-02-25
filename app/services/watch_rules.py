@@ -33,7 +33,7 @@ def _validate_rule_query_defensive(query: dict[str, Any]) -> None:
     max_price = query.get("max_price")
     if max_price is None:
         return
-    if not isinstance(max_price, (int, float)) or isinstance(max_price, bool):
+    if not isinstance(max_price, int | float) or isinstance(max_price, bool):
         raise ValueError("query.max_price must be a numeric value")
     if max_price < 0:
         raise ValueError("query.max_price must be non-negative")
