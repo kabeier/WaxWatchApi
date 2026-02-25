@@ -4,6 +4,8 @@ import asyncio
 import uuid
 from datetime import datetime, timezone
 
+import pytest
+
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
 from app.services.notifications import enqueue_from_event, publish_realtime, send_email, stream_broker
@@ -163,3 +165,60 @@ def test_profile_notification_preference_changes_affect_enqueue(client, db_sessi
 
     assert len(notifications) == 1
     assert notifications[0].channel == models.NotificationChannel.email
+
+
+def test_send_email_marks_failed_and_raises_for_retryable_provider_errors(db_session, user, monkeypatch):
+    from app.services.email_provider import EmailDeliveryResult
+
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+    email_notification = next(n for n in notifications if n.channel == models.NotificationChannel.email)
+
+    class _RetryableFailureProvider:
+        def send_email(self, _request):
+            return EmailDeliveryResult(
+                success=False,
+                retryable=True,
+                error_code="Throttling",
+                error_message="temporary provider failure",
+            )
+
+    monkeypatch.setattr(
+        "app.services.notifications.get_email_provider",
+        lambda: _RetryableFailureProvider(),
+    )
+
+    with pytest.raises(RuntimeError):
+        send_email(db_session, notification=email_notification)
+
+    assert email_notification.status == models.NotificationStatus.failed
+    assert email_notification.failed_at is not None
+
+
+def test_send_email_marks_failed_without_raise_for_non_retryable_provider_errors(
+    db_session, user, monkeypatch
+):
+    from app.services.email_provider import EmailDeliveryResult
+
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+    email_notification = next(n for n in notifications if n.channel == models.NotificationChannel.email)
+
+    class _PermanentFailureProvider:
+        def send_email(self, _request):
+            return EmailDeliveryResult(
+                success=False,
+                retryable=False,
+                error_code="MessageRejected",
+                error_message="recipient is suppressed",
+            )
+
+    monkeypatch.setattr(
+        "app.services.notifications.get_email_provider",
+        lambda: _PermanentFailureProvider(),
+    )
+
+    send_email(db_session, notification=email_notification)
+
+    assert email_notification.status == models.NotificationStatus.failed
+    assert email_notification.failed_at is not None

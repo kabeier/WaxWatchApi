@@ -89,10 +89,15 @@ def deliver_notification_task(self, notification_id: str) -> None:
 
         db.commit()
     except RuntimeError:
-        db.rollback()
+        db.commit()
         logger.warning(
             "notifications.delivery.retry",
-            extra={"notification_id": notification_id, "at": datetime.now(timezone.utc).isoformat()},
+            extra={
+                "notification_id": notification_id,
+                "at": datetime.now(timezone.utc).isoformat(),
+                "retry_backoff_seconds": settings.celery_task_retry_backoff_seconds,
+                "max_retries": settings.celery_task_max_retries,
+            },
         )
         raise
     except Exception:
