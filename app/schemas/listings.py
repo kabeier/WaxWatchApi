@@ -22,6 +22,7 @@ class ListingIngest(BaseModel):
     seller: str | None = None
     location: str | None = None
     discogs_release_id: int | None = None
+    discogs_master_id: int | None = None
 
     raw: dict[str, Any] | None = None
 
@@ -42,6 +43,7 @@ class ListingOut(BaseModel):
     location: str | None
     status: str
     discogs_release_id: int | None
+    discogs_master_id: int | None
     first_seen_at: datetime
     last_seen_at: datetime
 

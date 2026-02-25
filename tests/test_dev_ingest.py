@@ -5,7 +5,7 @@ import uuid
 from app.db import models
 
 
-def _listing_payload(*, price: float) -> dict:
+def _listing_payload(*, price: float, release_id: int = 123, master_id: int | None = None) -> dict:
     return {
         "provider": "discogs",
         "external_id": "discogs-123",
@@ -16,7 +16,8 @@ def _listing_payload(*, price: float) -> dict:
         "condition": "VG+",
         "seller": "seller1",
         "location": "US",
-        "discogs_release_id": 123,
+        "discogs_release_id": release_id,
+        "discogs_master_id": master_id,
         "raw": {"foo": "bar"},
     }
 
@@ -128,3 +129,99 @@ def test_dev_ingest_does_not_match_whitespace_only_keywords_rule(client, user, h
         .first()
     )
     assert match is None
+
+
+def test_dev_ingest_matches_exact_release_mode_only_on_release_id(client, user, headers, db_session):
+    watch = models.WatchRelease(
+        user_id=user.id,
+        discogs_release_id=123,
+        discogs_master_id=9999,
+        match_mode="exact_release",
+        title="Exact Watch",
+        currency="USD",
+        is_active=True,
+    )
+    db_session.add(watch)
+    db_session.flush()
+
+    h = headers(user.id)
+    r = client.post(
+        "/api/dev/listings/ingest",
+        json=_listing_payload(price=50.0, release_id=123, master_id=8888),
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["created_matches"] == 1
+
+    listing_id = uuid.UUID(r.json()["listing"]["id"])
+    release_events = (
+        db_session.query(models.Event)
+        .filter(models.Event.watch_release_id == watch.id)
+        .filter(models.Event.listing_id == listing_id)
+        .all()
+    )
+    assert len(release_events) == 1
+
+
+def test_dev_ingest_matches_master_release_mode_only_on_master_id(client, user, headers, db_session):
+    watch = models.WatchRelease(
+        user_id=user.id,
+        discogs_release_id=123,
+        discogs_master_id=555,
+        match_mode="master_release",
+        title="Master Watch",
+        currency="USD",
+        is_active=True,
+    )
+    db_session.add(watch)
+    db_session.flush()
+
+    h = headers(user.id)
+    r = client.post(
+        "/api/dev/listings/ingest",
+        json=_listing_payload(price=50.0, release_id=789, master_id=555),
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["created_matches"] == 1
+
+
+def test_dev_ingest_watch_release_mode_false_positive_controls(client, user, headers, db_session):
+    exact_watch = models.WatchRelease(
+        user_id=user.id,
+        discogs_release_id=123,
+        discogs_master_id=555,
+        match_mode="exact_release",
+        title="Exact Watch",
+        currency="USD",
+        is_active=True,
+    )
+    master_watch = models.WatchRelease(
+        user_id=user.id,
+        discogs_release_id=456,
+        discogs_master_id=777,
+        match_mode="master_release",
+        title="Master Watch",
+        currency="USD",
+        is_active=True,
+    )
+    db_session.add_all([exact_watch, master_watch])
+    db_session.flush()
+
+    h = headers(user.id)
+    r = client.post(
+        "/api/dev/listings/ingest",
+        json=_listing_payload(price=50.0, release_id=999, master_id=111),
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["created_matches"] == 0
+
+    listing_id = uuid.UUID(r.json()["listing"]["id"])
+    release_events = (
+        db_session.query(models.Event)
+        .filter(models.Event.listing_id == listing_id)
+        .filter(models.Event.watch_release_id.is_not(None))
+        .all()
+    )
+    assert not release_events

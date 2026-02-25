@@ -63,6 +63,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
             "location": payload.get("location"),
             "status": models.ListingStatus.active,
             "discogs_release_id": payload.get("discogs_release_id"),
+            "discogs_master_id": payload.get("discogs_master_id"),
             "first_seen_at": now,
             "last_seen_at": now,
             "raw": payload.get("raw"),
@@ -126,6 +127,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
     listing.seller = payload.get("seller")
     listing.location = payload.get("location")
     listing.discogs_release_id = payload.get("discogs_release_id")
+    listing.discogs_master_id = payload.get("discogs_master_id")
     listing.last_seen_at = now
     listing.raw = payload.get("raw")
 
@@ -153,7 +155,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
 
 def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listing) -> int:
     """
-    Checks active rules for this user and creates WatchMatch + NEW_MATCH Event.
+    Checks active rules and release watches for this user and creates NEW_MATCH events.
     Returns number of new matches created.
     """
     created = 0
@@ -169,6 +171,18 @@ def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listin
     for rule in rules:
         if _rule_matches_listing(rule, listing, title_norm):
             created += _create_match_if_needed(db, user_id=user_id, rule=rule, listing=listing)
+
+    release_watches = (
+        db.query(models.WatchRelease)
+        .filter(models.WatchRelease.user_id == user_id)
+        .filter(models.WatchRelease.is_active.is_(True))
+        .all()
+    )
+    for watch in release_watches:
+        if _watch_release_matches_listing(watch, listing):
+            created += _create_release_match_event_if_needed(
+                db, user_id=user_id, watch=watch, listing=listing
+            )
 
     return created
 
@@ -215,6 +229,59 @@ def _rule_matches_listing(
                 return False
 
     return True
+
+
+def _watch_release_matches_listing(watch: models.WatchRelease, listing: models.Listing) -> bool:
+    if watch.match_mode == "master_release":
+        return (
+            watch.discogs_master_id is not None
+            and listing.discogs_master_id is not None
+            and int(watch.discogs_master_id) == int(listing.discogs_master_id)
+        )
+
+    return listing.discogs_release_id is not None and int(watch.discogs_release_id) == int(
+        listing.discogs_release_id
+    )
+
+
+def _create_release_match_event_if_needed(
+    db: Session,
+    *,
+    user_id: UUID,
+    watch: models.WatchRelease,
+    listing: models.Listing,
+) -> int:
+    existing_event = (
+        db.query(models.Event.id)
+        .filter(models.Event.user_id == user_id)
+        .filter(models.Event.type == models.EventType.NEW_MATCH)
+        .filter(models.Event.watch_release_id == watch.id)
+        .filter(models.Event.listing_id == listing.id)
+        .first()
+    )
+    if existing_event is not None:
+        return 0
+
+    now = datetime.now(timezone.utc)
+    event = models.Event(
+        user_id=user_id,
+        type=models.EventType.NEW_MATCH,
+        watch_release_id=watch.id,
+        listing_id=listing.id,
+        payload={
+            "match_type": "watch_release",
+            "watch_release_title": watch.title,
+            "watch_match_mode": watch.match_mode,
+            "listing_title": listing.title,
+            "provider": listing.provider.value,
+            "url": listing.url,
+        },
+        created_at=now,
+    )
+    db.add(event)
+    db.flush()
+    enqueue_from_event(db, event=event)
+    return 1
 
 
 def _create_match_if_needed(

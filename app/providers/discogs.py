@@ -146,6 +146,7 @@ class DiscogsClient(ProviderClient):
             out: list[ProviderListing] = []
             for r in results:
                 release_id = r.get("id")
+                master_id = r.get("master_id")
                 external_id = str(release_id).strip() if release_id is not None else ""
                 title = str(r.get("title") or "").strip()
                 listing_url = str(r.get("uri") or r.get("resource_url") or "").strip()
@@ -161,6 +162,7 @@ class DiscogsClient(ProviderClient):
                         price=0.0,
                         currency="USD",
                         discogs_release_id=release_id,
+                        discogs_master_id=master_id,
                         raw=r,
                     )
                 )

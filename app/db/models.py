@@ -221,14 +221,37 @@ class WatchRelease(Base):
 
     __tablename__ = "watch_releases"
     __table_args__ = (
-        UniqueConstraint("user_id", "discogs_release_id", name="uq_watch_release_user_release"),
         Index("ix_watch_releases_user_active", "user_id", "is_active"),
+        Index(
+            "uq_watch_release_user_exact_release",
+            "user_id",
+            "discogs_release_id",
+            unique=True,
+            postgresql_where=text("match_mode = 'exact_release'"),
+        ),
+        Index(
+            "uq_watch_release_user_master_release",
+            "user_id",
+            "discogs_master_id",
+            unique=True,
+            postgresql_where=text("match_mode = 'master_release'"),
+        ),
+        CheckConstraint(
+            "match_mode IN ('exact_release', 'master_release')",
+            name="ck_watch_releases_match_mode_valid",
+        ),
+        CheckConstraint(
+            "(match_mode != 'master_release') OR (discogs_master_id IS NOT NULL)",
+            name="ck_watch_releases_master_id_required",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     discogs_release_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    discogs_master_id: Mapped[int | None] = mapped_column(Integer)
+    match_mode: Mapped[str] = mapped_column(String(30), nullable=False, default="exact_release")
     title: Mapped[str] = mapped_column(String(300), nullable=False)  # cached display title
     artist: Mapped[str | None] = mapped_column(String(200))
     year: Mapped[int | None] = mapped_column(Integer)
@@ -334,6 +357,7 @@ class Listing(Base):
 
     # If you can infer it, store.
     discogs_release_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    discogs_master_id: Mapped[int | None] = mapped_column(Integer, index=True)
 
     first_seen_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
