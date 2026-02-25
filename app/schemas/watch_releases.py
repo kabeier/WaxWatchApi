@@ -68,8 +68,11 @@ class WatchReleaseUpdate(BaseModel):
 
     @model_validator(mode="after")
     def validate_match_mode_fields(self) -> WatchReleaseUpdate:
-        effective_mode = self.match_mode
-        if effective_mode == "master_release" and self.discogs_master_id is None:
+        if (
+            self.match_mode == "master_release"
+            and self.discogs_master_id is None
+            and "discogs_master_id" in self.model_fields_set
+        ):
             msg = "discogs_master_id is required when match_mode is master_release"
             raise ValueError(msg)
         return self
