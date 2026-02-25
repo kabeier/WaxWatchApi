@@ -59,3 +59,34 @@ def test_outbound_ebay_redirect_404_for_non_ebay_listing(client, user, headers, 
 
     assert response.status_code == 404
     assert db_session.query(models.OutboundClick).count() == 0
+
+
+def test_outbound_ebay_redirect_404_for_missing_listing(client, user, headers, db_session):
+    response = client.get(
+        "/api/outbound/ebay/00000000-0000-0000-0000-000000000000",
+        headers=headers(user.id),
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 404
+    assert db_session.query(models.OutboundClick).count() == 0
+
+
+def test_outbound_ebay_redirect_404_for_unavailable_destination(client, user, headers, db_session):
+    listing = models.Listing(
+        provider=models.Provider.ebay,
+        external_id="ebay-456",
+        url="   ",
+        title="Unavailable record",
+        normalized_title="unavailable record",
+        price=13.0,
+        currency="USD",
+        status=models.ListingStatus.active,
+    )
+    db_session.add(listing)
+    db_session.flush()
+
+    response = client.get(f"/api/outbound/ebay/{listing.id}", headers=headers(user.id), follow_redirects=False)
+
+    assert response.status_code == 404
+    assert db_session.query(models.OutboundClick).count() == 0
