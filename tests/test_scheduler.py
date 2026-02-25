@@ -47,6 +47,7 @@ def test_scheduler_failure_increments_failed_and_uses_retry_delay(db_session, us
         raise RuntimeError("boom")
 
     monkeypatch.setattr(scheduler, "run_rule_once", _raise_once)
+    monkeypatch.setattr(scheduler.random, "randint", lambda *_args, **_kwargs: 0)
 
     result = run_due_rules_once(db_session, batch_size=10, rule_limit=5)
 
