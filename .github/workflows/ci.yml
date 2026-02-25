@@ -45,4 +45,6 @@ jobs:
         run: make typecheck
 
       - name: Migration, drift, and test gates (with coverage threshold)
-        run: make ci-db-tests
+        env:
+          COVERAGE_FAIL_UNDER: "75"
+        run: make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER

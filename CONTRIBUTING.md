@@ -22,7 +22,14 @@ Use the same commands that CI uses before opening a pull request:
 - Mypy type checks (`mypy app scripts tests`)
 - Alembic migration check against test DB
 - Schema drift check
-- Pytest with coverage collection and threshold enforcement from `pytest.ini`
+- Pytest with coverage collection and threshold enforcement (`--cov-fail-under=75` by default)
+
+## Coverage threshold policy
+
+- CI enforces a minimum line coverage threshold through `make ci-db-tests` using `--cov-fail-under=$(COVERAGE_FAIL_UNDER)`.
+- The default threshold is `75` and is defined in the Makefile (`COVERAGE_FAIL_UNDER ?= 75`).
+- `make ci-local` calls the same `ci-db-tests` target, so developers see the same coverage failure locally before pushing.
+- Ownership: backend maintainers are responsible for keeping this threshold realistic and raising it over time when test coverage improves.
 
 ## Pre-commit hooks
 
