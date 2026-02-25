@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.db import models
+from app.monetization.outbound import tracked_outbound_path
 from app.services.notifications import enqueue_from_event
 from app.services.watch_rules import ensure_user_exists
 
@@ -263,6 +264,7 @@ def _create_release_match_event_if_needed(
         return 0
 
     now = datetime.now(timezone.utc)
+    public_url = tracked_outbound_path(provider=listing.provider.value, listing_id=listing.id) or listing.url
     event = models.Event(
         user_id=user_id,
         type=models.EventType.NEW_MATCH,
@@ -274,7 +276,7 @@ def _create_release_match_event_if_needed(
             "watch_match_mode": watch.match_mode,
             "listing_title": listing.title,
             "provider": listing.provider.value,
-            "url": listing.url,
+            "url": public_url,
         },
         created_at=now,
     )
@@ -324,7 +326,8 @@ def _create_match_if_needed(
             "price": float(listing.price),
             "currency": listing.currency,
             "provider": listing.provider.value,
-            "url": listing.url,
+            "url": tracked_outbound_path(provider=listing.provider.value, listing_id=listing.id)
+            or listing.url,
         },
         created_at=now,
     )

@@ -69,9 +69,10 @@ def _passes_filters(item: ProviderListing, query: SearchQuery) -> bool:
     return True
 
 
-def _to_listing_out(item: ProviderListing) -> SearchListingOut:
+def _to_listing_out(item: ProviderListing, *, listing_id: UUID | None = None) -> SearchListingOut:
     return SearchListingOut(
         id=f"{item.provider}:{item.external_id}",
+        listing_id=listing_id,
         provider=item.provider,
         external_id=item.external_id,
         title=item.title,
@@ -155,7 +156,27 @@ def run_search(db: Session, *, user_id: UUID, query: SearchQuery) -> SearchRespo
     end = start + query.page_size
     page_items = filtered[start:end]
 
-    out_items = [_to_listing_out(item) for item in page_items]
+    persisted_listing_ids: dict[tuple[str, str], UUID] = {}
+    if page_items:
+        provider_external_pairs = {(item.provider, item.external_id) for item in page_items}
+        provider_values = {provider for provider, _external_id in provider_external_pairs}
+        external_ids = {external_id for _provider, external_id in provider_external_pairs}
+        rows = (
+            db.query(models.Listing)
+            .filter(models.Listing.provider.in_([models.Provider(p) for p in provider_values]))
+            .filter(models.Listing.external_id.in_(list(external_ids)))
+            .all()
+        )
+        for row in rows:
+            persisted_listing_ids[(row.provider.value, row.external_id)] = row.id
+
+    out_items = [
+        _to_listing_out(
+            item,
+            listing_id=persisted_listing_ids.get((item.provider, item.external_id)),
+        )
+        for item in page_items
+    ]
     pagination = SearchPagination.build(
         page=query.page,
         page_size=query.page_size,

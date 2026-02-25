@@ -5,11 +5,19 @@ import uuid
 from app.db import models
 
 
-def _listing_payload(*, price: float, release_id: int = 123, master_id: int | None = None) -> dict:
+def _listing_payload(
+    *,
+    price: float,
+    release_id: int = 123,
+    master_id: int | None = None,
+    provider: str = "discogs",
+    external_id: str = "discogs-123",
+    url: str = "https://example.com/listing/123",
+) -> dict:
     return {
-        "provider": "discogs",
-        "external_id": "discogs-123",
-        "url": "https://example.com/listing/123",
+        "provider": provider,
+        "external_id": external_id,
+        "url": url,
         "title": "Primus - Sailing the Seas of Cheese (Vinyl)",
         "price": price,
         "currency": "USD",
@@ -20,6 +28,25 @@ def _listing_payload(*, price: float, release_id: int = 123, master_id: int | No
         "discogs_master_id": master_id,
         "raw": {"foo": "bar"},
     }
+
+
+def test_dev_ingest_exposes_tracked_public_url_for_ebay(client, user, headers):
+    h = headers(user.id)
+
+    r = client.post(
+        "/api/dev/listings/ingest",
+        json=_listing_payload(
+            price=50.0,
+            provider="ebay",
+            external_id="ebay-123",
+            url="https://www.ebay.com/itm/123",
+        ),
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+
+    body = r.json()
+    assert body["listing"]["public_url"] == f"/api/outbound/ebay/{body['listing']['id']}"
 
 
 def test_dev_ingest_creates_listing_and_snapshot(client, user, headers, db_session):
@@ -101,6 +128,42 @@ def test_dev_ingest_can_create_match_when_rule_exists(client, user, headers, db_
         .first()
     )
     assert match is not None
+
+
+def test_dev_ingest_match_event_uses_tracked_url_for_ebay(client, user, headers, db_session):
+    rule = models.WatchSearchRule(
+        user_id=user.id,
+        name="Primus under $70",
+        query={"keywords": ["primus", "vinyl"], "sources": ["ebay"], "max_price": 70},
+        is_active=True,
+        poll_interval_seconds=600,
+    )
+    db_session.add(rule)
+    db_session.flush()
+
+    h = headers(user.id)
+    r = client.post(
+        "/api/dev/listings/ingest",
+        json=_listing_payload(
+            price=50.0,
+            provider="ebay",
+            external_id="ebay-777",
+            url="https://www.ebay.com/itm/777",
+        ),
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+
+    listing_id = body["listing"]["id"]
+    event = (
+        db_session.query(models.Event)
+        .filter(models.Event.rule_id == rule.id)
+        .filter(models.Event.listing_id == listing_id)
+        .one()
+    )
+    assert event.payload is not None
+    assert event.payload["url"] == f"/api/outbound/ebay/{listing_id}"
 
 
 def test_dev_ingest_does_not_match_whitespace_only_keywords_rule(client, user, headers, db_session):
