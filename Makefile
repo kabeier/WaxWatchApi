@@ -19,7 +19,7 @@ TEST_AUTH_JWT_ALGORITHMS ?= ["RS256"]
 TEST_AUTH_JWKS_CACHE_TTL_SECONDS ?= 300
 TEST_AUTH_CLOCK_SKEW_SECONDS ?= 0
 TEST_TOKEN_CRYPTO_LOCAL_KEY ?= 5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=
-COVERAGE_FAIL_UNDER ?= 75
+COVERAGE_FAIL_UNDER ?= 85
 
 # Git helpers
 GIT_REMOTE ?= origin
@@ -30,7 +30,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install
 
 help:
 	@echo ""
@@ -401,6 +401,9 @@ check-change-surface:
 
 check-contract-sync:
 	$(PYTHON) scripts/check_frontend_contract_sync.py
+
+check-coverage-regression:
+	$(PYTHON) scripts/check_coverage_regression.py
 
 wait-test-db:
 	@set -euo pipefail; \

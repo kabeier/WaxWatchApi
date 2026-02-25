@@ -23,14 +23,22 @@ Use the same commands that CI uses before opening a pull request:
 - Mypy type checks (`mypy app scripts tests`)
 - Alembic migration check against test DB
 - Schema drift check
-- Pytest with coverage collection and threshold enforcement (`--cov-fail-under=75` by default)
+- Pytest with coverage collection and threshold enforcement (`--cov-fail-under=85` by default)
 
-## Coverage threshold policy
+## Coverage policy
 
-- CI enforces a minimum line coverage threshold through `make ci-db-tests` using `--cov-fail-under=$(COVERAGE_FAIL_UNDER)`.
-- The default threshold is `75` and is defined in the Makefile (`COVERAGE_FAIL_UNDER ?= 75`).
-- `make ci-local` calls the same `ci-db-tests` target, so developers see the same coverage failure locally before pushing.
-- Ownership: backend maintainers are responsible for keeping this threshold realistic and raising it over time when test coverage improves.
+- Coverage gating is aligned between `pytest.ini`, `Makefile`, and CI (`.github/workflows/ci.yml`) with a default floor of **85%** (`--cov-fail-under=85`).
+- Coverage uplift is phased:
+  - **Phase 1 (active):** keep total coverage at or above **85%**.
+  - **Phase 2 (target):** raise the shared floor to **88%+** after low-coverage modules are improved.
+- Pull requests must not reduce overall coverage compared to the base branch.
+- Pull requests must not reduce coverage for high-risk modules:
+  - `app/services/background.py`
+  - `app/services/watch_rules.py`
+  - `app/services/matching.py`
+  - `app/core/token_crypto.py`
+- CI enforces the non-regression policy by comparing PR coverage output (`coverage.json`) against base-branch coverage output.
+- `make ci-local` and `make ci-db-tests` continue to mirror CI gates so failures surface locally before push.
 
 ## Pre-commit hooks
 
