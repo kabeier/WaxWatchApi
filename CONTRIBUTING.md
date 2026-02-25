@@ -47,3 +47,10 @@ pre-commit run --hook-stage pre-push --all-files
 ```
 
 Following this workflow ensures your branch meets the same lint, formatting, typing, migration, and coverage gates that run in CI.
+
+## Environment configuration policy
+
+- `.env.sample` is documentation for local/dev values only.
+- Local Docker Compose development may use `.env.dev` via `docker-compose.override.yml`.
+- Production deployments must inject environment variables/secrets at runtime (CI/CD secrets or secret manager), not local `.env` files.
+- Use `make check-prod-env` before `make migrate-prod` / `make prod-up` to fail fast if required production variables are missing.
