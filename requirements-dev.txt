@@ -27,7 +27,7 @@ anyio==4.12.1
     #   starlette
 billiard==4.2.4
     # via celery
-celery==5.4.0
+celery==5.6.2
     # via -r requirements-dev.in
 certifi==2026.1.4
     # via
@@ -261,9 +261,9 @@ typing-inspection==0.4.2
     #   pydantic
     #   pydantic-settings
 tzdata==2025.3
-    # via
-    #   celery
-    #   kombu
+    # via kombu
+tzlocal==5.3.1
+    # via celery
 urllib3==2.6.3
     # via sentry-sdk
 uvicorn==0.41.0
