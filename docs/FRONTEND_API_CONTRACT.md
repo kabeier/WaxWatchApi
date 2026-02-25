@@ -136,6 +136,12 @@ GET /api/events?offset=99999     # 200 []
 ### `PATCH /api/me`
 - **Screen:** `SettingsProfileScreen`.
 - **Action:** Save profile edits (display name, preferences).
+- **Persistence semantics (single source of truth):**
+  - `preferences.timezone` → persisted to `users.timezone`.
+  - `preferences.currency` → persisted to `users.currency`.
+  - `preferences.notifications_email` → persisted to `user_notification_preferences.email_enabled`.
+  - `preferences.notifications_push` → persisted to `user_notification_preferences.realtime_enabled`.
+- **Read-after-write guarantee:** A successful `PATCH /api/me` is reflected on subsequent `GET /api/me` responses without relying on token metadata syncing.
 
 ### `POST /api/me/logout`
 - **Screen:** Account menu/global app shell.

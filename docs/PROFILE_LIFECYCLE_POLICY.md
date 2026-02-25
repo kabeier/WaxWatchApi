@@ -37,3 +37,19 @@ Hard delete of `users` cascades or nullifies related entities as follows (from `
 - Other direct user-owned entities (`watch_releases`, `user_notification_preferences`) also use cascade delete.
 
 This strategy ensures hard delete removes personal/account-owned records while preserving globally shared entities (for example, `listings`) unless separately orphaned by non-user constraints.
+
+
+## Profile Preference Persistence
+
+`/api/me` profile preferences are persisted in the application database as the single source of truth (no external identity-provider metadata sync is required for preference reads/writes):
+
+- `preferences.timezone` is stored on `users.timezone`.
+- `preferences.currency` is stored on `users.currency`.
+- `preferences.notifications_email` maps to `user_notification_preferences.email_enabled`.
+- `preferences.notifications_push` maps to `user_notification_preferences.realtime_enabled`.
+
+Delivery behavior is controlled by `user_notification_preferences`:
+
+- Event fan-out skips email notifications when `email_enabled=false`.
+- Event fan-out skips realtime/SSE notifications when `realtime_enabled=false`.
+- Existing per-event toggle checks (`event_toggles`) still apply.

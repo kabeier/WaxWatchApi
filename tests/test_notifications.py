@@ -130,3 +130,36 @@ def test_notifications_pagination_offset_cursor_and_empty_page(client, db_sessio
     empty_resp = client.get("/api/notifications?limit=2&offset=99", headers=auth_headers)
     assert empty_resp.status_code == 200
     assert empty_resp.json() == []
+
+
+def test_notification_preferences_disable_delivery_channels(db_session, user):
+    db_session.add(
+        models.UserNotificationPreference(
+            user_id=user.id,
+            email_enabled=False,
+            realtime_enabled=False,
+            event_toggles={models.EventType.NEW_MATCH.value: True},
+        )
+    )
+    db_session.flush()
+
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+
+    assert notifications == []
+    assert db_session.query(models.Notification).filter(models.Notification.event_id == event.id).count() == 0
+
+
+def test_profile_notification_preference_changes_affect_enqueue(client, db_session, user, headers):
+    response = client.patch(
+        "/api/me",
+        headers=headers(user.id),
+        json={"preferences": {"notifications_email": True, "notifications_push": False}},
+    )
+    assert response.status_code == 200
+
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+
+    assert len(notifications) == 1
+    assert notifications[0].channel == models.NotificationChannel.email

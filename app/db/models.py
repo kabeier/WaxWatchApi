@@ -111,6 +111,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 
     display_name: Mapped[str | None] = mapped_column(String(120))
+    timezone: Mapped[str | None] = mapped_column(String(64))
+    currency: Mapped[str | None] = mapped_column(String(3))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -462,6 +464,7 @@ class UserNotificationPreference(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
     )
     email_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    realtime_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     quiet_hours_start: Mapped[int | None] = mapped_column(Integer)
     quiet_hours_end: Mapped[int | None] = mapped_column(Integer)
     event_toggles: Mapped[dict | None] = mapped_column(JSONB)

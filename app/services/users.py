@@ -8,20 +8,21 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.schemas.users import IntegrationSummary, UserPreferences
+from app.services.notifications import get_or_create_preferences
 
 DEFAULT_PROVIDER_SUMMARY = tuple(p.value for p in models.Provider)
 
 
-def _preferences_from_claims_or_empty(token_claims: dict | None) -> dict:
-    if not isinstance(token_claims, dict):
-        return {}
-    metadata = token_claims.get("user_metadata")
-    if not isinstance(metadata, dict):
-        return {}
-    prefs = metadata.get("preferences")
-    if not isinstance(prefs, dict):
-        return {}
-    return prefs
+def _preferences_from_db(
+    user: models.User,
+    notification_preferences: models.UserNotificationPreference,
+) -> UserPreferences:
+    return UserPreferences(
+        timezone=user.timezone,
+        currency=user.currency,
+        notifications_email=notification_preferences.email_enabled,
+        notifications_push=notification_preferences.realtime_enabled,
+    )
 
 
 def get_user_profile(
@@ -30,7 +31,9 @@ def get_user_profile(
     user_id: UUID,
     token_claims: dict | None = None,
 ) -> dict:
+    _ = token_claims
     user = _owned_user(db, user_id=user_id)
+    notification_preferences = get_or_create_preferences(db, user_id=user_id)
     integrations = _integration_summary_for_user(db, user_id=user_id)
 
     return {
@@ -38,7 +41,7 @@ def get_user_profile(
         "email": user.email,
         "display_name": user.display_name,
         "is_active": user.is_active,
-        "preferences": UserPreferences.model_validate(_preferences_from_claims_or_empty(token_claims)),
+        "preferences": _preferences_from_db(user, notification_preferences),
         "integrations": integrations,
         "created_at": user.created_at,
         "updated_at": user.updated_at,
@@ -53,25 +56,44 @@ def update_user_profile(
     preferences: UserPreferences | None = None,
     token_claims: dict | None = None,
 ) -> dict:
+    _ = token_claims
     user = _owned_active_user(db, user_id=user_id)
+    notification_preferences = get_or_create_preferences(db, user_id=user_id)
     changed = False
 
     if display_name is not None and display_name != user.display_name:
         user.display_name = display_name
         changed = True
 
+    if preferences is not None:
+        if preferences.timezone is not None and preferences.timezone != user.timezone:
+            user.timezone = preferences.timezone
+            changed = True
+        if preferences.currency is not None and preferences.currency != user.currency:
+            user.currency = preferences.currency
+            changed = True
+        if (
+            preferences.notifications_email is not None
+            and preferences.notifications_email != notification_preferences.email_enabled
+        ):
+            notification_preferences.email_enabled = preferences.notifications_email
+            changed = True
+        if (
+            preferences.notifications_push is not None
+            and preferences.notifications_push != notification_preferences.realtime_enabled
+        ):
+            notification_preferences.realtime_enabled = preferences.notifications_push
+            changed = True
+
     if changed:
-        user.updated_at = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc)
+        user.updated_at = now
+        notification_preferences.updated_at = now
         db.add(user)
+        db.add(notification_preferences)
         db.flush()
 
-    current_prefs = _preferences_from_claims_or_empty(token_claims)
-    if preferences is not None:
-        current_prefs.update(preferences.model_dump(exclude_none=True))
-
-    profile = get_user_profile(
-        db, user_id=user_id, token_claims={"user_metadata": {"preferences": current_prefs}}
-    )
+    profile = get_user_profile(db, user_id=user_id)
     profile["updated_at"] = user.updated_at
     return profile
 
