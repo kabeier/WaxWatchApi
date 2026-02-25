@@ -36,5 +36,6 @@ def redirect_ebay_outbound(
             referrer=referer,
         )
     )
+    db.flush()
 
     return RedirectResponse(url=destination, status_code=307)
