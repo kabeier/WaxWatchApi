@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.schemas.notifications import DeliveryFrequency
+
 
 class IntegrationSummary(BaseModel):
     provider: str
@@ -22,6 +24,10 @@ class UserPreferences(BaseModel):
                 "currency": "USD",
                 "notifications_email": True,
                 "notifications_push": True,
+                "quiet_hours_start": 22,
+                "quiet_hours_end": 7,
+                "notification_timezone": "America/Los_Angeles",
+                "delivery_frequency": "hourly",
             }
         },
     )
@@ -30,6 +36,10 @@ class UserPreferences(BaseModel):
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     notifications_email: bool | None = None
     notifications_push: bool | None = None
+    quiet_hours_start: int | None = Field(default=None, ge=0, le=23)
+    quiet_hours_end: int | None = Field(default=None, ge=0, le=23)
+    notification_timezone: str | None = Field(default=None, max_length=64)
+    delivery_frequency: DeliveryFrequency | None = None
 
 
 class UserProfileOut(BaseModel):
@@ -46,6 +56,10 @@ class UserProfileOut(BaseModel):
                     "currency": "USD",
                     "notifications_email": True,
                     "notifications_push": True,
+                    "quiet_hours_start": 22,
+                    "quiet_hours_end": 7,
+                    "notification_timezone": "America/Los_Angeles",
+                    "delivery_frequency": "hourly",
                 },
                 "integrations": [{"provider": "discogs", "linked": True, "watch_rule_count": 4}],
                 "created_at": "2026-01-10T15:34:12.123456+00:00",
@@ -74,6 +88,10 @@ class UserProfileUpdate(BaseModel):
                     "currency": "USD",
                     "notifications_email": True,
                     "notifications_push": False,
+                    "quiet_hours_start": 23,
+                    "quiet_hours_end": 6,
+                    "notification_timezone": "America/Chicago",
+                    "delivery_frequency": "daily",
                 },
             }
         }

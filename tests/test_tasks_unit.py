@@ -91,6 +91,7 @@ def test_deliver_notification_task_realtime_channel_uses_async_publish(monkeypat
         notification.status = models.NotificationStatus.sent
 
     monkeypatch.setattr("app.tasks.publish_realtime", _publish)
+    monkeypatch.setattr("app.tasks.defer_delivery_seconds", lambda *_args, **_kwargs: None)
 
     deliver_notification_task.run(str(notification.id))
 
@@ -104,6 +105,8 @@ def test_deliver_notification_task_raises_for_unsupported_channel(monkeypatch):
     notification = _FakeNotification(channel="sms")
     db = _FakeDB(notification=notification)
     monkeypatch.setattr("app.tasks.SessionLocal", lambda: db)
+
+    monkeypatch.setattr("app.tasks.defer_delivery_seconds", lambda *_args, **_kwargs: None)
 
     with pytest.raises(RuntimeError, match="unsupported notification channel"):
         deliver_notification_task.run(str(notification.id))

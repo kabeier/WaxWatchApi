@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Protocol
 
 from sqlalchemy.orm import Session
@@ -45,7 +45,7 @@ class ProviderListing:
     raw: dict[str, Any] | None = None
 
 
-class ProviderPaginationModel(str, Enum):
+class ProviderPaginationModel(StrEnum):
     OFFSET = "offset"
     CURSOR = "cursor"
     NONE = "none"

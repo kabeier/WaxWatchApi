@@ -25,6 +25,12 @@
   - Labels: `metric` (`predicted_positive`, `predicted_negative`, `possible_false_positive`, `possible_false_negative`).
   - These are precision/recall proxy counters to monitor mapping quality drift without hand-labeled truth data.
 
+### Notification policy telemetry
+- Track deferral decisions to make delivery lag explainable when quiet hours/frequency are configured.
+- Recommended counters:
+  - `waxwatch_notification_policy_deferrals_total` with labels `reason` (`quiet_hours`, `frequency`) and `channel`.
+  - `waxwatch_notification_policy_timezone_fallback_total` for invalid timezone overrides falling back to UTC.
+
 ### Error reporting
 - Optional Sentry integration is enabled only when:
   - `SENTRY_DSN` is set, and
@@ -144,7 +150,7 @@ For scheduler and notification lag SLOs, add/maintain explicit instrumentation i
 1. Identify impacted provider via error ratio and status-code spikes.
 2. Inspect provider-specific metadata in persisted provider request logs.
 3. Confirm retries/backoff behavior and upstream rate-limit headers.
-4. Mitigate:
+5. Mitigate:
    - temporary provider disablement (if supported),
    - reduce polling/search frequency,
    - contact provider support for sustained 5xx/429 rates.
@@ -155,7 +161,7 @@ For scheduler and notification lag SLOs, add/maintain explicit instrumentation i
 1. Check scheduler run and rule outcome counters.
 2. Inspect worker logs for exception type and impacted `rule_id`.
 3. Validate database connectivity and queue health.
-4. Mitigate:
+5. Mitigate:
    - restart scheduler worker,
    - pause problematic rules,
    - temporarily increase poll interval to reduce load.
@@ -165,12 +171,13 @@ For scheduler and notification lag SLOs, add/maintain explicit instrumentation i
 ### Failure class: Notification backlog / delivery lag
 1. Check notification lag dashboard (p95/p99 and queue depth).
 2. Confirm downstream provider/channel health (email/push/webhook).
-3. Inspect worker concurrency, retry queues, and dead-letter volumes.
-4. Mitigate:
+3. Check policy deferral volume (quiet-hours and delivery-frequency) before treating lag as provider/worker regression.
+4. Inspect worker concurrency, retry queues, and dead-letter volumes.
+5. Mitigate:
    - increase notification worker concurrency,
    - prioritize high-severity notifications,
    - temporarily pause low-priority digests/batches.
-5. Exit criteria: p95 lag < 45s and p99 lag < 120s for 30m.
+6. Exit criteria: p95 lag < 45s and p99 lag < 120s for 30m.
 
 ### Failure class: Error burst in Sentry
 1. Group by issue fingerprint and release/environment.

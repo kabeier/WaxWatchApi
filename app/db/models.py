@@ -31,7 +31,7 @@ class Base(DeclarativeBase):
 # -------------------------
 
 
-class Provider(str, enum.Enum):
+class Provider(enum.StrEnum):
     discogs = "discogs"
     ebay = "ebay"
     mock = "mock"
@@ -39,13 +39,13 @@ class Provider(str, enum.Enum):
     spotify = "spotify"
 
 
-class ListingStatus(str, enum.Enum):
+class ListingStatus(enum.StrEnum):
     active = "active"
     ended = "ended"  # sold/removed/expired
     unknown = "unknown"
 
 
-class EventType(str, enum.Enum):
+class EventType(enum.StrEnum):
     # rule / watch lifecycle
     RULE_CREATED = "RULE_CREATED"
     RULE_UPDATED = "RULE_UPDATED"
@@ -73,12 +73,12 @@ class EventType(str, enum.Enum):
     IMPORT_FAILED = "IMPORT_FAILED"
 
 
-class NotificationChannel(str, enum.Enum):
+class NotificationChannel(enum.StrEnum):
     email = "email"
     realtime = "realtime"
 
 
-class NotificationStatus(str, enum.Enum):
+class NotificationStatus(enum.StrEnum):
     pending = "pending"
     sent = "sent"
     failed = "failed"
@@ -486,7 +486,21 @@ class Notification(Base):
 
 class UserNotificationPreference(Base):
     __tablename__ = "user_notification_preferences"
-    __table_args__ = (Index("ix_user_notification_preferences_user", "user_id", unique=True),)
+    __table_args__ = (
+        Index("ix_user_notification_preferences_user", "user_id", unique=True),
+        CheckConstraint(
+            "delivery_frequency IN ('instant', 'hourly', 'daily')",
+            name="ck_user_notification_preferences_delivery_frequency_valid",
+        ),
+        CheckConstraint(
+            "quiet_hours_start IS NULL OR (quiet_hours_start >= 0 AND quiet_hours_start <= 23)",
+            name="ck_user_notification_preferences_quiet_hours_start_valid",
+        ),
+        CheckConstraint(
+            "quiet_hours_end IS NULL OR (quiet_hours_end >= 0 AND quiet_hours_end <= 23)",
+            name="ck_user_notification_preferences_quiet_hours_end_valid",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -496,6 +510,8 @@ class UserNotificationPreference(Base):
     realtime_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     quiet_hours_start: Mapped[int | None] = mapped_column(Integer)
     quiet_hours_end: Mapped[int | None] = mapped_column(Integer)
+    timezone_override: Mapped[str | None] = mapped_column(String(64))
+    delivery_frequency: Mapped[str] = mapped_column(String(20), nullable=False, default="instant")
     event_toggles: Mapped[dict | None] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)

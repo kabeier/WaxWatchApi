@@ -13,7 +13,7 @@ from app.db import models
 from app.db.base import SessionLocal
 from app.services.backfill import backfill_matches_for_rule
 from app.services.discogs_import import discogs_import_service
-from app.services.notifications import publish_realtime, send_email
+from app.services.notifications import defer_delivery_seconds, publish_realtime, send_email
 from app.services.scheduler import run_due_rules_once
 
 logger = get_task_logger(__name__)
@@ -125,6 +125,13 @@ def deliver_notification_task(self, notification_id: str) -> None:
             .one_or_none()
         )
         if notification is None or notification.status == models.NotificationStatus.sent:
+            return
+
+        defer_seconds = defer_delivery_seconds(db, notification=notification)
+        if defer_seconds is not None:
+            if not self.request.is_eager:
+                deliver_notification_task.apply_async(args=[notification_id], countdown=defer_seconds)
+            db.commit()
             return
 
         if notification.channel == models.NotificationChannel.email:
