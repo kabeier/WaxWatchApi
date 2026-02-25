@@ -18,6 +18,13 @@
 - `waxwatch_scheduler_runs_total` (counter)
   - Labels: `outcome` (`success` if no failed rules in that polling run; else `failed`)
 
+### Listing-match quality telemetry
+- `waxwatch_listing_match_decisions_total` (counter)
+  - Labels: `outcome` (`mapped`, `below_threshold`, `already_mapped`, `no_candidates`).
+- `waxwatch_listing_match_quality_proxy_total` (counter)
+  - Labels: `metric` (`predicted_positive`, `predicted_negative`, `possible_false_positive`, `possible_false_negative`).
+  - These are precision/recall proxy counters to monitor mapping quality drift without hand-labeled truth data.
+
 ### Error reporting
 - Optional Sentry integration is enabled only when:
   - `SENTRY_DSN` is set, and
@@ -41,6 +48,7 @@
 - Rule outcome failure ratio (`sum(rate(waxwatch_scheduler_rule_outcomes_total{outcome="failed"}[10m])) / sum(rate(waxwatch_scheduler_rule_outcomes_total[10m]))`).
 
 ### 4) SLO compliance dashboard
+- Listing-map precision proxy (`possible_false_positive / predicted_positive`) and recall proxy (`predicted_positive / (predicted_positive + possible_false_negative)`).
 - API p95 latency by endpoint category (read/query/write).
 - Provider error budget burn by provider (`1 - success_ratio`) for 15m/1h/24h windows.
 - Scheduler freshness lag (`execution_started_at - next_run_at`) p95 and max.
