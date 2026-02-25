@@ -2,8 +2,8 @@ name: CI
 
 on:
   push:
+    branches: ["main"]
   pull_request:
-  workflow_dispatch:
 
 jobs:
   backend:
@@ -25,10 +25,38 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
 
-      - name: Run canonical local CI target
+      - name: Verify jwt test dependency
+        run: |
+          python -c "import jwt, cryptography; print('ok: jwt dependency available')"
+
+      - name: Validate docker compose files
+        run: make check-docker-config
+
+      - name: Validate env + governance sync policy
+        run: make check-policy-sync
+
+      - name: Validate fail-closed compose secret defaults policy
+        run: make check-compose-secret-defaults
+
+      - name: Validate integration hygiene change-surface policy
+        run: make check-change-surface
+
+      - name: Validate frontend API contract sync
+        run: make check-contract-sync
+
+      - name: Lint
+        run: make lint
+
+      - name: Format check
+        run: make fmt-check
+
+      - name: Static type check
+        run: make typecheck
+
+      - name: Migration, focused uplift suite, drift, and test gates (with coverage threshold)
         env:
           COVERAGE_FAIL_UNDER: "85"
-        run: make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+        run: make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
 
       - name: Capture base coverage for regression checks
         if: github.event_name == 'pull_request'
@@ -63,7 +91,7 @@ if p.exists():
     if "--cov-report=json:coverage.json" not in text:
         p.write_text(text.replace("--cov-report=term-missing", "--cov-report=term-missing --cov-report=json:coverage.json"))
 PY2
-              make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+              make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
             )
           fi
           test -f "$BASE_WT/coverage.json"
