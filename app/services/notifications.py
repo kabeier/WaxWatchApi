@@ -69,6 +69,7 @@ def get_or_create_preferences(db: Session, *, user_id: UUID) -> models.UserNotif
     preference = models.UserNotificationPreference(
         user_id=user_id,
         email_enabled=True,
+        realtime_enabled=True,
         event_toggles=_default_event_toggles(),
     )
     db.add(preference)
@@ -90,7 +91,15 @@ def enqueue_from_event(
         return []
 
     notifications: list[models.Notification] = []
+    enabled_channels = {models.NotificationChannel.realtime, models.NotificationChannel.email}
+    if not preference.email_enabled:
+        enabled_channels.discard(models.NotificationChannel.email)
+    if not preference.realtime_enabled:
+        enabled_channels.discard(models.NotificationChannel.realtime)
+
     for channel in channels:
+        if channel not in enabled_channels:
+            continue
         notification = (
             db.query(models.Notification)
             .filter(models.Notification.event_id == event.id, models.Notification.channel == channel)

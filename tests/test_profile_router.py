@@ -27,6 +27,34 @@ def test_patch_me_updates_display_name(client, user, headers, db_session):
     assert payload["preferences"]["currency"] == "EUR"
 
 
+def test_patch_me_persists_preferences_across_requests(client, user, headers):
+    patch_response = client.patch(
+        "/api/me",
+        headers=headers(user.id),
+        json={
+            "preferences": {
+                "timezone": "America/Chicago",
+                "currency": "USD",
+                "notifications_email": False,
+                "notifications_push": False,
+            }
+        },
+    )
+
+    assert patch_response.status_code == 200
+
+    get_response = client.get("/api/me", headers=headers(user.id))
+    assert get_response.status_code == 200
+    payload = get_response.json()
+
+    assert payload["preferences"] == {
+        "timezone": "America/Chicago",
+        "currency": "USD",
+        "notifications_email": False,
+        "notifications_push": False,
+    }
+
+
 def test_logout_me_returns_marker(client, user, headers):
     response = client.post("/api/me/logout", headers=headers(user.id))
 
