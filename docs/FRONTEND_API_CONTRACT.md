@@ -288,6 +288,50 @@ The API has two watch paradigms; frontend can present both under a single “Ale
 - `AlertEditorScreen`: create/update rule name, sources, polling interval.
 - `AlertDetailScreen`: inspect scheduling fields (`last_run_at`, `next_run_at`).
 
+**Query validation contract (create + patch):**
+- Known query keys and accepted value types:
+  - `sources`: required on create; list of provider strings (`discogs`, `ebay`), case-insensitive and normalized to lowercase.
+  - `keywords`: optional list of strings; values are trimmed/lowercased and empty/whitespace-only entries are rejected when list is provided.
+  - `max_price`: optional number (`int`/`float`), must be `>= 0`.
+  - `q`: optional string, trimmed/lowercased, must not be empty when provided.
+- Known keys with wrong value types now fail validation (HTTP 422) instead of being silently coerced.
+
+**Validation error examples:**
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Validation failed",
+    "status": 422,
+    "details": [
+      {
+        "loc": ["body", "query"],
+        "msg": "Value error, query.max_price must be non-negative",
+        "type": "value_error"
+      }
+    ]
+  }
+}
+```
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Validation failed",
+    "status": 422,
+    "details": [
+      {
+        "loc": ["body", "query"],
+        "msg": "Value error, query.keywords must contain at least one non-empty keyword when provided",
+        "type": "value_error"
+      }
+    ]
+  }
+}
+```
+
 ### B) Release watchlist entries (`/api/watch-releases`)
 
 - `POST /api/watch-releases` → create release watch entry.
