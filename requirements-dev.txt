@@ -219,7 +219,7 @@ rend==7.0.2
     # via
     #   -r requirements-dev.in
     #   pop-config
-ruff==0.9.7
+ruff==0.15.2
     # via -r requirements-dev.in
 sentry-sdk==2.53.0
     # via -r requirements-dev.in
