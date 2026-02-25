@@ -86,7 +86,9 @@ def test_outbound_ebay_redirect_404_for_unavailable_destination(client, user, he
     db_session.add(listing)
     db_session.flush()
 
-    response = client.get(f"/api/outbound/ebay/{listing.id}", headers=headers(user.id), follow_redirects=False)
+    response = client.get(
+        f"/api/outbound/ebay/{listing.id}", headers=headers(user.id), follow_redirects=False
+    )
 
     assert response.status_code == 404
     assert db_session.query(models.OutboundClick).count() == 0
