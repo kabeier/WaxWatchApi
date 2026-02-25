@@ -18,7 +18,7 @@ Use the same commands that CI uses before opening a pull request:
 `make ci-local` mirrors the CI gates and runs:
 
 - Docker compose render validation (`make check-docker-config`)
-- Environment/governance sync checks (`make check-policy-sync`, `make check-change-surface`)
+- Environment/governance sync checks (`make check-policy-sync`, which includes `make check-change-surface`)
 - Frontend API contract sync check (`python scripts/check_frontend_contract_sync.py`)
 - Ruff lint (`ruff check .`)
 - Ruff format check (`ruff format --check .`)
@@ -89,9 +89,24 @@ When your PR changes API-facing code in `app/api/` or `app/schemas/`, complete t
 
 - [ ] Update `docs/FRONTEND_API_CONTRACT.md`.
 - [ ] Bump/refresh the contract version field at the top of `docs/FRONTEND_API_CONTRACT.md`.
-- [ ] Add a changelog entry for endpoint or schema changes.
+- [ ] Add a changelog entry in `CHANGELOG.md` for endpoint or schema changes.
 - [ ] If behavior is breaking, document deprecation timeline under the breaking-change rules.
 - [ ] Run `make check-contract-sync` (or `make ci-local`) before pushing.
+
+## Changelog update policy
+
+Use `CHANGELOG.md` for all user-visible or operator-visible behavior changes.
+
+Required updates in `CHANGELOG.md` (same PR):
+
+- API behavior changes under `app/api/**` or `app/schemas/**`.
+- Runtime behavior changes under `app/services/**`, `app/core/config.py`, `Makefile`, or `.github/workflows/ci.yml`.
+- Migration-affecting database changes (for example Alembic revisions, schema behavior changes, or data migration behavior).
+
+Formatting/versioning rules:
+
+- Keep a top `## [Unreleased]` section and categorize changes under Keep-a-Changelog headings (`Added`, `Changed`, `Fixed`, `Removed`, `Deprecated`, `Security`).
+- On release, promote entries using semantic versions with ISO date headers (for example: `## [0.1.1] - 2026-02-26`).
 
 Expected update workflow:
 
@@ -127,7 +142,8 @@ Enforcement notes:
 
 - CI runs `python scripts/check_env_sample.py` to verify `.env.sample` still covers all `Settings` fields.
 - CI runs `python scripts/check_change_surface.py` to enforce integration hygiene when a PR touches testing workflow, CI config, task orchestration, or settings surfaces.
-- The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`).
+- The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`).
+- Exception: change-surface-triggered PRs that are strictly test/governance-only (no API/runtime/migration-affecting behavior changes) may omit `CHANGELOG.md`.
 - CI also runs `python scripts/check_frontend_contract_sync.py`, which fails if changes under `app/api/` or `app/schemas/` do not include a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
 
 ### Change-surface remediation checklist
@@ -139,6 +155,7 @@ If `scripts/check_change_surface.py` fails:
    - `Makefile`
    - `.github/workflows/ci.yml`
    - `.env.sample`
+   - `CHANGELOG.md` (unless the test/governance-only exception applies)
    - `CONTRIBUTING.md` and/or relevant `docs/*.md`
 3. Re-run locally:
    ```bash

@@ -107,5 +107,5 @@ Before each production deploy:
 
 ## Change synchronization requirement
 
-When introducing new environment variables, CI/test commands, or Make targets, update `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, and `CONTRIBUTING.md` in the same PR, plus any affected docs.
+When introducing new environment variables, CI/test commands, or Make targets, update `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, `CONTRIBUTING.md`, and `CHANGELOG.md` (for behavior-impacting changes) in the same PR, plus any affected docs.
 CI enforces this through `python scripts/check_change_surface.py` and `python scripts/check_env_sample.py` in the workflow.
