@@ -14,6 +14,7 @@
 - [ ] `Makefile` updated to reflect command/test workflow changes.
 - [ ] `.github/workflows/ci.yml` updated to reflect CI workflow changes.
 - [ ] `CONTRIBUTING.md` updated with policy/process changes.
+- [ ] `CHANGELOG.md` updated for API/runtime/migration-affecting behavior changes (or N/A with reason: `...`).
 - [ ] `docs/DEPLOYMENT.md` updated (or N/A).
 - [ ] `docs/FRONTEND_API_CONTRACT.md` updated (or N/A).
 

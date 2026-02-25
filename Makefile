@@ -79,7 +79,7 @@ help:
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make check-compose-secret-defaults Validate fail-closed secret default policy in compose"
-	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy"
+	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy (includes change-surface/changelog gate)"
 	@echo "  make check-change-surface  Validate integration hygiene change-surface policy"
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
@@ -402,6 +402,7 @@ check-docker-config:
 check-policy-sync:
 	$(PYTHON) scripts/check_env_sample.py
 	$(MAKE) check-compose-secret-defaults
+	$(MAKE) check-change-surface
 
 check-compose-secret-defaults:
 	$(PYTHON) scripts/check_compose_secret_defaults.py
@@ -450,7 +451,6 @@ ci-local:
 	$(MAKE) verify-test-deps; \
 	$(MAKE) check-docker-config; \
 	$(MAKE) check-policy-sync; \
-	$(MAKE) check-change-surface; \
 	$(MAKE) check-contract-sync; \
 	$(MAKE) lint; \
 	$(MAKE) fmt-check; \

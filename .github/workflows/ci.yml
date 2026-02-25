@@ -27,4 +27,6 @@ jobs:
       - name: Run canonical CI target
         env:
           COVERAGE_FAIL_UNDER: "85"
+        # `make ci-local` runs `make check-policy-sync`, which includes
+        # `scripts/check_change_surface.py` (governance + changelog sync gate).
         run: make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER

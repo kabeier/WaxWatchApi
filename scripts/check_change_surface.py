@@ -38,8 +38,29 @@ REQUIRED_FILES = {
     ".github/workflows/ci.yml",
     ".env.sample",
 }
+CHANGELOG_FILE = "CHANGELOG.md"
 DOC_GLOBS = (
     "CONTRIBUTING.md",
+    "docs/**/*.md",
+)
+CHANGELOG_ALWAYS_REQUIRED_GLOBS = (
+    "app/api/**",
+    "app/schemas/**",
+    "app/services/**",
+    "app/core/config.py",
+    "Makefile",
+    ".github/workflows/**",
+    "alembic/**",
+)
+CHANGELOG_EXCEPTION_ONLY_GLOBS = (
+    "tests/**",
+    "pytest.ini",
+    "docker-compose.test.yml",
+    "scripts/schema_drift_check.py",
+    "scripts/check_change_surface.py",
+    "scripts/check_env_sample.py",
+    "CONTRIBUTING.md",
+    ".github/pull_request_template.md",
     "docs/**/*.md",
 )
 
@@ -93,6 +114,12 @@ def matches_any(path: str, globs: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatch(path, pattern) for pattern in globs)
 
 
+def changelog_exception_applies(diff_files: set[str]) -> bool:
+    if any(matches_any(path, CHANGELOG_ALWAYS_REQUIRED_GLOBS) for path in diff_files):
+        return False
+    return all(matches_any(path, CHANGELOG_EXCEPTION_ONLY_GLOBS) for path in diff_files)
+
+
 def main() -> int:
     base_ref = detect_base_ref()
     if not base_ref:
@@ -127,13 +154,18 @@ def main() -> int:
             "Integration hygiene violation: no relevant docs update detected (expected CONTRIBUTING.md or docs/*.md changes)."
         )
 
+    if CHANGELOG_FILE not in diff_files and not changelog_exception_applies(diff_files):
+        errors.append(
+            "Integration hygiene violation: missing CHANGELOG.md update for triggered change surface."
+        )
+
     if errors:
         print("Triggered categories:")
         for category in matched_categories:
             print(f" - {category}")
         print("\n".join(errors))
         print(
-            "Remediation: update Makefile, .github/workflows/ci.yml, .env.sample, and relevant documentation in the same PR."
+            "Remediation: update Makefile, .github/workflows/ci.yml, .env.sample, CHANGELOG.md, and relevant documentation in the same PR."
         )
         return 1
 
