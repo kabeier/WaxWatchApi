@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from logging import Logger
 from typing import Any
 
+from app.core.request_context import get_request_id
+
 REDACTED_VALUE = "***redacted***"
 SENSITIVE_KEYS = {
     "access_token",
@@ -44,7 +46,7 @@ def redact_sensitive_data(value: Any) -> Any:
 class RequestIDFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         if not hasattr(record, "request_id"):
-            record.request_id = "-"
+            record.request_id = get_request_id()
         return True
 
 

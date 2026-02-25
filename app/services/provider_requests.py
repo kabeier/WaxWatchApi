@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.metrics import record_provider_call_result
 from app.db import models
 
 
@@ -34,3 +35,9 @@ def log_provider_request(
     )
     db.add(req)
     db.flush()
+
+    record_provider_call_result(
+        provider=provider.value if hasattr(provider, "value") else str(provider),
+        status_code=status_code,
+        error=error,
+    )

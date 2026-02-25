@@ -9,6 +9,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.metrics import record_scheduler_rule_outcome, record_scheduler_run
 from app.db import models
 from app.services.rule_runner import run_rule_once
 
@@ -49,10 +50,12 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
         try:
             run_rule_once(db, user_id=rule.user_id, rule_id=rule.id, limit=rule_limit)
             rule.last_run_at = current
+            record_scheduler_rule_outcome(success=True)
             jitter = random.randint(0, max(settings.scheduler_next_run_jitter_seconds, 0))
             rule.next_run_at = current + timedelta(seconds=rule.poll_interval_seconds + jitter)
         except Exception:
             failed += 1
+            record_scheduler_rule_outcome(success=False)
             retry_jitter = random.randint(0, max(settings.scheduler_failure_retry_jitter_seconds, 0))
             rule.next_run_at = current + timedelta(seconds=FAILURE_RETRY_DELAY_SECONDS + retry_jitter)
             logger.exception(
@@ -67,4 +70,5 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
         db.add(rule)
         db.flush()
 
+    record_scheduler_run(failed_rules=failed)
     return SchedulerRunResult(processed_rules=processed, failed_rules=failed)
