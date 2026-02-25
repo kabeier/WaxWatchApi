@@ -32,8 +32,8 @@ jobs:
       - name: Validate docker compose files
         run: make check-docker-config
 
-      - name: Validate .env.sample covers Settings fields
-        run: python scripts/check_env_sample.py
+      - name: Validate env + governance sync policy
+        run: make check-policy-sync
 
       - name: Lint
         run: make lint

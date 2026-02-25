@@ -335,3 +335,7 @@ Frontend teams should generate API clients from OpenAPI and use examples for:
   - `total_requests`
   - `error_requests`
   - `avg_duration_ms`
+
+## Change synchronization requirement
+
+If API contract changes add new environment variables, test gates, or command workflow expectations, include matching updates to `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, and `CONTRIBUTING.md` in the same PR.
