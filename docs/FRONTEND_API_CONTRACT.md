@@ -1,6 +1,43 @@
 # WaxWatch Frontend API Contract
 
+**Contract version:** `2026-02-25`
+
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
+
+## Contract changelog
+
+- `2026-02-25`
+  - Added explicit contract version metadata at the top of this document.
+  - Added contract changelog and breaking-change policy sections.
+  - Added CI contract-guard workflow requiring `docs/FRONTEND_API_CONTRACT.md` updates whenever `app/api/` or `app/schemas/` changes ship.
+- `2026-01-xx`
+  - Added Discogs watch identity support (`discogs_master_id`, `match_mode`) to watch-release/listing payload contracts.
+  - Added provider-request observability endpoints (user and admin summary/listing surfaces).
+
+## Breaking change rules
+
+Use these rules when changing endpoint behavior or schema fields consumed by frontend.
+
+1. **Non-breaking additions** (new optional fields, new endpoints, wider enum support):
+   - Can ship immediately.
+   - Must still update this contract's changelog before merge.
+2. **Breaking changes** (removing/renaming fields, tightening validation, changing response shapes or semantics):
+   - Mark old behavior as deprecated in this contract and API docs first.
+   - Maintain a **minimum 2 release / 30 day deprecation window** (whichever is longer) before removal in production.
+   - Include migration notes for frontend call-sites in the changelog entry.
+3. **Emergency/security exceptions**:
+   - May shorten the window when required for safety/compliance.
+   - Must document the exception rationale in the changelog entry and release notes.
+
+## Contract update workflow
+
+When `app/api/` or `app/schemas/` changes modify frontend-facing behavior:
+
+1. Update this file (`docs/FRONTEND_API_CONTRACT.md`) in the same PR.
+2. Bump `Contract version`.
+3. Add a changelog bullet describing the endpoint/schema impact.
+4. If breaking, add deprecation/removal timing per rules above.
+5. Ensure `make api-contract-check` passes (also enforced from `make ci-local`).
 
 ## 1) Auth + Session Assumptions
 

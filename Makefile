@@ -30,7 +30,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install api-contract-check
 
 help:
 	@echo ""
@@ -68,6 +68,7 @@ help:
 	@echo "Testing / CI"
 	@echo "  make ci-local              Run full CI flow locally"
 	@echo "                             (lint + fmt-check + typecheck + migrate + drift + pytest+coverage)"
+	@echo "                             (includes API contract guard for app/api and app/schemas changes)"
 	@echo "                             (coverage gate: --cov-fail-under=$(COVERAGE_FAIL_UNDER))"
 	@echo "  make test-profile          Run focused profile API tests"
 	@echo "  make test-background-tasks Run focused background task transaction test"
@@ -363,9 +364,13 @@ ci-db-tests:
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_background_tasks.py tests/test_token_crypto_logging.py --disable-warnings --maxfail=1"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER)"
 
+api-contract-check:
+	$(PYTHON) -m scripts.api_contract_check
+
 # Mirrors the GitHub Actions CI job
 ci-local:
 	$(MAKE) verify-test-deps; \
+	$(MAKE) api-contract-check; \
 	$(MAKE) lint; \
 	$(MAKE) fmt-check; \
 	$(MAKE) typecheck; \

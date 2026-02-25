@@ -24,6 +24,18 @@ Use the same commands that CI uses before opening a pull request:
 - Schema drift check
 - Pytest with coverage collection and threshold enforcement (`--cov-fail-under=75` by default)
 
+
+## Frontend API contract update workflow
+
+The canonical frontend contract lives at `docs/FRONTEND_API_CONTRACT.md`.
+
+When a pull request changes API-facing code in either `app/api/` or `app/schemas/`, you must update `docs/FRONTEND_API_CONTRACT.md` in the same PR:
+
+1. Bump the contract version field at the top of the contract document.
+2. Add a changelog entry describing endpoint/schema changes.
+3. If the change is breaking, document deprecation timing under the breaking-change rules section.
+4. Run `make api-contract-check` (also executed by `make ci-local`) to ensure the contract update requirement is satisfied.
+
 ## Coverage threshold policy
 
 - CI enforces a minimum line coverage threshold through `make ci-db-tests` using `--cov-fail-under=$(COVERAGE_FAIL_UNDER)`.
