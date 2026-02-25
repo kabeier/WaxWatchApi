@@ -24,6 +24,7 @@ from app.api.routers.search import router as search_router
 from app.api.routers.watch_releases import router as watch_releases_router
 from app.api.routers.watch_rules import router as watch_rules_router
 from app.core.config import settings
+from app.core.error_reporting import configure_error_reporting
 from app.core.logging import configure_logging, get_logger
 
 logger = get_logger(__name__)
@@ -50,6 +51,7 @@ def _error_response_payload(
 
 def create_app() -> FastAPI:
     configure_logging(level=settings.log_level, json_logs=settings.json_logs)
+    configure_error_reporting()
 
     logger.info(
         "app.startup",
@@ -73,29 +75,35 @@ def create_app() -> FastAPI:
     app.add_middleware(RequestIDMiddleware)
 
     @app.exception_handler(HTTPException)
-    async def http_exception_handler(_request: Request, exc: HTTPException):
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        request_id = getattr(request.state, "request_id", "-")
         detail = exc.detail
         message = detail if isinstance(detail, str) else "request failed"
         details = None if isinstance(detail, str) else jsonable_encoder(detail)
+        if exc.status_code >= 500:
+            logger.error("http_exception", extra={"request_id": request_id, "status_code": exc.status_code})
+
         return JSONResponse(
             status_code=exc.status_code,
             content=_error_response_payload(
                 message=message,
                 code="http_error",
                 status=exc.status_code,
-                details=details,
+                details={"request_id": request_id, "context": details} if details is not None else {"request_id": request_id},
             ),
         )
 
     @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(_request: Request, exc: RequestValidationError):
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        request_id = getattr(request.state, "request_id", "-")
+        logger.info("request.validation_error", extra={"request_id": request_id})
         return JSONResponse(
             status_code=422,
             content=_error_response_payload(
                 message="validation error",
                 code="validation_error",
                 status=422,
-                details=jsonable_encoder(exc.errors()),
+                details={"request_id": request_id, "errors": jsonable_encoder(exc.errors())},
             ),
         )
 

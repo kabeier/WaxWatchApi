@@ -45,3 +45,5 @@ ruff==0.9.7
 
 celery==5.4.0
 redis==5.2.1
+prometheus-client==0.23.1
+sentry-sdk==2.46.0

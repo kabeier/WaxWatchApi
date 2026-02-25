@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from prometheus_client import generate_latest
+
 from app.db import models
 from app.providers.base import ProviderError, ProviderListing
 from app.services.rule_runner import run_rule_once
@@ -105,3 +107,13 @@ def test_run_rule_once_logs_provider_request_unexpected_exception(db_session, us
     assert req.meta is not None
     assert req.meta["exception_type"] == "RuntimeError"
     assert summary.fetched == 0
+
+
+def test_run_rule_once_records_provider_metrics(db_session, user, monkeypatch):
+    rule = _make_rule(db_session, user.id)
+    monkeypatch.setattr("app.services.rule_runner.get_provider_class", lambda _source: _OkProvider)
+
+    run_rule_once(db_session, user_id=user.id, rule_id=rule.id, limit=5)
+
+    payload = generate_latest().decode("utf-8")
+    assert 'waxwatch_provider_call_results_total{outcome="success",provider="ebay",status_code="200"}' in payload

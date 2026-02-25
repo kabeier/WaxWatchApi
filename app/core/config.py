@@ -62,6 +62,12 @@ class Settings(BaseSettings):
     celery_worker_prefetch_multiplier: int = 1
     celery_worker_max_tasks_per_child: int = 100
 
+    # Error reporting
+    sentry_dsn: str | None = None
+    sentry_environment: str | None = None
+    sentry_enabled_environments: list[str] = ["staging", "prod"]
+    sentry_traces_sample_rate: float = 0.0
+
     # Logging
     log_level: str = "INFO"
     json_logs: bool = True
@@ -97,6 +103,7 @@ class Settings(BaseSettings):
         self.cors_allowed_origins = self._parse_env_list(self.cors_allowed_origins)
         self.cors_allowed_methods = self._parse_env_list(self.cors_allowed_methods)
         self.cors_allowed_headers = self._parse_env_list(self.cors_allowed_headers)
+        self.sentry_enabled_environments = self._parse_env_list(self.sentry_enabled_environments)
 
         if self.cors_allow_credentials and any(origin == "*" for origin in self.cors_allowed_origins):
             raise ValueError("cors_allowed_origins cannot include '*' when cors_allow_credentials is true")
