@@ -9,3 +9,13 @@ requires-python = ">=3.12"
 
 [tool.setuptools]
 packages = ["app"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["app", "scripts", "tests"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+pretty = true
+disable_error_code = ["override", "arg-type", "prop-decorator", "return-value", "call-arg"]

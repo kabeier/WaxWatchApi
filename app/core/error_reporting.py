@@ -10,7 +10,9 @@ from app.core.request_context import get_request_id
 logger = get_logger(__name__)
 
 try:
-    import sentry_sdk
+    import sentry_sdk as _sentry_sdk
+
+    sentry_sdk: Any | None = _sentry_sdk
 except Exception:  # pragma: no cover - optional dependency
     sentry_sdk = None
 

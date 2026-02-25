@@ -3,6 +3,8 @@ from __future__ import annotations
 import random
 from typing import Any
 
+from sqlalchemy.orm import Session
+
 from app.providers.base import (
     ProviderCapabilityContract,
     ProviderClient,
@@ -27,7 +29,10 @@ class MockProvider(ProviderClient):
     )
     default_endpoint = "/mock/search"
 
-    def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:
+    def search(
+        self, *, query: dict[str, Any], limit: int = 20, db: Session | None = None
+    ) -> list[ProviderListing]:
+        del db  # Interface parity for ProviderClient; unused by mock provider.
         keywords = query.get("keywords") or []
         kws = [str(k).strip().lower() for k in keywords if str(k).strip()]
 

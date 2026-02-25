@@ -1,0 +1,27 @@
+repos:
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff lint
+        entry: ruff check .
+        language: system
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format check
+        entry: ruff format --check .
+        language: system
+        pass_filenames: false
+
+      - id: mypy
+        name: mypy typecheck
+        entry: mypy app scripts tests
+        language: system
+        pass_filenames: false
+
+      - id: ci-local
+        name: full ci-local gate
+        entry: make ci-local
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
