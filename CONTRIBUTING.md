@@ -56,6 +56,21 @@ pre-commit run --hook-stage pre-push --all-files
 
 Following this workflow ensures your branch meets the same lint, formatting, typing, migration, and coverage gates that run in CI.
 
+
+### Ruff remediation quick path
+
+If Ruff checks fail, apply fixes quickly and re-run gates:
+
+```bash
+make lint FIX=1
+make fmt
+make lint
+make fmt-check
+```
+
+For stronger local enforcement on every branch, run `make pre-commit-install` so pre-commit/pre-push hooks run `ruff check .` and `ruff format --check .` automatically.
+
+
 ## Product/API contract checklist
 
 When your PR changes API-facing code in `app/api/` or `app/schemas/`, complete this checklist:

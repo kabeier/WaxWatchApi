@@ -6,6 +6,7 @@
 ## Validation
 
 - [ ] I ran relevant local checks (lint/tests/typecheck/CI parity targets).
+- [ ] `make lint` and `make fmt-check` both passed locally (or in equivalent CI-parity workflow).
 
 ## Governance sync checklist (required when tests/CI/Make/env vars are affected)
 
