@@ -55,5 +55,23 @@ jobs:
 
       - name: Migration, focused uplift suite, drift, and test gates (with coverage threshold)
         env:
-          COVERAGE_FAIL_UNDER: "75"
+          COVERAGE_FAIL_UNDER: "85"
         run: make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+
+      - name: Capture base coverage for regression checks
+        if: github.event_name == 'pull_request'
+        env:
+          COVERAGE_FAIL_UNDER: "85"
+        run: |
+          git fetch --no-tags --depth=1 origin ${{ github.base_ref }}
+          git worktree add --detach ../WaxWatchApi-base origin/${{ github.base_ref }}
+          cp ../WaxWatchApi-base/coverage.json coverage.base.json || true
+          if [ ! -f coverage.base.json ]; then
+            (cd ../WaxWatchApi-base && make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER)
+            cp ../WaxWatchApi-base/coverage.json coverage.base.json
+          fi
+          git worktree remove --force ../WaxWatchApi-base
+
+      - name: Enforce coverage non-regression gates
+        if: github.event_name == 'pull_request'
+        run: make check-coverage-regression
