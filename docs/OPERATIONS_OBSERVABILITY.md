@@ -31,6 +31,17 @@
   - `ENVIRONMENT` is in `SENTRY_ENABLED_ENVIRONMENTS` (default: `staging,prod`).
 - Each error report includes `request_id` for correlation with logs.
 
+## Health and readiness semantics
+
+- `GET /healthz` is **liveness-only** and does not probe external dependencies. Use this for process/container liveness checks.
+- `GET /readyz` is **readiness** and performs bounded dependency probes with explicit check results.
+  - `db` check: `SELECT 1` with a 1.0s timeout.
+  - `redis` check: required when Celery is not running in eager mode (`CELERY_TASK_ALWAYS_EAGER=false`) and probed with a 1.0s timeout.
+  - In eager-mode environments (typical unit/integration test setup), Redis is reported as `skipped`.
+- `/readyz` returns:
+  - `200` with `{"status":"ready","checks":...}` when all required dependencies are healthy.
+  - `503` with `{"status":"not_ready", ...}` when any required dependency fails.
+
 ## Suggested dashboards
 
 ### 1) API health dashboard
@@ -119,7 +130,7 @@ For scheduler and notification lag SLOs, add/maintain explicit instrumentation i
 ### Failure class: API latency spike
 1. Check API dashboard (top endpoints by p95).
 2. Determine whether SLO breach is read/query/write category specific.
-3. Correlate with provider errors and DB readiness (`/readyz`).
+3. Correlate with dependency readiness (`/readyz`), especially DB and Redis for worker-driven features.
 4. Compare current 10m performance against 28d SLO trend to estimate budget burn rate.
 5. If category p95 exceeds critical threshold for >10m, page on-call and start incident channel.
 6. Inspect logs for matching `request_id` and slow-path routes.
