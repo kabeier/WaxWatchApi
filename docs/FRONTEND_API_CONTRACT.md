@@ -1,6 +1,16 @@
 # WaxWatch Frontend API Contract
 
+**Contract version:** `2026-02-25`
+
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
+
+## Changelog
+
+- `2026-02-25`
+  - Added explicit contract versioning metadata at the top of this file.
+  - Added a changelog section for endpoint/schema contract tracking.
+  - Added breaking-change/deprecation rules with minimum support windows.
+  - Added CI contract-sync workflow requirement keyed on `app/api/` and `app/schemas/` changes.
 
 ## 1) Auth + Session Assumptions
 
@@ -290,6 +300,47 @@ Frontend teams should generate API clients from OpenAPI and use examples for:
 - mocked storybook fixtures
 - e2e happy-path payload contracts
 - typed form defaults for create/edit flows
+
+---
+
+## 6) Breaking Change Rules + Deprecation Windows
+
+To keep frontend and backend release trains safe, apply the following contract rules:
+
+1. **Additive-first policy:**
+   - Prefer additive, backward-compatible changes before removals/renames.
+   - New fields must be optional by default unless released behind coordinated frontend changes.
+2. **Deprecation notice requirement:**
+   - Any endpoint removal, field removal, or response shape tightening must be announced in this document's changelog before enforcement.
+   - Include replacement path, migration notes, and removal target date.
+3. **Minimum deprecation window:**
+   - **14 days minimum** for non-production/test-only endpoints.
+   - **30 days minimum** for user-facing production endpoints and schema fields.
+4. **Removal gate:**
+   - Breaking removals should ship only after the deprecation window has elapsed and frontend owners confirm migration completion.
+5. **Emergency exception path:**
+   - Security/compliance incidents may bypass the deprecation window; the changelog must still document what changed and why.
+
+---
+
+## 7) Contract Update Workflow + CI Enforcement
+
+When a pull request modifies API-facing files under:
+
+- `app/api/**`
+- `app/schemas/**`
+
+the PR **must** also update this contract file (`docs/FRONTEND_API_CONTRACT.md`) with:
+
+- a changelog entry describing endpoint/schema impact,
+- any necessary contract/body examples,
+- and deprecation notes for breaking behavior.
+
+Enforcement:
+
+- CI runs `python scripts/check_frontend_contract_sync.py`.
+- The check fails when API-facing files changed but `docs/FRONTEND_API_CONTRACT.md` was not updated in the same diff.
+- Local equivalent: `make check-contract-sync` or full `make ci-local`.
 
 ---
 
