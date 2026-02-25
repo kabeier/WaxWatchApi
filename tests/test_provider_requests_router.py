@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
@@ -48,6 +48,127 @@ def test_provider_requests_router_exposes_only_authenticated_user_rows(
     assert len(summary) == 1
     assert summary[0]["provider"] == "discogs"
     assert summary[0]["total_requests"] == 1
+
+
+def test_provider_requests_admin_routes_require_admin_claims(
+    client, user, user2, headers, db_session, sign_jwt
+):
+    db_session.add_all(
+        [
+            models.ProviderRequest(
+                user_id=user.id,
+                provider=models.Provider.discogs,
+                endpoint="/mine",
+                method="GET",
+                status_code=200,
+                duration_ms=10,
+                error=None,
+                meta=None,
+            ),
+            models.ProviderRequest(
+                user_id=user2.id,
+                provider=models.Provider.ebay,
+                endpoint="/other",
+                method="GET",
+                status_code=500,
+                duration_ms=30,
+                error="boom",
+                meta=None,
+            ),
+        ]
+    )
+    db_session.flush()
+
+    regular = headers(user.id)
+    forbidden = client.get("/api/provider-requests/admin", headers=regular)
+    assert forbidden.status_code == 403
+
+    admin_token = sign_jwt(sub=str(user.id), extra_claims={"role": "admin"})
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    allowed = client.get("/api/provider-requests/admin", headers=admin_headers)
+    assert allowed.status_code == 200, allowed.text
+    payload = allowed.json()
+    assert len(payload) == 2
+    assert {row["user_id"] for row in payload} == {str(user.id), str(user2.id)}
+
+
+def test_provider_requests_admin_filtering_and_pagination(client, user, user2, db_session, sign_jwt):
+    now = datetime.now(timezone.utc)
+    rows = [
+        models.ProviderRequest(
+            user_id=user.id,
+            provider=models.Provider.discogs,
+            endpoint="/discogs/200",
+            method="GET",
+            status_code=200,
+            duration_ms=10,
+            error=None,
+            meta=None,
+            created_at=now - timedelta(hours=2),
+        ),
+        models.ProviderRequest(
+            user_id=user.id,
+            provider=models.Provider.discogs,
+            endpoint="/discogs/500",
+            method="GET",
+            status_code=500,
+            duration_ms=15,
+            error="error",
+            meta=None,
+            created_at=now - timedelta(minutes=30),
+        ),
+        models.ProviderRequest(
+            user_id=user2.id,
+            provider=models.Provider.ebay,
+            endpoint="/ebay/404",
+            method="GET",
+            status_code=404,
+            duration_ms=20,
+            error="not found",
+            meta=None,
+            created_at=now - timedelta(minutes=20),
+        ),
+    ]
+    db_session.add_all(rows)
+    db_session.flush()
+
+    admin_token = sign_jwt(sub=str(user.id), extra_claims={"app_metadata": {"roles": ["admin"]}})
+    admin_headers = {"Authorization": f"Bearer {admin_token}"}
+
+    filtered = client.get(
+        "/api/provider-requests/admin",
+        params={
+            "provider": "discogs",
+            "status_code_gte": 400,
+            "created_from": (now - timedelta(hours=1)).isoformat(),
+            "user_id": str(user.id),
+        },
+        headers=admin_headers,
+    )
+    assert filtered.status_code == 200, filtered.text
+    payload = filtered.json()
+    assert len(payload) == 1
+    assert payload[0]["endpoint"] == "/discogs/500"
+
+    ordered = sorted(rows, key=lambda r: (r.created_at, r.id), reverse=True)
+    first_page = client.get("/api/provider-requests/admin?limit=1", headers=admin_headers)
+    assert first_page.status_code == 200
+    assert first_page.json()[0]["id"] == str(ordered[0].id)
+
+    cursor = encode_created_id_cursor(created_at=ordered[0].created_at, row_id=ordered[0].id)
+    second_page = client.get(f"/api/provider-requests/admin?limit=2&cursor={cursor}", headers=admin_headers)
+    assert second_page.status_code == 200
+    assert [row["id"] for row in second_page.json()] == [str(ordered[1].id), str(ordered[2].id)]
+
+    summary = client.get(
+        "/api/provider-requests/admin/summary?status_code_gte=400&status_code_lte=599",
+        headers=admin_headers,
+    )
+    assert summary.status_code == 200
+    summary_payload = {row["provider"]: row for row in summary.json()}
+    assert summary_payload["discogs"]["total_requests"] == 1
+    assert summary_payload["ebay"]["total_requests"] == 1
 
 
 def test_provider_requests_router_does_not_shadow_watch_rule_routes(client, user, headers):

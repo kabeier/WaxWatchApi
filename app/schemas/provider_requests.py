@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -24,3 +25,8 @@ class ProviderRequestSummaryOut(BaseModel):
     total_requests: int
     error_requests: int
     avg_duration_ms: float | None
+
+
+class ProviderRequestAdminOut(ProviderRequestOut):
+    id: UUID
+    user_id: UUID
