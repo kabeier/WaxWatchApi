@@ -8,7 +8,9 @@ from app.main import create_app
 
 
 @pytest.mark.parametrize("environment", ["prod", "production", "staging"])
-def test_dev_routes_unavailable_for_production_like_environments(monkeypatch: pytest.MonkeyPatch, environment: str):
+def test_dev_routes_unavailable_for_production_like_environments(
+    monkeypatch: pytest.MonkeyPatch, environment: str
+):
     monkeypatch.setattr(settings, "environment", environment)
     app = create_app()
 
@@ -19,7 +21,9 @@ def test_dev_routes_unavailable_for_production_like_environments(monkeypatch: py
 
 
 @pytest.mark.parametrize("environment", ["dev", "test", "local"])
-def test_dev_routes_available_only_for_allowlisted_environments(monkeypatch: pytest.MonkeyPatch, environment: str):
+def test_dev_routes_available_only_for_allowlisted_environments(
+    monkeypatch: pytest.MonkeyPatch, environment: str
+):
     monkeypatch.setattr(settings, "environment", environment)
     app = create_app()
 
