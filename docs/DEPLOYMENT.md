@@ -59,3 +59,6 @@ Before each production deploy:
 ## Change synchronization requirement
 
 When introducing new environment variables, CI/test commands, or Make targets, update `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, and `CONTRIBUTING.md` in the same PR, plus any affected docs.
+8. Observability checks completed:
+   - SLO dashboards are reporting (API latency by endpoint category, provider error budgets, scheduler freshness, notification lag).
+   - Alert thresholds match `docs/OPERATIONS_OBSERVABILITY.md` numeric warning/critical targets.
