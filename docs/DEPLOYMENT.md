@@ -99,6 +99,8 @@ Before each production deploy:
 5. `make migrate-prod` succeeds.
 6. `make prod-up` succeeds and health checks are green.
 7. Post-deploy smoke test completed (`/healthz`, `/readyz`, critical API path).
+   - `/healthz` must be a lightweight liveness check only.
+   - `/readyz` must return `200` only when required dependencies are healthy (DB always; Redis when Celery is not eager).
 8. Observability checks completed:
    - SLO dashboards are reporting (API latency by endpoint category, provider error budgets, scheduler freshness, notification lag).
    - Alert thresholds match `docs/OPERATIONS_OBSERVABILITY.md` numeric warning/critical targets.
