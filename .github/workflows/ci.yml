@@ -35,6 +35,9 @@ jobs:
       - name: Validate env + governance sync policy
         run: make check-policy-sync
 
+      - name: Validate integration hygiene change-surface policy
+        run: make check-change-surface
+
       - name: Validate frontend API contract sync
         run: make check-contract-sync
 

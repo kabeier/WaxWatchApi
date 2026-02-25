@@ -30,7 +30,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-contract-sync ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching typecheck pre-commit-install
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-change-surface check-contract-sync ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching typecheck pre-commit-install
 
 help:
 	@echo ""
@@ -78,6 +78,7 @@ help:
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy"
+	@echo "  make check-change-surface  Validate integration hygiene change-surface policy"
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
 	@echo ""
@@ -367,6 +368,9 @@ check-docker-config:
 check-policy-sync:
 	$(PYTHON) scripts/check_env_sample.py
 
+check-change-surface:
+	$(PYTHON) scripts/check_change_surface.py
+
 check-contract-sync:
 	$(PYTHON) scripts/check_frontend_contract_sync.py
 
@@ -400,6 +404,7 @@ ci-db-tests:
 ci-local:
 	$(MAKE) verify-test-deps; \
 	$(MAKE) check-policy-sync; \
+	$(MAKE) check-change-surface; \
 	$(MAKE) check-contract-sync; \
 	$(MAKE) lint; \
 	$(MAKE) fmt-check; \
