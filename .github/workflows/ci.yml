@@ -35,5 +35,14 @@ jobs:
       - name: Validate .env.sample covers Settings fields
         run: python scripts/check_env_sample.py
 
-      - name: Run CI flow (lint, migration, drift, tests incl token crypto/redaction)
-        run: make ci-local
+      - name: Lint
+        run: make lint
+
+      - name: Format check
+        run: make fmt-check
+
+      - name: Static type check
+        run: make typecheck
+
+      - name: Migration, drift, and test gates (with coverage threshold)
+        run: make ci-db-tests

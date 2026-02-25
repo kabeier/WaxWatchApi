@@ -29,7 +29,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install
 
 help:
 	@echo ""
@@ -61,10 +61,12 @@ help:
 	@echo "  make lint RUFF_ARGS='...'  Pass extra args to ruff"
 	@echo "  make fmt                   Auto-format code"
 	@echo "  make fmt-check             Fail if formatting differs"
+	@echo "  make typecheck             Run mypy static type checks"
+	@echo "  make pre-commit-install    Install pre-commit hooks (pre-commit + pre-push)"
 	@echo ""
 	@echo "Testing / CI"
 	@echo "  make ci-local              Run full CI flow locally"
-	@echo "                             (lint + fmt-check + migrate + drift + pytest)"
+	@echo "                             (lint + fmt-check + typecheck + migrate + drift + pytest+coverage)"
 	@echo "  make test-profile          Run focused profile API tests"
 	@echo "  make test-background-tasks Run focused background task transaction test"
 	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests"
@@ -123,6 +125,15 @@ fmt-check:
 	ruff format --check .
 
 # --- Testing ---
+
+
+typecheck:
+	mypy app scripts tests
+
+pre-commit-install:
+	pre-commit install
+	pre-commit install --hook-type pre-push
+
 
 # Installs the local Python test toolchain (includes PyJWT/cryptography used in tests/conftest.py)
 bootstrap-test-deps:
@@ -339,19 +350,23 @@ wait-test-db:
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) logs --no-color $(TEST_DB_SERVICE) | tail -n 200; \
 	exit 1
 
-# Mirrors the GitHub Actions CI job
-ci-local:
+ci-db-tests:
 	@set -euo pipefail; \
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE); \
 	$(MAKE) wait-test-db; \
-	$(MAKE) verify-test-deps; \
-	ruff check .; \
-	ruff format --check .; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade head"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q tests/test_background_tasks.py tests/test_token_crypto_logging.py --disable-warnings --maxfail=1"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1"
+
+# Mirrors the GitHub Actions CI job
+ci-local:
+	$(MAKE) verify-test-deps; \
+	$(MAKE) lint; \
+	$(MAKE) fmt-check; \
+	$(MAKE) typecheck; \
+	$(MAKE) ci-db-tests
 
 
 gh: ci-local
