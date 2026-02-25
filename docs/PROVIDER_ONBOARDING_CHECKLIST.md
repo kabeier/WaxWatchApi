@@ -46,6 +46,7 @@ The listing payload must satisfy shared ingest/search expectations:
 - [ ] Optional fields map to canonical keys: `condition`, `seller`, `location`, `discogs_release_id`, `raw`.
 - [ ] IDs are stable and deterministic for the same remote listing.
 - [ ] Prices are numeric and currency is a 3-letter code when available.
+- [ ] Snapshot behavior expectation: ingest creates a `price_snapshots` row on listing create, and on updates whenever either `price` or `currency` changes (no new snapshot when both are unchanged).
 
 ## 6) Verification
 

@@ -120,6 +120,7 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
 
     # Update path
     old_price = float(listing.price)
+    old_currency = listing.currency
 
     listing.url = payload["url"]
     listing.title = payload["title"]
@@ -135,12 +136,13 @@ def upsert_listing(db: Session, payload: dict[str, Any]) -> tuple[models.Listing
 
     new_price = float(payload["price"])
     listing.price = new_price
+    new_currency = listing.currency
 
     db.add(listing)
     db.flush()
 
-    # Snapshot rule: only when price changes
-    if new_price != old_price:
+    # Snapshot rule: create snapshot when price OR currency changes.
+    if new_price != old_price or new_currency != old_currency:
         db.add(
             models.PriceSnapshot(
                 listing_id=listing.id,
@@ -162,6 +164,7 @@ def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listin
     """
     created = 0
     title_norm = listing.normalized_title or normalize_title(listing.title)
+    user_currency = db.query(models.User.currency).filter(models.User.id == user_id).scalar()
 
     rules = (
         db.query(models.WatchSearchRule)
@@ -171,7 +174,7 @@ def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listin
     )
 
     for rule in rules:
-        if _rule_matches_listing(rule, listing, title_norm):
+        if _rule_matches_listing(rule, listing, title_norm, user_currency=user_currency):
             created += _create_match_if_needed(db, user_id=user_id, rule=rule, listing=listing)
 
     release_watches = (
@@ -190,7 +193,11 @@ def match_listing_to_rules(db: Session, *, user_id: UUID, listing: models.Listin
 
 
 def _rule_matches_listing(
-    rule: models.WatchSearchRule, listing: models.Listing, normalized_title: str
+    rule: models.WatchSearchRule,
+    listing: models.Listing,
+    normalized_title: str,
+    *,
+    user_currency: str | None = None,
 ) -> bool:
     q = rule.query or {}
 
@@ -206,6 +213,33 @@ def _rule_matches_listing(
 
     max_price = q.get("max_price")
     if isinstance(max_price, (int | float)):
+        rule_currency_raw = q.get("currency") or user_currency
+        rule_currency = str(rule_currency_raw).strip().upper() if rule_currency_raw else None
+        listing_currency = str(listing.currency).strip().upper()
+
+        if not rule_currency:
+            logger.debug(
+                "match.skip.price_currency_unknown",
+                extra={
+                    "rule_id": str(rule.id),
+                    "listing_currency": listing_currency,
+                    "max_price": float(max_price),
+                },
+            )
+            return False
+
+        if listing_currency != rule_currency:
+            logger.debug(
+                "match.skip.price_currency_mismatch_non_comparable",
+                extra={
+                    "rule_id": str(rule.id),
+                    "listing_currency": listing_currency,
+                    "rule_currency": rule_currency,
+                    "max_price": float(max_price),
+                },
+            )
+            return False
+
         if float(listing.price) > float(max_price):
             logger.debug(
                 "match.skip.price_too_high",

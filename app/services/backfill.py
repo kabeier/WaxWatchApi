@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -10,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.db import models
+from app.services.ingest import _rule_matches_listing as ingest_rule_matches_listing
 from app.services.ingest import normalize_title
 from app.services.notifications import enqueue_from_event
 
@@ -17,31 +17,18 @@ logger = get_logger(__name__)
 
 
 def _rule_matches_listing(
-    rule: models.WatchSearchRule, listing: models.Listing, normalized_title: str
+    rule: models.WatchSearchRule,
+    listing: models.Listing,
+    normalized_title: str,
+    *,
+    user_currency: str | None = None,
 ) -> bool:
-    q: dict[str, Any] = rule.query or {}
-
-    sources = q.get("sources")
-    if isinstance(sources, list) and sources:
-        allowed = [str(s).strip().lower() for s in sources if str(s).strip()]
-        if listing.provider.value not in allowed:
-            return False
-
-    max_price = q.get("max_price")
-    if isinstance(max_price, (int | float)):
-        if float(listing.price) > float(max_price):
-            return False
-
-    keywords = q.get("keywords")
-    if isinstance(keywords, list) and keywords:
-        kws = [str(k).strip().lower() for k in keywords if str(k).strip()]
-        if not kws:
-            return False
-        for kw in kws:
-            if kw not in normalized_title:
-                return False
-
-    return True
+    return ingest_rule_matches_listing(
+        rule,
+        listing,
+        normalized_title,
+        user_currency=user_currency,
+    )
 
 
 def backfill_matches_for_rule(
@@ -70,6 +57,7 @@ def backfill_matches_for_rule(
     if not rule or not rule.is_active:
         return 0
 
+    user_currency = rule.user.currency if rule.user else None
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
     listings = (
@@ -86,7 +74,7 @@ def backfill_matches_for_rule(
     for listing in listings:
         title_norm = listing.normalized_title or normalize_title(listing.title)
 
-        if not _rule_matches_listing(rule, listing, title_norm):
+        if not _rule_matches_listing(rule, listing, title_norm, user_currency=user_currency):
             continue
 
         # still subject to race
