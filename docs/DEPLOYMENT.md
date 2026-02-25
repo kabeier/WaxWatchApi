@@ -105,6 +105,22 @@ Before each production deploy:
    - SLO dashboards are reporting (API latency by endpoint category, provider error budgets, scheduler freshness, notification lag).
    - Alert thresholds match `docs/OPERATIONS_OBSERVABILITY.md` numeric warning/critical targets.
 
+
+## Performance smoke requirement
+
+Run `make perf-smoke` for release safety in these cases:
+
+- **Pre-release (required):** run against the release candidate environment before production rollout.
+- **Post-major schema/index change (required):** run after deploying major database schema or index updates.
+
+Required environment for `make perf-smoke`:
+
+- `PERF_BASE_URL` (target API base URL)
+- `PERF_BEARER_TOKEN` (JWT for an account with representative data)
+- `PERF_RULE_ID` (rule owned by that account; optional only when `PERF_ENABLE_RULE_RUN=0`)
+
+The harness enforces SLO-aligned thresholds for read/query/write-like flows and should be treated as a deploy-blocking check when thresholds are exceeded.
+
 ## Discogs scheduled sync tuning
 
 The Celery beat schedule now includes `app.tasks.sync_discogs_lists` for background Discogs list refreshes.

@@ -27,6 +27,20 @@ Use the same commands that CI uses before opening a pull request:
 - Schema drift check
 - Pytest with coverage collection and threshold enforcement (`--cov-fail-under=85` by default)
 
+
+## Performance smoke workflow
+
+For release-focused or persistence-heavy changes, run the perf smoke harness before handoff:
+
+```bash
+PERF_BASE_URL=http://127.0.0.1:8000 \
+PERF_BEARER_TOKEN='<jwt>' \
+PERF_RULE_ID='<uuid>' \
+make perf-smoke
+```
+
+The harness validates core authenticated list, rule polling, and provider-request logging flows using SLO-aligned latency/error thresholds. See `scripts/perf/README.md` and `docs/OPERATIONS_OBSERVABILITY.md` for thresholds and ownership/cadence expectations.
+
 ## Coverage policy
 
 - Coverage gating is aligned between `pytest.ini`, `Makefile`, and CI (`.github/workflows/ci.yml`) with a default floor of **85%** (`--cov-fail-under=85`).
