@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db
@@ -11,11 +12,13 @@ from app.schemas.discogs import (
     DiscogsConnectOut,
     DiscogsDisconnectIn,
     DiscogsDisconnectOut,
+    DiscogsImportedItemListOut,
     DiscogsImportIn,
     DiscogsImportJobOut,
     DiscogsOAuthCallbackIn,
     DiscogsOAuthStartIn,
     DiscogsOAuthStartOut,
+    DiscogsOpenInDiscogsOut,
     DiscogsStatusOut,
 )
 from app.services.discogs_import import discogs_import_service
@@ -131,3 +134,35 @@ def get_import_job(
     user_id: UUID = Depends(get_current_user_id),
 ):
     return discogs_import_service.get_job(db, user_id=user_id, job_id=job_id)
+
+
+@router.get("/imported-items", response_model=DiscogsImportedItemListOut)
+def list_imported_discogs_items(
+    source: Literal["wantlist", "collection"] = Query(...),
+    limit: int = Query(25, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    return discogs_import_service.list_imported_items(
+        db,
+        user_id=user_id,
+        source=source,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/imported-items/{watch_release_id}/open-in-discogs", response_model=DiscogsOpenInDiscogsOut)
+def open_imported_item_in_discogs(
+    watch_release_id: UUID,
+    source: Literal["wantlist", "collection"] = Query(...),
+    db: Session = Depends(get_db),
+    user_id: UUID = Depends(get_current_user_id),
+):
+    return discogs_import_service.get_open_in_discogs_link(
+        db,
+        user_id=user_id,
+        watch_release_id=watch_release_id,
+        source=source,
+    )

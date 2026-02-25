@@ -245,6 +245,12 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
     assert {release.discogs_master_id for release in releases} == {5001, 5002}
     assert {release.match_mode for release in releases} == {"exact_release"}
 
+    release_by_id = {release.discogs_release_id: release for release in releases}
+    assert release_by_id[1001].imported_from_wantlist is True
+    assert release_by_id[1001].imported_from_collection is False
+    assert release_by_id[1002].imported_from_collection is True
+    assert release_by_id[1002].imported_from_wantlist is False
+
     event_types = [
         ev.type.value
         for ev in db_session.query(models.Event)
@@ -301,6 +307,102 @@ def test_discogs_import_failure_persists_job_and_event(client, user, headers, db
     ]
     assert "IMPORT_STARTED" in event_types
     assert "IMPORT_FAILED" in event_types
+
+
+def test_discogs_imported_items_list_and_open_in_discogs(client, user, headers, db_session):
+    h = headers(user.id)
+    now = datetime.now(timezone.utc)
+
+    want_only = models.WatchRelease(
+        user_id=user.id,
+        discogs_release_id=1001,
+        discogs_master_id=5001,
+        match_mode="exact_release",
+        title="Want Release",
+        artist="Artist W",
+        year=1999,
+        currency="USD",
+        is_active=True,
+        imported_from_wantlist=True,
+        imported_from_collection=False,
+        created_at=now,
+        updated_at=now,
+    )
+    both_sources = models.WatchRelease(
+        user_id=user.id,
+        discogs_release_id=1002,
+        discogs_master_id=5002,
+        match_mode="exact_release",
+        title="Both Sources",
+        artist="Artist B",
+        year=2000,
+        currency="USD",
+        is_active=True,
+        imported_from_wantlist=True,
+        imported_from_collection=True,
+        created_at=now,
+        updated_at=now,
+    )
+    collection_only = models.WatchRelease(
+        user_id=user.id,
+        discogs_release_id=1003,
+        discogs_master_id=5003,
+        match_mode="exact_release",
+        title="Collection Release",
+        artist="Artist C",
+        year=2001,
+        currency="USD",
+        is_active=True,
+        imported_from_wantlist=False,
+        imported_from_collection=True,
+        created_at=now,
+        updated_at=now,
+    )
+    db_session.add_all([want_only, both_sources, collection_only])
+    db_session.flush()
+
+    wantlist_resp = client.get(
+        "/api/integrations/discogs/imported-items",
+        params={"source": "wantlist", "limit": 10, "offset": 0},
+        headers=h,
+    )
+    assert wantlist_resp.status_code == 200, wantlist_resp.text
+    wantlist_body = wantlist_resp.json()
+    assert wantlist_body["source"] == "wantlist"
+    assert wantlist_body["count"] == 2
+    want_ids = {item["discogs_release_id"] for item in wantlist_body["items"]}
+    assert want_ids == {1001, 1002}
+
+    collection_resp = client.get(
+        "/api/integrations/discogs/imported-items",
+        params={"source": "collection", "limit": 10, "offset": 0},
+        headers=h,
+    )
+    assert collection_resp.status_code == 200, collection_resp.text
+    collection_body = collection_resp.json()
+    assert collection_body["source"] == "collection"
+    assert collection_body["count"] == 2
+    collection_ids = {item["discogs_release_id"] for item in collection_body["items"]}
+    assert collection_ids == {1002, 1003}
+
+    open_resp = client.get(
+        f"/api/integrations/discogs/imported-items/{want_only.id}/open-in-discogs",
+        params={"source": "wantlist"},
+        headers=h,
+    )
+    assert open_resp.status_code == 200, open_resp.text
+    open_body = open_resp.json()
+    assert open_body["watch_release_id"] == str(want_only.id)
+    assert open_body["source"] == "wantlist"
+    assert open_body["open_in_discogs_url"] == "https://www.discogs.com/release/1001"
+
+    invalid_source_open_resp = client.get(
+        f"/api/integrations/discogs/imported-items/{want_only.id}/open-in-discogs",
+        params={"source": "collection"},
+        headers=h,
+    )
+    assert invalid_source_open_resp.status_code == 404, invalid_source_open_resp.text
+    assert invalid_source_open_resp.json()["error"]["message"] == "Imported Discogs item not found for source"
 
 
 def test_discogs_status_lazy_migrates_plaintext_token(client, user, headers, db_session):

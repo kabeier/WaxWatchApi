@@ -198,6 +198,53 @@ GET /api/events?offset=99999     # 200 []
 - **Action:** Poll import status until terminal state.
 - **Terminal UX:** On `completed` or `failed`, show counts/errors and CTA to review watch items.
 
+### `GET /api/integrations/discogs/imported-items?source={wantlist|collection}&limit={1-100}&offset={>=0}`
+- **Screen:** `DiscogsImportedItemsScreen` source tabs (`wantlist`, `collection`).
+- **Action:** Fetch paginated imported items for one source at a time.
+- **Behavior:**
+  - Returns only active watch releases imported from that source.
+  - If a release was imported from both sources, it appears in both source lists.
+  - `count` is the number of items in the current page (not total available rows).
+- **Response payload:**
+
+```json
+{
+  "source": "wantlist",
+  "limit": 25,
+  "offset": 0,
+  "count": 2,
+  "items": [
+    {
+      "watch_release_id": "24550438-0dfc-4f1f-a19b-3b8b682b5f6f",
+      "discogs_release_id": 1001,
+      "discogs_master_id": 5001,
+      "title": "Demo Want",
+      "artist": "Artist A",
+      "year": 1999,
+      "source": "wantlist",
+      "open_in_discogs_url": "https://www.discogs.com/release/1001"
+    }
+  ]
+}
+```
+
+### `GET /api/integrations/discogs/imported-items/{watch_release_id}/open-in-discogs?source={wantlist|collection}`
+- **Screen:** imported-item row action (`Edit in Discogs`).
+- **Action:** Resolve an explicit Discogs URL for an imported row and source.
+- **Behavior:**
+  - Backend does **not** claim local write-through edits for imported Discogs items.
+  - Frontend should open `open_in_discogs_url` in a new tab/window for provider-side edits.
+  - Returns `404` when the watch release is not active, missing, or was never imported from the requested source.
+- **Response payload:**
+
+```json
+{
+  "watch_release_id": "24550438-0dfc-4f1f-a19b-3b8b682b5f6f",
+  "source": "wantlist",
+  "open_in_discogs_url": "https://www.discogs.com/release/1001"
+}
+```
+
 Lifecycle summary:
 1. `status` load
 2. `oauth/start` to create state nonce + redirect URL
@@ -205,7 +252,9 @@ Lifecycle summary:
 4. `oauth/callback` to validate state + finalize account link
 5. `import` start
 6. Poll `import/{job_id}` until finished
-7. Optional `disconnect` when user unlinks account
+7. `imported-items` fetch per source with pagination
+8. optional `open-in-discogs` row action for provider-side edits
+9. Optional `disconnect` when user unlinks account
 
 ---
 

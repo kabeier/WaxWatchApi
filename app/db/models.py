@@ -263,6 +263,8 @@ class WatchRelease(Base):
 
     min_condition: Mapped[str | None] = mapped_column(String(30))  # keep as string for v1; normalize later
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    imported_from_wantlist: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    imported_from_collection: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
