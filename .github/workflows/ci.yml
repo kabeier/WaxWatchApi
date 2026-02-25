@@ -57,13 +57,13 @@ jobs:
             (
               cd "$BASE_WT"
               python - <<'PY2'
-from pathlib import Path
-p = Path("pytest.ini")
-if p.exists():
-    text = p.read_text()
-    if "--cov-report=json:coverage.json" not in text:
-        p.write_text(text.replace("--cov-report=term-missing", "--cov-report=term-missing --cov-report=json:coverage.json"))
-PY2
+              from pathlib import Path
+              p = Path("pytest.ini")
+              if p.exists():
+                  text = p.read_text()
+                  if "--cov-report=json:coverage.json" not in text:
+                      p.write_text(text.replace("--cov-report=term-missing", "--cov-report=term-missing --cov-report=json:coverage.json"))
+              PY2
               make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
             )
           fi
