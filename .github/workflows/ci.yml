@@ -65,11 +65,12 @@ jobs:
         run: |
           git fetch --no-tags --depth=1 origin ${{ github.base_ref }}
           git worktree add --detach ../WaxWatchApi-base origin/${{ github.base_ref }}
-          cp ../WaxWatchApi-base/coverage.json coverage.base.json || true
-          if [ ! -f coverage.base.json ]; then
-            (cd ../WaxWatchApi-base && make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER)
-            cp ../WaxWatchApi-base/coverage.json coverage.base.json
+          if [ ! -f ../WaxWatchApi-base/coverage.json ]; then
+            # Base branch may not emit JSON coverage by default; force it for regression comparison.
+            (cd ../WaxWatchApi-base && PYTEST_ADDOPTS="--cov-report=json:coverage.json" make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER)
           fi
+          test -f ../WaxWatchApi-base/coverage.json
+          cp ../WaxWatchApi-base/coverage.json coverage.base.json
           git worktree remove --force ../WaxWatchApi-base
 
       - name: Enforce coverage non-regression gates
