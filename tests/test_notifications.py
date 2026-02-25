@@ -232,7 +232,10 @@ def test_mark_notification_read_not_found_for_other_user(client, db_session, use
     response = client.post(f"/api/notifications/{notification.id}/read", headers=headers(user2.id))
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "notification not found"
+    body = response.json()
+    assert body["error"]["message"] == "notification not found"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 404
 
 
 def test_send_email_raises_value_error_for_non_email_channel(db_session, user):
