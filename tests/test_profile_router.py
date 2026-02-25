@@ -196,9 +196,7 @@ def test_get_me_integrations_linked_false_when_no_account_linked_with_rules(
     assert integrations["discogs"]["watch_rule_count"] == 1
 
 
-def test_get_me_integrations_mixed_providers_keep_linkage_independent(
-    client, user, headers, db_session
-):
+def test_get_me_integrations_mixed_providers_keep_linkage_independent(client, user, headers, db_session):
     db_session.add_all(
         [
             models.ExternalAccountLink(
