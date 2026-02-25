@@ -76,6 +76,8 @@ jobs:
 
           git fetch --no-tags --depth=1 origin ${{ github.base_ref }}
           git worktree add --detach "$BASE_WT" "origin/${{ github.base_ref }}"
+          # Ensure containerized non-root users can read all checked-out files.
+          chmod -R a+rX "$BASE_WT"
           if [ ! -f "$BASE_WT/coverage.json" ]; then
             # Base branch may not emit JSON coverage by default; force it for regression comparison.
             (cd "$BASE_WT" && PYTEST_ADDOPTS="--cov-report=json:coverage.json" make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER)
