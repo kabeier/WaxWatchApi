@@ -10,6 +10,8 @@ aiofiles==25.1.0
     #   dict-toolbox
 alembic==1.18.4
     # via -r requirements-dev.in
+amqp==5.3.1
+    # via kombu
 annotated-doc==0.0.4
     # via
     #   -r requirements-dev.in
@@ -23,17 +25,34 @@ anyio==4.12.1
     #   -r requirements-dev.in
     #   httpx
     #   starlette
+billiard==4.2.4
+    # via celery
+celery==5.6.2
+    # via -r requirements-dev.in
 certifi==2026.1.4
     # via
     #   -r requirements-dev.in
     #   httpcore
     #   httpx
+    #   sentry-sdk
 cffi==2.0.0
     # via cryptography
+cfgv==3.5.0
+    # via pre-commit
 click==8.3.1
     # via
     #   -r requirements-dev.in
+    #   celery
+    #   click-didyoumean
+    #   click-plugins
+    #   click-repl
     #   uvicorn
+click-didyoumean==0.3.1
+    # via celery
+click-plugins==1.1.1.2
+    # via celery
+click-repl==0.3.0
+    # via celery
 colorama==0.4.6
     # via
     #   -r requirements-dev.in
@@ -48,12 +67,18 @@ dict-toolbox==5.0.0
     #   pop
     #   pop-config
     #   rend
+distlib==0.4.0
+    # via virtualenv
 dnspython==2.8.0
     # via email-validator
 email-validator==2.3.0
     # via -r requirements-dev.in
 fastapi==0.129.0
     # via -r requirements-dev.in
+filelock==3.24.3
+    # via
+    #   python-discovery
+    #   virtualenv
 greenlet==3.3.1
     # via
     #   -r requirements-dev.in
@@ -69,10 +94,13 @@ httpcore==1.0.9
     #   httpx
 httpx==0.28.1
     # via -r requirements-dev.in
+identify==2.6.16
+    # via pre-commit
 idna==3.11
     # via
     #   -r requirements-dev.in
     #   anyio
+    #   email-validator
     #   httpx
 iniconfig==2.3.0
     # via pytest
@@ -80,6 +108,8 @@ jinja2==3.1.6
     # via
     #   -r requirements-dev.in
     #   rend
+kombu==5.6.2
+    # via celery
 lazy-object-proxy==1.12.0
     # via
     #   -r requirements-dev.in
@@ -97,12 +127,26 @@ msgpack==1.1.2
     # via
     #   -r requirements-dev.in
     #   dict-toolbox
+mypy==1.18.2
+    # via -r requirements-dev.in
+mypy-extensions==1.1.0
+    # via mypy
 nest-asyncio==1.6.0
     # via
     #   -r requirements-dev.in
     #   pop-loop
+nodeenv==1.10.0
+    # via pre-commit
 packaging==26.0
-    # via pytest
+    # via
+    #   kombu
+    #   pytest
+pathspec==1.0.4
+    # via mypy
+platformdirs==4.9.2
+    # via
+    #   python-discovery
+    #   virtualenv
 pluggy==1.6.0
     # via pytest
 pop==27.1.0
@@ -119,6 +163,12 @@ pop-loop==1.1.0
     # via
     #   -r requirements-dev.in
     #   pop
+pre-commit==4.4.0
+    # via -r requirements-dev.in
+prometheus-client==0.23.1
+    # via -r requirements-dev.in
+prompt-toolkit==3.0.52
+    # via click-repl
 psycopg==3.3.3
     # via -r requirements-dev.in
 psycopg-binary==3.3.3
@@ -146,6 +196,10 @@ pytest==8.3.5
     #   pytest-cov
 pytest-cov==5.0.0
     # via -r requirements-dev.in
+python-dateutil==2.9.0.post0
+    # via celery
+python-discovery==1.0.0
+    # via virtualenv
 python-dotenv==1.2.1
     # via
     #   -r requirements-dev.in
@@ -155,15 +209,20 @@ pyyaml==6.0.3
     #   -r requirements-dev.in
     #   dict-toolbox
     #   pop
+    #   pre-commit
     #   rend
+redis==5.2.1
+    # via -r requirements-dev.in
 rend==7.0.2
     # via
     #   -r requirements-dev.in
     #   pop-config
 ruff==0.9.7
-mypy==1.18.2
-pre-commit==4.4.0
     # via -r requirements-dev.in
+sentry-sdk==2.46.0
+    # via -r requirements-dev.in
+six==1.17.0
+    # via python-dateutil
 sniffio==1.3.1
     # via
     #   -r requirements-dev.in
@@ -184,10 +243,14 @@ typing-extensions==4.15.0
     # via
     #   -r requirements-dev.in
     #   alembic
+    #   anyio
     #   fastapi
+    #   mypy
+    #   psycopg
     #   pydantic
     #   pydantic-core
     #   sqlalchemy
+    #   starlette
     #   typing-inspection
 typing-inspection==0.4.2
     # via
@@ -195,12 +258,20 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
+tzdata==2025.3
+    # via kombu
+tzlocal==5.3.1
+    # via celery
+urllib3==2.6.3
+    # via sentry-sdk
 uvicorn==0.41.0
     # via -r requirements-dev.in
-
-celery==5.4.0
-redis==5.2.1
-
-prometheus-client==0.23.1
-sentry-sdk==2.46.0
-
+vine==5.1.0
+    # via
+    #   amqp
+    #   celery
+    #   kombu
+virtualenv==21.0.0
+    # via pre-commit
+wcwidth==0.6.0
+    # via prompt-toolkit
