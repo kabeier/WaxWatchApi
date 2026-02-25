@@ -403,6 +403,8 @@ class DiscogsImportService:
         if not release_id:
             return None
 
+        master_id = basic.get("master_id") or raw.get("master_id")
+
         artists = basic.get("artists") or []
         artist = None
         if artists:
@@ -418,8 +420,16 @@ class DiscogsImportService:
         except (TypeError, ValueError):
             normalized_year = None
 
+        normalized_master_id = None
+        try:
+            normalized_master_id = int(master_id) if master_id else None
+        except (TypeError, ValueError):
+            normalized_master_id = None
+
         return {
             "discogs_release_id": int(release_id),
+            "discogs_master_id": normalized_master_id,
+            "match_mode": "exact_release",
             "title": title,
             "artist": artist,
             "year": normalized_year,
@@ -435,6 +445,8 @@ class DiscogsImportService:
         now = datetime.now(timezone.utc)
 
         if existing:
+            existing.discogs_master_id = normalized.get("discogs_master_id")
+            existing.match_mode = normalized.get("match_mode") or existing.match_mode
             existing.title = normalized["title"]
             existing.artist = normalized.get("artist")
             existing.year = normalized.get("year")
@@ -446,6 +458,8 @@ class DiscogsImportService:
         watch = models.WatchRelease(
             user_id=user_id,
             discogs_release_id=normalized["discogs_release_id"],
+            discogs_master_id=normalized.get("discogs_master_id"),
+            match_mode=normalized.get("match_mode") or "exact_release",
             title=normalized["title"],
             artist=normalized.get("artist"),
             year=normalized.get("year"),

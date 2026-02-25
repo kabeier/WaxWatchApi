@@ -198,6 +198,7 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
                                     "id": 1001,
                                     "title": "Demo Want",
                                     "year": 1999,
+                                    "master_id": 5001,
                                     "artists": [{"name": "Artist A"}],
                                 },
                             }
@@ -212,6 +213,7 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
                                 "id": 1002,
                                 "title": "Demo Collection",
                                 "year": 2001,
+                                "master_id": 5002,
                                 "artists": [{"name": "Artist B"}],
                             },
                         }
@@ -240,6 +242,8 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
 
     releases = db_session.query(models.WatchRelease).filter_by(user_id=user.id).all()
     assert len(releases) == 2
+    assert {release.discogs_master_id for release in releases} == {5001, 5002}
+    assert {release.match_mode for release in releases} == {"exact_release"}
 
     event_types = [
         ev.type.value

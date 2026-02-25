@@ -40,6 +40,7 @@ class ProviderListing:
     seller: str | None = None
     location: str | None = None
     discogs_release_id: int | None = None
+    discogs_master_id: int | None = None
     raw: dict[str, Any] | None = None
 
 

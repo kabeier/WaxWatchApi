@@ -119,6 +119,7 @@ def run_rule_once(db: Session, *, user_id: UUID, rule_id: UUID, limit: int = 20)
                 "seller": pl.seller,
                 "location": pl.location,
                 "discogs_release_id": pl.discogs_release_id,
+                "discogs_master_id": pl.discogs_master_id,
                 "raw": pl.raw,
             }
 

@@ -16,6 +16,8 @@ def create_watch_release(
     *,
     user_id: UUID,
     discogs_release_id: int,
+    discogs_master_id: int | None,
+    match_mode: str,
     title: str,
     artist: str | None,
     year: int | None,
@@ -24,10 +26,15 @@ def create_watch_release(
     min_condition: str | None,
     is_active: bool,
 ) -> models.WatchRelease:
+    if match_mode == "master_release" and discogs_master_id is None:
+        raise HTTPException(status_code=422, detail="discogs_master_id is required for master_release mode")
+
     now = datetime.now(timezone.utc)
     watch = models.WatchRelease(
         user_id=user_id,
         discogs_release_id=discogs_release_id,
+        discogs_master_id=discogs_master_id,
+        match_mode=match_mode,
         title=title,
         artist=artist,
         year=year,
@@ -101,6 +108,8 @@ def update_watch_release(
     user_id: UUID,
     watch_release_id: UUID,
     discogs_release_id: int | None = None,
+    discogs_master_id: int | None = None,
+    match_mode: str | None = None,
     title: str | None = None,
     artist: str | None = None,
     year: int | None = None,
@@ -114,8 +123,19 @@ def update_watch_release(
     changed = False
     active_changed: bool | None = None
 
+    effective_mode = match_mode or row.match_mode
+    effective_master_id = discogs_master_id if discogs_master_id is not None else row.discogs_master_id
+    if effective_mode == "master_release" and effective_master_id is None:
+        raise HTTPException(status_code=422, detail="discogs_master_id is required for master_release mode")
+
     if discogs_release_id is not None and discogs_release_id != row.discogs_release_id:
         row.discogs_release_id = discogs_release_id
+        changed = True
+    if discogs_master_id is not None and discogs_master_id != row.discogs_master_id:
+        row.discogs_master_id = discogs_master_id
+        changed = True
+    if match_mode is not None and match_mode != row.match_mode:
+        row.match_mode = match_mode
         changed = True
     if title is not None and title != row.title:
         row.title = title

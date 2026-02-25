@@ -226,9 +226,18 @@ The API has two watch paradigms; frontend can present both under a single “Ale
 - `PATCH /api/watch-releases/{watch_release_id}` → edit entry.
 - `DELETE /api/watch-releases/{watch_release_id}` → disable entry.
 
+**Frontend contract updates (Discogs identity modes):**
+- `watch_releases` payloads now include:
+  - `discogs_release_id` (required): exact release identity.
+  - `discogs_master_id` (optional): Discogs master identity.
+  - `match_mode` (required, defaults to `exact_release`): one of
+    - `exact_release` → listing must match `discogs_release_id` exactly.
+    - `master_release` → listing must match `discogs_master_id`.
+- Listing payloads now expose optional `discogs_master_id` alongside `discogs_release_id`.
+
 **Screens + actions:**
 - `WatchlistScreen`: list/manage release watches.
-- `WatchlistItemEditor`: set target price, condition, active state.
+- `WatchlistItemEditor`: set target price, condition, active state, and identity `match_mode`.
 
 ---
 
