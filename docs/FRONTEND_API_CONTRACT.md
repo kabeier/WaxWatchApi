@@ -210,6 +210,8 @@ GET /api/events?offset=99999     # 200 []
 - **Screen:** `DiscogsImportScreen` progress panel.
 - **Action:** Poll import status until terminal state.
 - **Terminal UX:** On `completed` or `failed`, show counts/errors and CTA to review watch items.
+- **Status visibility expectation:** Background/scheduled sync uses the same `import_jobs` records and statuses. Frontend should treat scheduler-created jobs exactly like manual jobs when surfaced (no separate status enum/endpoint).
+- **Deduping expectation:** Repeated user-triggered refreshes or scheduler ticks may return an existing in-flight/recent job instead of creating a new one. Frontend should tolerate unchanged `job_id` values and continue polling that job.
 
 ### `GET /api/integrations/discogs/imported-items?source={wantlist|collection}&limit={1-100}&offset={>=0}`
 - **Screen:** `DiscogsImportedItemsScreen` source tabs (`wantlist`, `collection`).

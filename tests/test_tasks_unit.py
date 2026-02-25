@@ -4,6 +4,7 @@ import uuid
 
 import pytest
 
+from app.core.celery_app import celery_app
 from app.db import models
 from app.tasks import (
     deliver_notification_task,
@@ -121,3 +122,11 @@ def test_deliver_notification_task_returns_early_for_missing_notification(monkey
     assert db.commits == 0
     assert db.rollbacks == 0
     assert db.closed == 1
+
+
+def test_celery_beat_schedule_includes_discogs_sync_task():
+    schedule = celery_app.conf.beat_schedule
+
+    assert "sync-discogs-lists" in schedule
+    assert schedule["sync-discogs-lists"]["task"] == "app.tasks.sync_discogs_lists"
+    assert schedule["sync-discogs-lists"]["schedule"] >= 60

@@ -31,6 +31,11 @@ celery_app.conf.update(
             "schedule": max(settings.scheduler_poll_interval_seconds, 1),
             "options": {"expires": max(settings.scheduler_poll_interval_seconds - 1, 1)},
         },
+        "sync-discogs-lists": {
+            "task": "app.tasks.sync_discogs_lists",
+            "schedule": max(settings.discogs_sync_interval_seconds, 60),
+            "options": {"expires": max(settings.discogs_sync_interval_seconds - 1, 1)},
+        },
     },
 )
 

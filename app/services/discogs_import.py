@@ -217,6 +217,23 @@ class DiscogsImportService:
         self._ensure_token_encrypted(db, link=link)
         return link
 
+    def list_sync_candidates(self, db: Session, *, limit: int) -> list[models.ExternalAccountLink]:
+        normalized_limit = max(limit, 0)
+        if normalized_limit == 0:
+            return []
+
+        return (
+            db.query(models.ExternalAccountLink)
+            .join(models.User, models.User.id == models.ExternalAccountLink.user_id)
+            .filter(models.ExternalAccountLink.provider == models.Provider.discogs)
+            .filter(models.ExternalAccountLink.external_user_id != "pending")
+            .filter(models.ExternalAccountLink.access_token.isnot(None))
+            .filter(models.User.is_active.is_(True))
+            .order_by(models.ExternalAccountLink.updated_at.asc(), models.ExternalAccountLink.id.asc())
+            .limit(normalized_limit)
+            .all()
+        )
+
     def run_import(
         self,
         db: Session,
@@ -224,7 +241,8 @@ class DiscogsImportService:
         user_id: UUID,
         source: str,
     ) -> models.ImportJob:
-        return self.create_import_job(db, user_id=user_id, source=source)
+        job, _created = self.ensure_import_job(db, user_id=user_id, source=source)
+        return job
 
     def create_import_job(
         self,
@@ -233,12 +251,49 @@ class DiscogsImportService:
         user_id: UUID,
         source: str,
     ) -> models.ImportJob:
+        job, _created = self.ensure_import_job(db, user_id=user_id, source=source)
+        return job
+
+    def ensure_import_job(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        source: str,
+        cooldown_seconds: int | None = None,
+    ) -> tuple[models.ImportJob, bool]:
         link = self.get_status(db, user_id=user_id)
         if not link:
             raise HTTPException(status_code=400, detail="Discogs is not connected")
         access_token = self._get_decrypted_access_token(db, link=link)
         if not access_token:
             raise HTTPException(status_code=400, detail="Discogs OAuth callback not completed")
+
+        in_flight_job = (
+            db.query(models.ImportJob)
+            .filter(models.ImportJob.user_id == user_id)
+            .filter(models.ImportJob.provider == models.Provider.discogs)
+            .filter(models.ImportJob.import_scope == source)
+            .filter(models.ImportJob.status.in_(["pending", "running"]))
+            .order_by(models.ImportJob.created_at.desc())
+            .first()
+        )
+        if in_flight_job:
+            return in_flight_job, False
+
+        if cooldown_seconds and cooldown_seconds > 0:
+            cooldown_cutoff = datetime.now(timezone.utc) - timedelta(seconds=cooldown_seconds)
+            recent_job = (
+                db.query(models.ImportJob)
+                .filter(models.ImportJob.user_id == user_id)
+                .filter(models.ImportJob.provider == models.Provider.discogs)
+                .filter(models.ImportJob.import_scope == source)
+                .filter(models.ImportJob.created_at >= cooldown_cutoff)
+                .order_by(models.ImportJob.created_at.desc())
+                .first()
+            )
+            if recent_job:
+                return recent_job, False
 
         now = datetime.now(timezone.utc)
         job = models.ImportJob(
@@ -268,7 +323,7 @@ class DiscogsImportService:
             event_type=models.EventType.IMPORT_STARTED,
             payload={"job_id": str(job.id), "source": source},
         )
-        return job
+        return job, True
 
     def execute_import_job(self, db: Session, *, job_id: UUID) -> models.ImportJob:
         job = db.query(models.ImportJob).filter(models.ImportJob.id == job_id).one_or_none()
