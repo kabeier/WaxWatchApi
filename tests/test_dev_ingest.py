@@ -159,7 +159,7 @@ def test_dev_ingest_match_event_uses_tracked_url_for_ebay(client, user, headers,
     event = (
         db_session.query(models.Event)
         .filter(models.Event.rule_id == rule.id)
-        .filter(models.Event.listing_id == uuid.UUID(listing_id))
+        .filter(models.Event.listing_id == listing_id)
         .one()
     )
     assert event.payload is not None
@@ -220,7 +220,7 @@ def test_dev_ingest_matches_exact_release_mode_only_on_release_id(client, user, 
     release_events = (
         db_session.query(models.Event)
         .filter(models.Event.watch_release_id == watch.id)
-        .filter(models.Event.listing_id == uuid.UUID(listing_id))
+        .filter(models.Event.listing_id == listing_id)
         .all()
     )
     assert len(release_events) == 1
@@ -283,7 +283,7 @@ def test_dev_ingest_watch_release_mode_false_positive_controls(client, user, hea
     listing_id = uuid.UUID(r.json()["listing"]["id"])
     release_events = (
         db_session.query(models.Event)
-        .filter(models.Event.listing_id == uuid.UUID(listing_id))
+        .filter(models.Event.listing_id == listing_id)
         .filter(models.Event.watch_release_id.is_not(None))
         .all()
     )
