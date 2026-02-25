@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     discogs_max_attempts: int = 4
     discogs_retry_base_delay_ms: int = 250
     discogs_retry_max_delay_ms: int = 5_000
+    discogs_sync_enabled: bool = False
+    discogs_sync_interval_seconds: int = 3600
+    discogs_sync_user_batch_size: int = 25
+    discogs_sync_jitter_seconds: int = 30
+    discogs_sync_spread_seconds: int = 5
 
     ebay_client_id: str | None = None
     ebay_client_secret: str | None = None

@@ -105,6 +105,22 @@ Before each production deploy:
    - SLO dashboards are reporting (API latency by endpoint category, provider error budgets, scheduler freshness, notification lag).
    - Alert thresholds match `docs/OPERATIONS_OBSERVABILITY.md` numeric warning/critical targets.
 
+## Discogs scheduled sync tuning
+
+The Celery beat schedule now includes `app.tasks.sync_discogs_lists` for background Discogs list refreshes.
+Use conservative settings first, then scale carefully:
+
+- `DISCOGS_SYNC_ENABLED=false` by default (recommended while validating quotas/worker capacity).
+- `DISCOGS_SYNC_INTERVAL_SECONDS=3600` default cadence.
+- `DISCOGS_SYNC_USER_BATCH_SIZE=25` maximum connected users discovered per run.
+- `DISCOGS_SYNC_JITTER_SECONDS=30` and `DISCOGS_SYNC_SPREAD_SECONDS=5` to stagger imports and avoid burst traffic.
+
+Operational behavior:
+
+- Scheduler only considers active users with a connected Discogs external account link.
+- Per-user cooldown and idempotent in-flight checks prevent duplicate import-job storms.
+- If a user already has an in-flight/recent job in cooldown, no extra job is created.
+
 ## Change synchronization requirement
 
 When introducing new environment variables, CI/test commands, or Make targets, update `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, `CONTRIBUTING.md`, and `CHANGELOG.md` (for behavior-impacting changes) in the same PR, plus any affected docs.

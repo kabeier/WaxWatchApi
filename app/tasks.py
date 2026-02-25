@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -42,6 +43,52 @@ def poll_due_rules_task() -> dict[str, int]:
         )
         db.commit()
         return {"processed_rules": result.processed_rules, "failed_rules": result.failed_rules}
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.tasks.sync_discogs_lists")
+def sync_discogs_lists_task() -> dict[str, int]:
+    if not settings.discogs_sync_enabled:
+        return {"discovered_users": 0, "enqueued_jobs": 0, "reused_jobs": 0, "disabled": 1}
+
+    db = SessionLocal()
+    try:
+        links = discogs_import_service.list_sync_candidates(
+            db,
+            limit=settings.discogs_sync_user_batch_size,
+        )
+
+        enqueued_jobs = 0
+        reused_jobs = 0
+        queued_jobs: list[tuple[str, int]] = []
+        for link in links:
+            job, created = discogs_import_service.ensure_import_job(
+                db,
+                user_id=link.user_id,
+                source="both",
+                cooldown_seconds=settings.discogs_sync_interval_seconds,
+            )
+            if created:
+                countdown = random.randint(0, max(settings.discogs_sync_jitter_seconds, 0))
+                countdown += random.randint(0, max(settings.discogs_sync_spread_seconds, 0))
+                queued_jobs.append((str(job.id), countdown))
+                enqueued_jobs += 1
+            else:
+                reused_jobs += 1
+
+        db.commit()
+        for job_id, countdown in queued_jobs:
+            run_discogs_import_task.apply_async(args=[job_id], countdown=countdown)
+        return {
+            "discovered_users": len(links),
+            "enqueued_jobs": enqueued_jobs,
+            "reused_jobs": reused_jobs,
+            "disabled": 0,
+        }
     except Exception:
         db.rollback()
         raise
