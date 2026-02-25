@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.db import models
+from app.providers.registry import list_available_providers
 
 
 def test_get_me_returns_profile_and_integrations(client, user, headers, db_session):
@@ -247,26 +248,26 @@ def test_get_me_integrations_linked_false_when_no_account_linked_with_rules(
 
 
 def test_get_me_integrations_mixed_providers_keep_linkage_independent(client, user, headers, db_session):
-    db_session.add_all(
-        [
-            models.ExternalAccountLink(
-                user_id=user.id,
-                provider=models.Provider.discogs,
-                external_user_id="discogs-linked-user",
-            ),
-            models.WatchSearchRule(
-                user_id=user.id,
-                name="Discogs + Ebay Search",
-                query={"sources": ["discogs", "ebay"]},
-                poll_interval_seconds=600,
-            ),
-            models.WatchSearchRule(
-                user_id=user.id,
-                name="Ebay Search",
-                query={"sources": ["ebay"]},
-                poll_interval_seconds=600,
-            ),
-        ]
+    db_session.add(
+        models.ExternalAccountLink(
+            user_id=user.id,
+            provider=models.Provider.discogs,
+            external_user_id="discogs-linked-user",
+        )
+    )
+
+    sources = ["discogs"]
+    available = list_available_providers()
+    if "ebay" in available:
+        sources.append("ebay")
+
+    db_session.add(
+        models.WatchSearchRule(
+            user_id=user.id,
+            name="Discogs Mixed Search",
+            query={"sources": sources},
+            poll_interval_seconds=600,
+        )
     )
     db_session.flush()
 
@@ -276,5 +277,15 @@ def test_get_me_integrations_mixed_providers_keep_linkage_independent(client, us
     integrations = {item["provider"]: item for item in response.json()["integrations"]}
     assert integrations["discogs"]["linked"] is True
     assert integrations["discogs"]["watch_rule_count"] == 1
-    assert integrations["ebay"]["linked"] is False
-    assert integrations["ebay"]["watch_rule_count"] == 2
+
+    if "ebay" in integrations:
+        assert integrations["ebay"]["linked"] is False
+        assert integrations["ebay"]["watch_rule_count"] == 1
+
+
+def test_get_me_integrations_only_lists_registered_enabled_providers(client, user, headers):
+    response = client.get("/api/me", headers=headers(user.id))
+
+    assert response.status_code == 200
+    providers = [item["provider"] for item in response.json()["integrations"]]
+    assert providers == list_available_providers()

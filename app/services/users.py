@@ -7,10 +7,11 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.db import models
+from app.providers.registry import list_available_providers
 from app.schemas.users import IntegrationSummary, UserPreferences
 from app.services.notifications import get_or_create_preferences
 
-DEFAULT_PROVIDER_SUMMARY = tuple(p.value for p in models.Provider)
+DEFAULT_PROVIDER_SUMMARY = tuple(list_available_providers())
 
 
 def _preferences_from_db(

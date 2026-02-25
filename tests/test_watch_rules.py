@@ -5,6 +5,7 @@ from datetime import datetime
 
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
+from app.providers.registry import list_available_providers
 
 
 def _create_rule(client, headers: dict[str, str], *, name: str = "Primus under $70", query=None, poll=600):
@@ -132,6 +133,36 @@ def test_patch_rule_validation_invalid_provider(client, user, headers):
     assert body["error"]["status"] == 422
     assert isinstance(body["error"]["details"], list)
     assert "not-a-real-provider" in str(body["error"]["details"])
+
+
+def test_create_rule_rejects_unregistered_provider_enum_value(client, user, headers):
+    h = headers(user.id)
+
+    payload = {
+        "name": "Unsupported provider",
+        "query": {"keywords": ["primus"], "sources": ["spotify"], "max_price": 70},
+        "poll_interval_seconds": 600,
+    }
+    response = client.post("/api/watch-rules", json=payload, headers=h)
+
+    assert response.status_code == 422, response.text
+    assert "spotify" in str(response.json()["error"]["details"])
+
+
+def test_create_rule_accepts_registered_enabled_provider(client, user, headers):
+    h = headers(user.id)
+    available = list_available_providers()
+    provider = "mock" if "mock" in available else available[0]
+
+    payload = {
+        "name": "Configured provider",
+        "query": {"keywords": ["primus"], "sources": [provider], "max_price": 70},
+        "poll_interval_seconds": 600,
+    }
+    response = client.post("/api/watch-rules", json=payload, headers=h)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["query"]["sources"] == [provider]
 
 
 def test_delete_rule_disables(client, user, headers):
