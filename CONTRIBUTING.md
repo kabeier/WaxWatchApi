@@ -93,6 +93,23 @@ Any upstream change that affects tests, CI workflow behavior, Make targets, or e
 Enforcement notes:
 
 - CI runs `python scripts/check_env_sample.py` to verify `.env.sample` still covers all `Settings` fields.
-- The same script also enforces policy synchronization when new `Settings` fields, Make targets, or CI run commands are introduced.
+- CI runs `python scripts/check_change_surface.py` to enforce integration hygiene when a PR touches testing workflow, CI config, task orchestration, or settings surfaces.
+- The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`).
 - CI also runs `python scripts/check_frontend_contract_sync.py`, which fails if changes under `app/api/` or `app/schemas/` do not include a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
-- If these changes are intentional, include explicit updates to the files above so the policy check can pass.
+
+### Change-surface remediation checklist
+
+If `scripts/check_change_surface.py` fails:
+
+1. Confirm your PR touches one of the guarded surfaces (tests, CI workflow/config, orchestration, or settings).
+2. Add/update the synchronized governance files in the same PR:
+   - `Makefile`
+   - `.github/workflows/ci.yml`
+   - `.env.sample`
+   - `CONTRIBUTING.md` and/or relevant `docs/*.md`
+3. Re-run locally:
+   ```bash
+   make check-change-surface
+   make ci-local
+   ```
+4. If the surface change was accidental, revert it instead of bypassing the policy.
