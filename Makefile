@@ -356,13 +356,25 @@ wait-test-db:
 
 ci-db-tests:
 	@set -euo pipefail; \
-	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
+	trap '''$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true''' EXIT; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE); \
 	$(MAKE) wait-test-db; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_background_tasks.py tests/test_token_crypto_logging.py --disable-warnings --maxfail=1"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER)"
+	echo "Preparing $(TEST_APP_SERVICE) test image (retrying transient registry failures) ..."; \
+	for i in $$(seq 1 3); do \
+		if $(COMPOSE) -f $(TEST_DB_COMPOSE) build $(TEST_APP_SERVICE); then \
+			break; \
+		fi; \
+		if [ $$i -eq 3 ]; then \
+			echo "Failed to build $(TEST_APP_SERVICE) after 3 attempts."; \
+			exit 1; \
+		fi; \
+		echo "Build attempt $$i failed; retrying in 10s ..."; \
+		sleep 10; \
+	done; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm --no-build -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm --no-build -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm --no-build -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_background_tasks.py tests/test_token_crypto_logging.py --disable-warnings --maxfail=1"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm --no-build -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER)"
 
 api-contract-check:
 	$(PYTHON) -m scripts.api_contract_check
