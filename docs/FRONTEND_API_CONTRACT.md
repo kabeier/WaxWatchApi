@@ -1,11 +1,13 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-25`
+**Contract version:** `2026-02-25.1`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-25.1`
+  - Added frontend contract coverage for `GET /api/outbound/ebay/{listing_id}` including auth requirements, `307` redirect behavior, `404` conditions, click-logging side effects, and frontend retry/analytics guidance.
 - `2026-02-25`
   - Added explicit contract versioning metadata at the top of this file.
   - Added a changelog section for endpoint/schema contract tracking.
@@ -389,6 +391,27 @@ Recommended client behavior:
 - Append/merge realtime events into inbox cache.
 - Refresh unread badge after incoming realtime payload.
 - Reconnect SSE with exponential backoff on disconnect.
+
+---
+
+## 4.5 Outbound Marketplace Redirects
+
+### `GET /api/outbound/ebay/{listing_id}`
+- **Screen/action:** listing card/button CTA such as `View on eBay`.
+- **Auth requirement:** requires `Authorization: Bearer <jwt>` like other user-facing `/api/**` endpoints.
+- **Response behavior:** returns `307 Temporary Redirect` with `Location` set to the affiliate-decorated eBay URL. Frontend should treat this as a navigation endpoint, not JSON data.
+- **404 conditions:** returns `404` when any of the following is true:
+  - `listing_id` does not exist,
+  - listing exists but is not an eBay provider listing,
+  - listing destination URL is unavailable/empty after backend resolution.
+- **Side effect (click logging):** on successful redirect path, backend inserts an `outbound_clicks` record with authenticated `user_id`, `listing_id`, provider, and optional `Referer` header value.
+
+Frontend guidance:
+- **Open behavior:** invoke from direct user interaction and open in a new tab/window (for example `target="_blank" rel="noopener noreferrer"`) so the app session remains in-place.
+- **Analytics expectations:** frontend may emit a local `outbound_click_attempted` event, but backend click logging is the source of truth for successful outbound redirects.
+- **Retry handling:**
+  - Do not auto-retry on `404`; treat as terminal and show lightweight feedback (`Listing no longer available`).
+  - If network/request execution fails before a response, allow one manual user retry (e.g., click again) rather than background retry loops.
 
 ---
 

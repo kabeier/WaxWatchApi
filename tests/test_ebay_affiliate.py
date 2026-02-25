@@ -19,3 +19,9 @@ def test_to_affiliate_url_no_campaign_returns_raw(monkeypatch):
     monkeypatch.setattr("app.monetization.ebay_affiliate.settings.ebay_campaign_id", None)
     raw = "https://www.ebay.com/itm/123456"
     assert to_affiliate_url(raw) == raw
+
+
+def test_to_affiliate_url_blank_source_returns_empty_string(monkeypatch):
+    monkeypatch.setattr("app.monetization.ebay_affiliate.settings.ebay_campaign_id", "12345")
+
+    assert to_affiliate_url("   ") == ""
