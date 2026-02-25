@@ -62,7 +62,7 @@ def test_run_search_records_provider_errors_and_filters_results(monkeypatch):
 
         def search(self, *, query, limit):
             assert query["keywords"] == ["primus"]
-            assert limit == 4
+            assert limit == 2
             return [
                 ProviderListing(
                     provider="discogs",
@@ -116,7 +116,7 @@ def test_run_search_records_provider_errors_and_filters_results(monkeypatch):
         min_price=5,
         max_price=100,
         min_condition="vg",
-        page=2,
+        page=1,
         page_size=2,
     )
 
