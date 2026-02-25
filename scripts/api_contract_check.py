@@ -74,9 +74,7 @@ def _collect_changed_files() -> set[str]:
 def main() -> int:
     changed_files = _collect_changed_files()
     watched_changes = sorted(
-        path
-        for path in changed_files
-        if any(path.startswith(prefix) for prefix in WATCHED_PREFIXES)
+        path for path in changed_files if any(path.startswith(prefix) for prefix in WATCHED_PREFIXES)
     )
 
     if not watched_changes:
