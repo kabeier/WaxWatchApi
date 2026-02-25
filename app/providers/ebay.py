@@ -13,6 +13,8 @@ from app.providers.base import (
     ProviderError,
     ProviderListing,
     ProviderPaginationModel,
+    ProviderRequestLog,
+    ProviderRequestLogger,
 )
 
 OAUTH_BASE_URL = "https://api.ebay.com"
@@ -30,9 +32,33 @@ class EbayClient(ProviderClient):
         pagination_model=ProviderPaginationModel.OFFSET,
     )
 
-    def __init__(self) -> None:
+    def __init__(self, *, request_logger: ProviderRequestLogger | None = None) -> None:
         self.last_request_meta: dict[str, Any] | None = None
         self.last_duration_ms: int | None = None
+        self._request_logger = request_logger
+
+    def _log_request(
+        self,
+        *,
+        endpoint: str,
+        method: str,
+        status_code: int | None,
+        duration_ms: int | None,
+        error: str | None,
+        meta: dict[str, Any] | None,
+    ) -> None:
+        if self._request_logger is None:
+            return
+        self._request_logger(
+            ProviderRequestLog(
+                endpoint=endpoint,
+                method=method,
+                status_code=status_code,
+                duration_ms=duration_ms,
+                error=error,
+                meta=meta,
+            )
+        )
 
     @staticmethod
     def _is_retryable_status(status_code: int) -> bool:
@@ -64,6 +90,7 @@ class EbayClient(ProviderClient):
 
         token_endpoint = "/identity/v1/oauth2/token"
         token_url = f"{OAUTH_BASE_URL}{token_endpoint}"
+        start = time.perf_counter()
         data = {
             "grant_type": "client_credentials",
             "scope": settings.ebay_oauth_scope,
@@ -77,21 +104,55 @@ class EbayClient(ProviderClient):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
         except httpx.RequestError as exc:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            self._log_request(
+                endpoint=token_endpoint,
+                method="POST",
+                status_code=None,
+                duration_ms=duration_ms,
+                error=f"eBay auth network error: {exc}",
+                meta={"retryable": False},
+            )
             raise ProviderError(
                 f"eBay auth network error: {exc}",
                 status_code=None,
                 endpoint=token_endpoint,
                 method="POST",
+                duration_ms=duration_ms,
             ) from exc
 
+        duration_ms = int((time.perf_counter() - start) * 1000)
+        auth_meta = {
+            "request_id": resp.headers.get("x-ebay-c-request-id"),
+            "rate_limit_remaining": resp.headers.get("x-ebay-c-remaining-request-limit"),
+            "retry_after_seconds": self._parse_retry_after_seconds(resp.headers.get("Retry-After")),
+        }
         if resp.status_code != 200:
+            self._log_request(
+                endpoint=token_endpoint,
+                method="POST",
+                status_code=resp.status_code,
+                duration_ms=duration_ms,
+                error=f"eBay auth error {resp.status_code}",
+                meta=auth_meta,
+            )
             raise ProviderError(
                 f"eBay auth error {resp.status_code}",
                 status_code=resp.status_code,
                 endpoint=token_endpoint,
                 method="POST",
+                duration_ms=duration_ms,
                 meta={"response": resp.text[:500]},
             )
+
+        self._log_request(
+            endpoint=token_endpoint,
+            method="POST",
+            status_code=resp.status_code,
+            duration_ms=duration_ms,
+            error=None,
+            meta=auth_meta,
+        )
 
         payload = resp.json()
         token = payload.get("access_token")
@@ -130,9 +191,28 @@ class EbayClient(ProviderClient):
 
             resp: httpx.Response | None = None
             for attempt in range(1, attempts + 1):
+                attempt_start = time.perf_counter()
                 try:
                     resp = client.get(url, params=params, headers=headers)
                 except httpx.RequestError as exc:
+                    duration_ms = int((time.perf_counter() - attempt_start) * 1000)
+                    request_meta = {
+                        "attempt": attempt,
+                        "attempts": attempt,
+                        "max_attempts": attempts,
+                        "retryable": True,
+                        "retry_after_seconds": None,
+                        "request_id": None,
+                        "rate_limit_remaining": None,
+                    }
+                    self._log_request(
+                        endpoint=endpoint,
+                        method=method,
+                        status_code=None,
+                        duration_ms=duration_ms,
+                        error=f"eBay network error: {exc}",
+                        meta=request_meta,
+                    )
                     if attempt < attempts:
                         time.sleep(self._compute_backoff_seconds(attempt))
                         continue
@@ -149,12 +229,22 @@ class EbayClient(ProviderClient):
 
                 retry_after_seconds = self._parse_retry_after_seconds(resp.headers.get("Retry-After"))
                 final_meta = {
+                    "attempt": attempt,
                     "attempts": attempt,
                     "max_attempts": attempts,
                     "retry_after_seconds": retry_after_seconds,
                     "request_id": resp.headers.get("x-ebay-c-request-id"),
                     "rate_limit_remaining": resp.headers.get("x-ebay-c-remaining-request-limit"),
                 }
+                duration_ms = int((time.perf_counter() - attempt_start) * 1000)
+                self._log_request(
+                    endpoint=endpoint,
+                    method=method,
+                    status_code=resp.status_code,
+                    duration_ms=duration_ms,
+                    error=None if resp.status_code == 200 else f"eBay error {resp.status_code}",
+                    meta=final_meta,
+                )
 
                 if resp.status_code == 200:
                     break

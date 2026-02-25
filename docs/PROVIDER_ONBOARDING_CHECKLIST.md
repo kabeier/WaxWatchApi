@@ -11,6 +11,7 @@ Use this checklist when introducing a new provider under `app/providers/`.
   - `capability_contract` (`ProviderCapabilityContract`)
 - [ ] `search()` returns normalized `ProviderListing` objects only.
 - [ ] Raise `ProviderError` for expected API/auth/rate-limit failures.
+- [ ] Emit provider-request logs **per outbound HTTP call** (auth + data + retry attempts), including status, duration, error, and available request-id/rate-limit metadata.
 
 ## 2) Define capability contract clearly
 

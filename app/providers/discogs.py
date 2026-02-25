@@ -13,6 +13,8 @@ from app.providers.base import (
     ProviderError,
     ProviderListing,
     ProviderPaginationModel,
+    ProviderRequestLog,
+    ProviderRequestLogger,
 )
 
 BASE_URL = "https://api.discogs.com"
@@ -29,13 +31,37 @@ class DiscogsClient(ProviderClient):
         pagination_model=ProviderPaginationModel.OFFSET,
     )
 
-    def __init__(self) -> None:
+    def __init__(self, *, request_logger: ProviderRequestLogger | None = None) -> None:
         self.last_request_meta: dict[str, Any] | None = None
         self.last_duration_ms: int | None = None
+        self._request_logger = request_logger
         self._headers = {
             "User-Agent": settings.discogs_user_agent,
             "Authorization": f"Discogs token={settings.discogs_token}",
         }
+
+    def _log_request(
+        self,
+        *,
+        endpoint: str,
+        method: str,
+        status_code: int | None,
+        duration_ms: int | None,
+        error: str | None,
+        meta: dict[str, Any] | None,
+    ) -> None:
+        if self._request_logger is None:
+            return
+        self._request_logger(
+            ProviderRequestLog(
+                endpoint=endpoint,
+                method=method,
+                status_code=status_code,
+                duration_ms=duration_ms,
+                error=error,
+                meta=meta,
+            )
+        )
 
     @staticmethod
     def _parse_retry_after_seconds(raw: str | None) -> float | None:
@@ -55,6 +81,25 @@ class DiscogsClient(ProviderClient):
         max_delay = max(settings.discogs_retry_max_delay_ms, settings.discogs_retry_base_delay_ms) / 1000.0
         capped = min(base * (2 ** max(attempt - 1, 0)), max_delay)
         return capped * (0.5 + random())
+
+    def _response_meta(
+        self,
+        *,
+        attempt: int,
+        attempts: int,
+        retry_after_seconds: float | None,
+        headers: dict[str, str | None],
+    ) -> dict[str, Any]:
+        return {
+            "attempt": attempt,
+            "attempts": attempt,
+            "max_attempts": attempts,
+            "retry_after_seconds": retry_after_seconds,
+            "headers": headers,
+            "rate_limit": headers.get("X-Discogs-Ratelimit"),
+            "rate_limit_remaining": headers.get("X-Discogs-Ratelimit-Remaining"),
+            "rate_limit_used": headers.get("X-Discogs-Ratelimit-Used"),
+        }
 
     def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:
         keywords = query.get("keywords") or []
@@ -78,19 +123,31 @@ class DiscogsClient(ProviderClient):
             with httpx.Client(timeout=settings.discogs_timeout_seconds) as client:
                 resp: httpx.Response | None = None
                 for attempt in range(1, attempts + 1):
+                    attempt_start = time.perf_counter()
                     try:
                         resp = client.get(url, headers=self._headers, params=params)
                     except httpx.RequestError as e:
+                        duration_ms = int((time.perf_counter() - attempt_start) * 1000)
+                        final_meta = self._response_meta(
+                            attempt=attempt,
+                            attempts=attempts,
+                            retry_after_seconds=None,
+                            headers={},
+                        )
+                        final_meta["retryable"] = True
+                        self._log_request(
+                            endpoint=endpoint,
+                            method=method,
+                            status_code=None,
+                            duration_ms=duration_ms,
+                            error=f"Discogs network error: {e}",
+                            meta=final_meta,
+                        )
                         if attempt < attempts:
                             time.sleep(self._compute_backoff_seconds(attempt))
                             continue
 
                         duration_ms = int((time.perf_counter() - start) * 1000)
-                        final_meta = {
-                            "attempts": attempt,
-                            "max_attempts": attempts,
-                            "retryable": True,
-                        }
                         raise ProviderError(
                             f"Discogs network error: {e}",
                             status_code=None,
@@ -101,14 +158,27 @@ class DiscogsClient(ProviderClient):
                         ) from e
 
                     retry_after_seconds = self._parse_retry_after_seconds(resp.headers.get("Retry-After"))
-                    final_meta = {
-                        "rate_limit": resp.headers.get("X-Discogs-Ratelimit"),
-                        "rate_limit_remaining": resp.headers.get("X-Discogs-Ratelimit-Remaining"),
-                        "rate_limit_used": resp.headers.get("X-Discogs-Ratelimit-Used"),
-                        "retry_after_seconds": retry_after_seconds,
-                        "attempts": attempt,
-                        "max_attempts": attempts,
+                    header_meta = {
+                        "Retry-After": resp.headers.get("Retry-After"),
+                        "X-Discogs-Ratelimit": resp.headers.get("X-Discogs-Ratelimit"),
+                        "X-Discogs-Ratelimit-Remaining": resp.headers.get("X-Discogs-Ratelimit-Remaining"),
+                        "X-Discogs-Ratelimit-Used": resp.headers.get("X-Discogs-Ratelimit-Used"),
                     }
+                    final_meta = self._response_meta(
+                        attempt=attempt,
+                        attempts=attempts,
+                        retry_after_seconds=retry_after_seconds,
+                        headers=header_meta,
+                    )
+                    duration_ms = int((time.perf_counter() - attempt_start) * 1000)
+                    self._log_request(
+                        endpoint=endpoint,
+                        method=method,
+                        status_code=resp.status_code,
+                        duration_ms=duration_ms,
+                        error=None if resp.status_code == 200 else f"Discogs error {resp.status_code}",
+                        meta=final_meta,
+                    )
 
                     if resp.status_code == 200:
                         break

@@ -190,3 +190,56 @@ def test_save_search_alert_uses_default_provider_list(monkeypatch):
     assert result == "created"
     assert captured["query"]["sources"] == ["discogs", "mock"]
     assert captured["query"]["keywords"] == ["primus"]
+
+
+def test_run_search_supports_multiple_provider_request_logs(monkeypatch):
+    class _EbayProvider:
+        default_endpoint = "/buy/browse/v1/item_summary/search"
+
+        def __init__(self, *, request_logger=None):
+            self._request_logger = request_logger
+
+        def search(self, *, query, limit):
+            if self._request_logger:
+                self._request_logger(
+                    search_service.ProviderRequestLog(
+                        endpoint="/identity/v1/oauth2/token",
+                        method="POST",
+                        status_code=200,
+                        duration_ms=8,
+                        meta={"request_id": "auth-req"},
+                    )
+                )
+                self._request_logger(
+                    search_service.ProviderRequestLog(
+                        endpoint="/buy/browse/v1/item_summary/search",
+                        method="GET",
+                        status_code=200,
+                        duration_ms=12,
+                        meta={"request_id": "data-req"},
+                    )
+                )
+            return [
+                ProviderListing(
+                    provider="ebay",
+                    external_id="abc123",
+                    url="https://example.com/abc123",
+                    title="Primus LP",
+                    price=99,
+                )
+            ]
+
+    logs = []
+    monkeypatch.setattr(search_service, "get_provider_class", lambda _name: _EbayProvider)
+    monkeypatch.setattr(search_service, "log_provider_request", lambda *args, **kwargs: logs.append(kwargs))
+
+    query = SearchQuery(keywords=["primus"], providers=["ebay"], page=1, page_size=10)
+    result = search_service.run_search(_FakeDB(), user_id=uuid.uuid4(), query=query)
+
+    assert len(result.items) == 1
+    assert len(logs) == 2
+    assert [log["endpoint"] for log in logs] == [
+        "/identity/v1/oauth2/token",
+        "/buy/browse/v1/item_summary/search",
+    ]
+    assert [log["method"] for log in logs] == ["POST", "GET"]
