@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main"]
-  pull_request:
+    branches: ["**"]
 
 jobs:
   backend:
@@ -25,78 +24,7 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
 
-      - name: Verify jwt test dependency
-        run: |
-          python -c "import jwt, cryptography; print('ok: jwt dependency available')"
-
-      - name: Validate docker compose files
-        run: make check-docker-config
-
-      - name: Validate env + governance sync policy
-        run: make check-policy-sync
-
-      - name: Validate fail-closed compose secret defaults policy
-        run: make check-compose-secret-defaults
-
-      - name: Validate integration hygiene change-surface policy
-        run: make check-change-surface
-
-      - name: Validate frontend API contract sync
-        run: make check-contract-sync
-
-      - name: Lint
-        run: make lint
-
-      - name: Format check
-        run: make fmt-check
-
-      - name: Static type check
-        run: make typecheck
-
-      - name: Migration, focused uplift suite, drift, and test gates (with coverage threshold)
+      - name: Run canonical CI target
         env:
           COVERAGE_FAIL_UNDER: "85"
-        run: make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
-
-      - name: Capture base coverage for regression checks
-        if: github.event_name == 'pull_request'
-        env:
-          COVERAGE_FAIL_UNDER: "85"
-        run: |
-          set -euo pipefail
-          BASE_WT="$(mktemp -d ../WaxWatchApi-base-XXXXXX)"
-          # mktemp creates 0700 dirs; loosen execute/read bits so non-root container
-          # users in the base worktree can traverse/read bind-mounted project files.
-          chmod 755 "$BASE_WT"
-          cleanup() {
-            git worktree remove --force "$BASE_WT" >/dev/null 2>&1 || true
-            rm -rf "$BASE_WT" >/dev/null 2>&1 || true
-          }
-          trap cleanup EXIT
-
-          git fetch --no-tags --depth=1 origin ${{ github.base_ref }}
-          git worktree add --detach "$BASE_WT" "origin/${{ github.base_ref }}"
-          # Ensure containerized non-root users can read all checked-out files.
-          chmod -R a+rX "$BASE_WT"
-          if [ ! -f "$BASE_WT/coverage.json" ]; then
-            # Base branch may not emit JSON coverage by default; patch pytest.ini in the
-            # disposable worktree so ci-db-tests writes coverage.json for comparison.
-            (
-              cd "$BASE_WT"
-              python - <<'PY2'
-from pathlib import Path
-p = Path("pytest.ini")
-if p.exists():
-    text = p.read_text()
-    if "--cov-report=json:coverage.json" not in text:
-        p.write_text(text.replace("--cov-report=term-missing", "--cov-report=term-missing --cov-report=json:coverage.json"))
-PY2
-              make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
-            )
-          fi
-          test -f "$BASE_WT/coverage.json"
-          cp "$BASE_WT/coverage.json" coverage.base.json
-
-      - name: Enforce coverage non-regression gates
-        if: github.event_name == 'pull_request'
-        run: make check-coverage-regression
+        run: make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER

@@ -69,13 +69,13 @@ help:
 	@echo "  make ci-local              Run full CI flow locally"
 	@echo "                             (lint + fmt-check + typecheck + migrate + drift + pytest+coverage)"
 	@echo "                             (coverage gate: --cov-fail-under=$(COVERAGE_FAIL_UNDER))"
-	@echo "  make test-profile          Run focused profile API tests"
-	@echo "  make test-background-tasks Run focused background task transaction test"
-	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests"
-	@echo "  make test-token-security   Run token crypto + redaction focused tests"
-	@echo "  make test-celery-tasks     Run celery task tests in eager mode (CI-safe)"
-	@echo "  make test-matching         Run Discogs listing-matching focused tests"
-	@echo "  make test-coverage-uplift  Run focused coverage-uplift test modules"
+	@echo "  make test-profile          Run focused profile API tests (local debugging only; non-authoritative)"
+	@echo "  make test-background-tasks Run focused background task transaction test (local debugging only; non-authoritative)"
+	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests (local debugging only; non-authoritative)"
+	@echo "  make test-token-security   Run token crypto + redaction focused tests (local debugging only; non-authoritative)"
+	@echo "  make test-celery-tasks     Run celery task tests in eager mode (local debugging only; non-authoritative)"
+	@echo "  make test-matching         Run Discogs listing-matching focused tests (local debugging only; non-authoritative)"
+	@echo "  make test-coverage-uplift  Run focused coverage-uplift test modules (local debugging only; non-authoritative)"
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make check-compose-secret-defaults Validate fail-closed secret default policy in compose"
@@ -172,6 +172,7 @@ test-with-docker-db: test-db-up
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q -rA"
 
 test-discogs-ingestion:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -195,6 +196,7 @@ test-discogs-ingestion:
 
 
 test-notifications:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -217,6 +219,7 @@ test-notifications:
 	$(PYTHON) -m pytest -q tests/test_notifications.py -rA
 
 test-profile:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -240,6 +243,7 @@ test-profile:
 
 
 test-search:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -263,11 +267,13 @@ test-search:
 
 
 test-watch-rules-hard-delete:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	$(MAKE) verify-test-deps
 	$(PYTHON) -m pytest -q tests/test_watch_rules.py -k hard_delete -rA
 
 
 test-background-tasks:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -290,6 +296,7 @@ test-background-tasks:
 	$(PYTHON) -m pytest -q tests/test_background_tasks.py -rA
 
 test-token-security:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -314,6 +321,7 @@ test-token-security:
 
 
 test-matching:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -336,6 +344,7 @@ test-matching:
 	$(PYTHON) -m pytest -q tests/test_matching.py -rA
 
 test-coverage-uplift:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -358,6 +367,7 @@ test-coverage-uplift:
 	$(PYTHON) -m pytest -q tests/test_watch_rules.py tests/test_notifications.py tests/test_tasks_unit.py tests/test_email_provider.py tests/test_search_service.py tests/test_db_base.py -rA
 
 test-celery-tasks:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
 	JSON_LOGS=false \
@@ -421,6 +431,11 @@ wait-test-db:
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) logs --no-color $(TEST_DB_SERVICE) | tail -n 200; \
 	exit 1
 
+# CI contract:
+# - ci-local is the canonical CI entrypoint for both local and GitHub Actions runs.
+# - Keep governance checks, Ruff lint/format-check, typecheck, and ci-db-tests in ci-local.
+# - Keep migration upgrade + schema drift checks + default pytest discovery with coverage in ci-db-tests.
+# - Do not replace the default pytest discovery run with manually enumerated test modules.
 ci-db-tests:
 	@set -euo pipefail; \
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
@@ -428,13 +443,12 @@ ci-db-tests:
 	$(MAKE) wait-test-db; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_background_tasks.py tests/test_token_crypto_logging.py tests/test_matching.py --disable-warnings --maxfail=1"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_watch_rules.py tests/test_notifications.py tests/test_tasks_unit.py tests/test_email_provider.py tests/test_search_service.py tests/test_db_base.py --disable-warnings --maxfail=1"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER)"
 
 # Mirrors the GitHub Actions CI job
 ci-local:
 	$(MAKE) verify-test-deps; \
+	$(MAKE) check-docker-config; \
 	$(MAKE) check-policy-sync; \
 	$(MAKE) check-change-surface; \
 	$(MAKE) check-contract-sync; \
