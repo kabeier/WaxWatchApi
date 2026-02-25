@@ -145,3 +145,30 @@ class DiscogsImportJobOut(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class DiscogsImportedItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    watch_release_id: UUID
+    discogs_release_id: int
+    discogs_master_id: int | None
+    title: str
+    artist: str | None
+    year: int | None
+    source: Literal["wantlist", "collection"]
+    open_in_discogs_url: str
+
+
+class DiscogsImportedItemListOut(BaseModel):
+    source: Literal["wantlist", "collection"]
+    limit: int
+    offset: int
+    count: int
+    items: list[DiscogsImportedItemOut]
+
+
+class DiscogsOpenInDiscogsOut(BaseModel):
+    watch_release_id: UUID
+    source: Literal["wantlist", "collection"]
+    open_in_discogs_url: str

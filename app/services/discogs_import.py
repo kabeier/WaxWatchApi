@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlencode
 from uuid import UUID
 
@@ -359,7 +359,12 @@ class DiscogsImportService:
                 if not normalized:
                     continue
 
-                created = self._upsert_watch_release(db, user_id=job.user_id, normalized=normalized)
+                created = self._upsert_watch_release(
+                    db,
+                    user_id=job.user_id,
+                    normalized=normalized,
+                    source=source,
+                )
                 job.processed_count += 1
                 job.imported_count += 1
                 if created:
@@ -435,7 +440,14 @@ class DiscogsImportService:
             "year": normalized_year,
         }
 
-    def _upsert_watch_release(self, db: Session, *, user_id: UUID, normalized: dict[str, Any]) -> bool:
+    def _upsert_watch_release(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        normalized: dict[str, Any],
+        source: Literal["wantlist", "collection"],
+    ) -> bool:
         existing = (
             db.query(models.WatchRelease)
             .filter(models.WatchRelease.user_id == user_id)
@@ -451,6 +463,8 @@ class DiscogsImportService:
             existing.artist = normalized.get("artist")
             existing.year = normalized.get("year")
             existing.is_active = True
+            existing.imported_from_wantlist = existing.imported_from_wantlist or source == "wantlist"
+            existing.imported_from_collection = existing.imported_from_collection or source == "collection"
             existing.updated_at = now
             db.add(existing)
             return False
@@ -465,11 +479,97 @@ class DiscogsImportService:
             year=normalized.get("year"),
             currency="USD",
             is_active=True,
+            imported_from_wantlist=source == "wantlist",
+            imported_from_collection=source == "collection",
             created_at=now,
             updated_at=now,
         )
         db.add(watch)
         return True
+
+    def list_imported_items(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        source: Literal["wantlist", "collection"],
+        limit: int,
+        offset: int,
+    ) -> dict[str, Any]:
+        ensure_user_exists(db, user_id)
+
+        source_filter = (
+            models.WatchRelease.imported_from_wantlist.is_(True)
+            if source == "wantlist"
+            else models.WatchRelease.imported_from_collection.is_(True)
+        )
+
+        query = (
+            db.query(models.WatchRelease)
+            .filter(models.WatchRelease.user_id == user_id)
+            .filter(models.WatchRelease.is_active.is_(True))
+            .filter(source_filter)
+        )
+
+        items = (
+            query.order_by(models.WatchRelease.updated_at.desc(), models.WatchRelease.id.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+
+        return {
+            "source": source,
+            "limit": limit,
+            "offset": offset,
+            "count": len(items),
+            "items": [
+                {
+                    "watch_release_id": item.id,
+                    "discogs_release_id": item.discogs_release_id,
+                    "discogs_master_id": item.discogs_master_id,
+                    "title": item.title,
+                    "artist": item.artist,
+                    "year": item.year,
+                    "source": source,
+                    "open_in_discogs_url": self._discogs_release_url(item.discogs_release_id),
+                }
+                for item in items
+            ],
+        }
+
+    def get_open_in_discogs_link(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        watch_release_id: UUID,
+        source: Literal["wantlist", "collection"],
+    ) -> dict[str, Any]:
+        source_filter = (
+            models.WatchRelease.imported_from_wantlist.is_(True)
+            if source == "wantlist"
+            else models.WatchRelease.imported_from_collection.is_(True)
+        )
+        watch = (
+            db.query(models.WatchRelease)
+            .filter(models.WatchRelease.user_id == user_id)
+            .filter(models.WatchRelease.id == watch_release_id)
+            .filter(models.WatchRelease.is_active.is_(True))
+            .filter(source_filter)
+            .first()
+        )
+        if not watch:
+            raise HTTPException(status_code=404, detail="Imported Discogs item not found for source")
+
+        return {
+            "watch_release_id": watch.id,
+            "source": source,
+            "open_in_discogs_url": self._discogs_release_url(watch.discogs_release_id),
+        }
+
+    def _discogs_release_url(self, discogs_release_id: int) -> str:
+        return f"https://www.discogs.com/release/{discogs_release_id}"
 
     def _encrypt_access_token(self, access_token: str | None) -> str | None:
         return self._token_crypto.encrypt(access_token)
