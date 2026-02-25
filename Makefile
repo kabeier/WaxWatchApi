@@ -19,6 +19,7 @@ TEST_AUTH_JWT_ALGORITHMS ?= ["RS256"]
 TEST_AUTH_JWKS_CACHE_TTL_SECONDS ?= 300
 TEST_AUTH_CLOCK_SKEW_SECONDS ?= 0
 TEST_TOKEN_CRYPTO_LOCAL_KEY ?= 5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=
+COVERAGE_FAIL_UNDER ?= 75
 
 # Git helpers
 GIT_REMOTE ?= origin
@@ -67,6 +68,7 @@ help:
 	@echo "Testing / CI"
 	@echo "  make ci-local              Run full CI flow locally"
 	@echo "                             (lint + fmt-check + typecheck + migrate + drift + pytest+coverage)"
+	@echo "                             (coverage gate: --cov-fail-under=$(COVERAGE_FAIL_UNDER))"
 	@echo "  make test-profile          Run focused profile API tests"
 	@echo "  make test-background-tasks Run focused background task transaction test"
 	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests"
@@ -359,7 +361,7 @@ ci-db-tests:
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_background_tasks.py tests/test_token_crypto_logging.py --disable-warnings --maxfail=1"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER)"
 
 # Mirrors the GitHub Actions CI job
 ci-local:
