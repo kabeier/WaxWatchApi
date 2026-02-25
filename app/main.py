@@ -89,9 +89,7 @@ def create_app() -> FastAPI:
                 message=message,
                 code="http_error",
                 status=exc.status_code,
-                details={"request_id": request_id, "context": details}
-                if details is not None
-                else {"request_id": request_id},
+                details=details,
             ),
         )
 
@@ -105,7 +103,7 @@ def create_app() -> FastAPI:
                 message="validation error",
                 code="validation_error",
                 status=422,
-                details={"request_id": request_id, "errors": jsonable_encoder(exc.errors())},
+                details=jsonable_encoder(exc.errors()),
             ),
         )
 
