@@ -145,6 +145,28 @@ def test_hard_delete_me_cascades_related_entities_and_blocks_access(client, user
     assert follow_up.json()["error"]["message"] == "User profile not found"
 
 
+def test_hard_delete_me_succeeds_after_deactivate(client, user, headers):
+    deactivate_response = client.delete("/api/me", headers=headers(user.id))
+    assert deactivate_response.status_code == 200
+
+    hard_delete_response = client.delete("/api/me/hard-delete", headers=headers(user.id))
+
+    assert hard_delete_response.status_code == 200
+    payload = hard_delete_response.json()
+    assert payload["success"] is True
+    assert payload["deleted_at"]
+
+
+def test_hard_delete_me_second_call_returns_not_found(client, user, headers):
+    first_response = client.delete("/api/me/hard-delete", headers=headers(user.id))
+    assert first_response.status_code == 200
+
+    second_response = client.delete("/api/me/hard-delete", headers=headers(user.id))
+
+    assert second_response.status_code == 404
+    assert second_response.json()["error"]["message"] == "User profile not found"
+
+
 def test_patch_me_validation_error_shape(client, user, headers):
     response = client.patch("/api/me", headers=headers(user.id), json={"display_name": ""})
 
