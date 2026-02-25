@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from uuid import UUID
 
 from app.db import models
+from app.services.discogs_import import discogs_import_service
 
 
 def test_discogs_oauth_connect_success(client, user, headers, db_session, monkeypatch):
@@ -219,6 +221,10 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
         return _Resp()
 
     monkeypatch.setattr("app.services.discogs_import.httpx.get", _fake_get)
+    monkeypatch.setattr(
+        "app.api.routers.discogs.run_discogs_import_task.delay",
+        lambda job_id: discogs_import_service.execute_import_job(db_session, job_id=UUID(job_id)),
+    )
 
     run_import = client.post("/api/integrations/discogs/import", json={"source": "both"}, headers=h)
     assert run_import.status_code == 200, run_import.text
@@ -265,6 +271,10 @@ def test_discogs_import_failure_persists_job_and_event(client, user, headers, db
         return _Resp()
 
     monkeypatch.setattr("app.services.discogs_import.httpx.get", _fake_get)
+    monkeypatch.setattr(
+        "app.api.routers.discogs.run_discogs_import_task.delay",
+        lambda job_id: discogs_import_service.execute_import_job(db_session, job_id=UUID(job_id)),
+    )
 
     run_import = client.post("/api/integrations/discogs/import", json={"source": "wantlist"}, headers=h)
     assert run_import.status_code == 200, run_import.text
