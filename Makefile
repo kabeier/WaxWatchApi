@@ -30,7 +30,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install api-contract-check
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install api-contract-check
 
 help:
 	@echo ""
@@ -77,6 +77,7 @@ help:
 	@echo "  make test-celery-tasks     Run celery task tests in eager mode (CI-safe)"
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
+	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
 	@echo ""
 	@echo "Git / Release Workflow"
@@ -338,6 +339,9 @@ check-docker-config:
 	$(COMPOSE) -f docker-compose.yml -f docker-compose.override.yml config >/dev/null
 	$(COMPOSE) -f docker-compose.test.yml config >/dev/null
 
+check-policy-sync:
+	$(PYTHON) scripts/check_env_sample.py
+
 wait-test-db:
 	@set -euo pipefail; \
 	echo "Waiting for Postgres (container + host port) ..."; \
@@ -383,6 +387,7 @@ api-contract-check:
 ci-local:
 	$(MAKE) verify-test-deps; \
 	$(MAKE) api-contract-check; \
+	$(MAKE) check-policy-sync; \
 	$(MAKE) lint; \
 	$(MAKE) fmt-check; \
 	$(MAKE) typecheck; \

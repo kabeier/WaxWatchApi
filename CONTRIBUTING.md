@@ -73,3 +73,19 @@ Following this workflow ensures your branch meets the same lint, formatting, typ
 - Local Docker Compose development may use `.env.dev` via `docker-compose.override.yml`.
 - Production deployments must inject environment variables/secrets at runtime (CI/CD secrets or secret manager), not local `.env` files.
 - Use `make check-prod-env` before `make migrate-prod` / `make prod-up` to fail fast if required production variables are missing.
+
+## Upstream change synchronization policy
+
+Any upstream change that affects tests, CI workflow behavior, Make targets, or environment variables **must** update the governance files in the same PR:
+
+- `.env.sample` (with non-secret defaults and env notes)
+- `Makefile`
+- `.github/workflows/ci.yml`
+- `CONTRIBUTING.md`
+- any affected operational/API docs (`docs/DEPLOYMENT.md`, `docs/FRONTEND_API_CONTRACT.md`)
+
+Enforcement notes:
+
+- CI runs `python scripts/check_env_sample.py` to verify `.env.sample` still covers all `Settings` fields.
+- The same script also enforces policy synchronization when new `Settings` fields, Make targets, or CI run commands are introduced.
+- If these changes are intentional, include explicit updates to the files above so the policy check can pass.
