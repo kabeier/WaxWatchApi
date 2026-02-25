@@ -1,11 +1,14 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-25.1`
+**Contract version:** `2026-02-26.0`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-26.0`
+  - Extended `PATCH /api/me` + `GET /api/me` preferences contract with notification policy fields: `quiet_hours_start`, `quiet_hours_end`, `notification_timezone`, and `delivery_frequency` (`instant|hourly|daily`).
+  - Clarified delivery semantics: notifications created during quiet hours are deferred until quiet hours end in the configured notification timezone; non-instant frequencies defer delivery based on the last successful send for that channel.
 - `2026-02-25.1`
   - Added frontend contract coverage for `GET /api/outbound/ebay/{listing_id}` including auth requirements, `307` redirect behavior, `404` conditions, click-logging side effects, and frontend retry/analytics guidance.
 - `2026-02-25`
@@ -157,6 +160,14 @@ GET /api/events?offset=99999     # 200 []
   - `preferences.notifications_email` → persisted to `user_notification_preferences.email_enabled`.
   - `preferences.notifications_push` → persisted to `user_notification_preferences.realtime_enabled`.
 - **Read-after-write guarantee:** A successful `PATCH /api/me` is reflected on subsequent `GET /api/me` responses without relying on token metadata syncing.
+- **Notification policy preference fields:**
+  - `preferences.quiet_hours_start` (`0-23`, optional): local-hour start of the quiet window.
+  - `preferences.quiet_hours_end` (`0-23`, optional): local-hour end of the quiet window.
+  - `preferences.notification_timezone` (optional IANA timezone): overrides profile timezone for delivery policy evaluation.
+  - `preferences.delivery_frequency` (`instant|hourly|daily`): minimum cadence for channel delivery attempts after successful sends.
+- **Policy behavior notes:**
+  - Quiet hours suppress delivery attempts (notification remains pending) until the end of the quiet window.
+  - Hourly/daily frequency can defer pending notifications after a recent successful send on the same channel.
 
 ### `POST /api/me/logout`
 - **Screen:** Account menu/global app shell.

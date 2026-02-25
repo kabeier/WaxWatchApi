@@ -23,6 +23,10 @@ def _preferences_from_db(
         currency=user.currency,
         notifications_email=notification_preferences.email_enabled,
         notifications_push=notification_preferences.realtime_enabled,
+        quiet_hours_start=notification_preferences.quiet_hours_start,
+        quiet_hours_end=notification_preferences.quiet_hours_end,
+        notification_timezone=notification_preferences.timezone_override,
+        delivery_frequency=notification_preferences.delivery_frequency,
     )
 
 
@@ -84,6 +88,30 @@ def update_user_profile(
             and preferences.notifications_push != notification_preferences.realtime_enabled
         ):
             notification_preferences.realtime_enabled = preferences.notifications_push
+            changed = True
+        if (
+            preferences.quiet_hours_start is not None
+            and preferences.quiet_hours_start != notification_preferences.quiet_hours_start
+        ):
+            notification_preferences.quiet_hours_start = preferences.quiet_hours_start
+            changed = True
+        if (
+            preferences.quiet_hours_end is not None
+            and preferences.quiet_hours_end != notification_preferences.quiet_hours_end
+        ):
+            notification_preferences.quiet_hours_end = preferences.quiet_hours_end
+            changed = True
+        if (
+            preferences.notification_timezone is not None
+            and preferences.notification_timezone != notification_preferences.timezone_override
+        ):
+            notification_preferences.timezone_override = preferences.notification_timezone
+            changed = True
+        if (
+            preferences.delivery_frequency is not None
+            and preferences.delivery_frequency != notification_preferences.delivery_frequency
+        ):
+            notification_preferences.delivery_frequency = preferences.delivery_frequency
             changed = True
 
     if changed:

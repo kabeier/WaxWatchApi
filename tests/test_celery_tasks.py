@@ -216,3 +216,63 @@ def test_sync_discogs_lists_task_respects_batch_size(db_session, user, user2, mo
 
     assert result["discovered_users"] == 1
     assert result["enqueued_jobs"] == 1
+
+
+def test_deliver_notification_task_defers_during_quiet_hours(db_session, user, monkeypatch):
+    _bind_task_session_local(db_session, monkeypatch)
+
+    event = models.Event(
+        user_id=user.id,
+        type=models.EventType.RULE_CREATED,
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(event)
+    db_session.flush()
+
+    notification = models.Notification(
+        user_id=user.id,
+        event_id=event.id,
+        event_type=event.type,
+        channel=models.NotificationChannel.email,
+        status=models.NotificationStatus.pending,
+    )
+    db_session.add(notification)
+    db_session.add(
+        models.UserNotificationPreference(
+            user_id=user.id,
+            email_enabled=True,
+            realtime_enabled=True,
+            quiet_hours_start=22,
+            quiet_hours_end=7,
+            timezone_override="UTC",
+            delivery_frequency="instant",
+            event_toggles={models.EventType.RULE_CREATED.value: True},
+        )
+    )
+    db_session.flush()
+
+    monkeypatch.setattr(
+        "app.services.notifications.datetime",
+        type(
+            "_FixedDatetime",
+            (),
+            {"now": staticmethod(lambda _tz=None: datetime(2026, 1, 1, 23, 30, tzinfo=timezone.utc))},
+        ),
+    )
+
+    queued: list[int] = []
+
+    def _capture_apply_async(*, args, countdown):
+        _ = args
+        queued.append(countdown)
+
+    monkeypatch.setattr("app.tasks.deliver_notification_task.apply_async", _capture_apply_async)
+    monkeypatch.setattr(
+        "app.tasks.send_email", lambda *_args, **_kwargs: pytest.fail("send_email should not run")
+    )
+
+    deliver_notification_task.run(str(notification.id))
+
+    db_session.refresh(notification)
+    assert notification.status == models.NotificationStatus.pending
+    assert queued and queued[0] > 0

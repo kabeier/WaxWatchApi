@@ -2,13 +2,20 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
-from app.services.notifications import enqueue_from_event, publish_realtime, send_email, stream_broker
+from app.services.notifications import (
+    defer_delivery_seconds,
+    enqueue_from_event,
+    next_delivery_time,
+    publish_realtime,
+    send_email,
+    stream_broker,
+)
 
 
 def _create_event(db_session, user_id: uuid.UUID) -> models.Event:
@@ -249,3 +256,65 @@ def test_send_email_raises_value_error_for_non_email_channel(db_session, user):
 
     with pytest.raises(ValueError, match="notification channel must be email"):
         send_email(db_session, notification=realtime_notification)
+
+
+def test_notification_quiet_hours_suppresses_immediate_delivery(db_session, user):
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+    email_notification = next(n for n in notifications if n.channel == models.NotificationChannel.email)
+
+    prefs = db_session.query(models.UserNotificationPreference).filter_by(user_id=user.id).one()
+    prefs.quiet_hours_start = 22
+    prefs.quiet_hours_end = 7
+    prefs.timezone_override = "UTC"
+    db_session.flush()
+
+    defer_seconds = defer_delivery_seconds(
+        db_session,
+        notification=email_notification,
+        now_utc=datetime(2026, 1, 1, 23, 30, tzinfo=timezone.utc),
+    )
+
+    assert defer_seconds is not None
+    assert defer_seconds > 0
+
+
+def test_notification_delivery_frequency_defers_after_recent_delivery(db_session, user):
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+    email_notification = next(n for n in notifications if n.channel == models.NotificationChannel.email)
+
+    previous_event = models.Event(
+        user_id=user.id,
+        type=models.EventType.NEW_MATCH,
+        payload={"title": "Prior Match"},
+        created_at=datetime.now(timezone.utc),
+    )
+    db_session.add(previous_event)
+    db_session.flush()
+
+    sent_at = datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc)
+    db_session.add(
+        models.Notification(
+            user_id=user.id,
+            event_id=previous_event.id,
+            event_type=previous_event.type,
+            channel=models.NotificationChannel.email,
+            status=models.NotificationStatus.sent,
+            delivered_at=sent_at,
+            created_at=sent_at,
+            updated_at=sent_at,
+        )
+    )
+
+    prefs = db_session.query(models.UserNotificationPreference).filter_by(user_id=user.id).one()
+    prefs.delivery_frequency = "hourly"
+    db_session.flush()
+
+    next_at = next_delivery_time(
+        db_session,
+        notification=email_notification,
+        now_utc=sent_at + timedelta(minutes=15),
+    )
+
+    assert next_at == sent_at + timedelta(hours=1)

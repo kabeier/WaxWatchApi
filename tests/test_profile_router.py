@@ -38,6 +38,10 @@ def test_patch_me_persists_preferences_across_requests(client, user, headers):
                 "currency": "USD",
                 "notifications_email": False,
                 "notifications_push": False,
+                "quiet_hours_start": 22,
+                "quiet_hours_end": 7,
+                "notification_timezone": "America/Los_Angeles",
+                "delivery_frequency": "daily",
             }
         },
     )
@@ -53,6 +57,10 @@ def test_patch_me_persists_preferences_across_requests(client, user, headers):
         "currency": "USD",
         "notifications_email": False,
         "notifications_push": False,
+        "quiet_hours_start": 22,
+        "quiet_hours_end": 7,
+        "notification_timezone": "America/Los_Angeles",
+        "delivery_frequency": "daily",
     }
 
 

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
 from app.db.models import EventType, NotificationChannel, NotificationStatus
+
+DeliveryFrequency = Literal["instant", "hourly", "daily"]
 
 
 class NotificationOut(BaseModel):
