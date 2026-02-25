@@ -402,4 +402,7 @@ def test_create_rule_returns_500_on_database_error(client, user, headers, monkey
     response = _create_rule(client, h)
 
     assert response.status_code == 500
-    assert response.json()["detail"] == "db error"
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500
