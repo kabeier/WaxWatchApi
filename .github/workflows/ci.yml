@@ -35,6 +35,9 @@ jobs:
       - name: Validate env + governance sync policy
         run: make check-policy-sync
 
+      - name: Validate frontend API contract sync
+        run: make check-contract-sync
+
       - name: Lint
         run: make lint
 

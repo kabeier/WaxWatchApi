@@ -17,6 +17,7 @@ Use the same commands that CI uses before opening a pull request:
 
 `make ci-local` mirrors the CI gates and runs:
 
+- Frontend API contract sync check (`python scripts/check_frontend_contract_sync.py`)
 - Ruff lint (`ruff check .`)
 - Ruff format check (`ruff format --check .`)
 - Mypy type checks (`mypy app scripts tests`)
@@ -55,6 +56,23 @@ pre-commit run --hook-stage pre-push --all-files
 
 Following this workflow ensures your branch meets the same lint, formatting, typing, migration, and coverage gates that run in CI.
 
+## Product/API contract checklist
+
+When your PR changes API-facing code in `app/api/` or `app/schemas/`, complete this checklist:
+
+- [ ] Update `docs/FRONTEND_API_CONTRACT.md`.
+- [ ] Bump/refresh the contract version field at the top of `docs/FRONTEND_API_CONTRACT.md`.
+- [ ] Add a changelog entry for endpoint or schema changes.
+- [ ] If behavior is breaking, document deprecation timeline under the breaking-change rules.
+- [ ] Run `make check-contract-sync` (or `make ci-local`) before pushing.
+
+Expected update workflow:
+
+1. Implement API/schema changes.
+2. Update `docs/FRONTEND_API_CONTRACT.md` in the same PR.
+3. Run local checks (`make lint`, `make fmt-check`, `make check-contract-sync`, or `make ci-local`).
+4. Push only when Ruff lint and Ruff format checks pass for all commits in the PR.
+
 ## Environment configuration policy
 
 - `.env.sample` is documentation for local/dev values only.
@@ -76,4 +94,5 @@ Enforcement notes:
 
 - CI runs `python scripts/check_env_sample.py` to verify `.env.sample` still covers all `Settings` fields.
 - The same script also enforces policy synchronization when new `Settings` fields, Make targets, or CI run commands are introduced.
+- CI also runs `python scripts/check_frontend_contract_sync.py`, which fails if changes under `app/api/` or `app/schemas/` do not include a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
 - If these changes are intentional, include explicit updates to the files above so the policy check can pass.
