@@ -19,6 +19,7 @@ from app.schemas.discogs import (
     DiscogsStatusOut,
 )
 from app.services.discogs_import import discogs_import_service
+from app.tasks import run_discogs_import_task
 
 router = APIRouter(prefix="/integrations/discogs", tags=["integrations", "discogs"])
 
@@ -113,7 +114,10 @@ def import_discogs(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    return discogs_import_service.run_import(db, user_id=user_id, source=payload.source)
+    job = discogs_import_service.run_import(db, user_id=user_id, source=payload.source)
+    run_discogs_import_task.delay(str(job.id))
+    db.refresh(job)
+    return job
 
 
 @router.get("/import/{job_id}", response_model=DiscogsImportJobOut)

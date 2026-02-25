@@ -29,7 +29,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks
 
 help:
 	@echo ""
@@ -43,6 +43,9 @@ help:
 	@echo "  make logs                  Follow API logs"
 	@echo "  make ps                    Show running services"
 	@echo "  make sh                    Shell inside API container"
+	@echo "  make worker-up             Start celery worker + beat"
+	@echo "  make worker-down           Stop celery worker + beat"
+	@echo "  make worker-logs           Follow celery worker logs"
 	@echo ""
 	@echo "Database (Dev / Local Docker DB)"
 	@echo "  make migrate               Apply migrations (upgrade head)"
@@ -66,6 +69,7 @@ help:
 	@echo "  make test-background-tasks Run focused background task transaction test"
 	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests"
 	@echo "  make test-token-security   Run token crypto + redaction focused tests"
+	@echo "  make test-celery-tasks     Run celery task tests in eager mode (CI-safe)"
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
@@ -94,6 +98,19 @@ ps:
 
 sh:
 	$(COMPOSE) exec $(APP_SERVICE) bash
+
+
+worker-up:
+	$(COMPOSE) up -d worker beat redis
+
+worker-down:
+	$(COMPOSE) stop worker beat
+
+worker-logs:
+	$(COMPOSE) logs -f worker
+
+beat-logs:
+	$(COMPOSE) logs -f beat
 
 # --- Code quality ---
 lint:
@@ -273,6 +290,27 @@ test-token-security:
 	EBAY_CAMPAIGN_ID=1234567890 \
 	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
 	$(PYTHON) -m pytest -q tests/test_token_crypto_logging.py tests/test_discogs_integration_router.py -rA
+
+test-celery-tasks:
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
+	CELERY_TASK_ALWAYS_EAGER=true \
+	CELERY_TASK_EAGER_PROPAGATES=true \
+	$(PYTHON) -m pytest -q tests/test_celery_tasks.py -rA
 
 check-docker-config:
 	DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@db:5432/waxwatch \

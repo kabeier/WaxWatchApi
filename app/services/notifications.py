@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.db import models
+from app.services.task_dispatcher import enqueue_notification_delivery
 
 logger = get_logger(__name__)
 
@@ -106,6 +107,8 @@ def enqueue_from_event(
             db.add(notification)
             db.flush()
         notifications.append(notification)
+        if notification.status == models.NotificationStatus.pending:
+            enqueue_notification_delivery(str(notification.id))
 
     return notifications
 
