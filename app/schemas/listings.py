@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-from app.monetization.ebay_affiliate import to_affiliate_url
+from app.monetization.outbound import tracked_outbound_path
 
 
 class ListingIngest(BaseModel):
@@ -51,5 +51,7 @@ class ListingOut(BaseModel):
     @property
     def public_url(self) -> str:
         if self.provider == "ebay":
-            return to_affiliate_url(self.url)
+            tracked = tracked_outbound_path(provider=self.provider, listing_id=self.id)
+            if tracked:
+                return tracked
         return self.url

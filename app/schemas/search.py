@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import math
+from uuid import UUID
 
 from pydantic import BaseModel, Field, computed_field, field_validator
 
 from app.db import models
 from app.monetization.ebay_affiliate import to_affiliate_url
+from app.monetization.outbound import tracked_outbound_path
 from app.providers.registry import get_provider_registration
 
 
@@ -54,6 +56,7 @@ class SearchQuery(BaseModel):
 
 class SearchListingOut(BaseModel):
     id: str
+    listing_id: UUID | None = None
     provider: str
     external_id: str
     title: str
@@ -69,6 +72,10 @@ class SearchListingOut(BaseModel):
     @property
     def public_url(self) -> str:
         if self.provider == "ebay":
+            if self.listing_id is not None:
+                tracked = tracked_outbound_path(provider=self.provider, listing_id=self.listing_id)
+                if tracked:
+                    return tracked
             return to_affiliate_url(self.url)
         return self.url
 

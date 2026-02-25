@@ -374,6 +374,9 @@ class Listing(Base):
         back_populates="listing", cascade="all, delete-orphan"
     )
     matches: Mapped[list[WatchMatch]] = relationship(back_populates="listing", cascade="all, delete-orphan")
+    outbound_clicks: Mapped[list[OutboundClick]] = relationship(
+        back_populates="listing", cascade="all, delete-orphan"
+    )
 
 
 class WatchMatch(Base):
@@ -528,6 +531,29 @@ class PriceSnapshot(Base):
     )
 
     listing: Mapped[Listing] = relationship(back_populates="price_snapshots")
+
+
+class OutboundClick(Base):
+    __tablename__ = "outbound_clicks"
+    __table_args__ = (
+        Index("ix_outbound_clicks_user_created", "user_id", "created_at"),
+        Index("ix_outbound_clicks_listing_created", "listing_id", "created_at"),
+        Index("ix_outbound_clicks_provider_created", "provider", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    listing_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("listings.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    provider: Mapped[Provider] = mapped_column(PROVIDER_ENUM, nullable=False)
+    referrer: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
+
+    listing: Mapped[Listing] = relationship(back_populates="outbound_clicks")
 
 
 class ProviderRequest(Base):
