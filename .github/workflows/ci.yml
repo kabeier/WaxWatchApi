@@ -63,15 +63,22 @@ jobs:
         env:
           COVERAGE_FAIL_UNDER: "85"
         run: |
+          set -euo pipefail
+          BASE_WT="$(mktemp -d ../WaxWatchApi-base-XXXXXX)"
+          cleanup() {
+            git worktree remove --force "$BASE_WT" >/dev/null 2>&1 || true
+            rm -rf "$BASE_WT" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
           git fetch --no-tags --depth=1 origin ${{ github.base_ref }}
-          git worktree add --detach ../WaxWatchApi-base origin/${{ github.base_ref }}
-          if [ ! -f ../WaxWatchApi-base/coverage.json ]; then
+          git worktree add --detach "$BASE_WT" "origin/${{ github.base_ref }}"
+          if [ ! -f "$BASE_WT/coverage.json" ]; then
             # Base branch may not emit JSON coverage by default; force it for regression comparison.
-            (cd ../WaxWatchApi-base && PYTEST_ADDOPTS="--cov-report=json:coverage.json" make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER)
+            (cd "$BASE_WT" && PYTEST_ADDOPTS="--cov-report=json:coverage.json" make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER)
           fi
-          test -f ../WaxWatchApi-base/coverage.json
-          cp ../WaxWatchApi-base/coverage.json coverage.base.json
-          git worktree remove --force ../WaxWatchApi-base
+          test -f "$BASE_WT/coverage.json"
+          cp "$BASE_WT/coverage.json" coverage.base.json
 
       - name: Enforce coverage non-regression gates
         if: github.event_name == 'pull_request'
