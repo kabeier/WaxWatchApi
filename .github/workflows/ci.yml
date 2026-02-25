@@ -65,6 +65,9 @@ jobs:
         run: |
           set -euo pipefail
           BASE_WT="$(mktemp -d ../WaxWatchApi-base-XXXXXX)"
+          # mktemp creates 0700 dirs; loosen execute/read bits so non-root container
+          # users in the base worktree can traverse/read bind-mounted project files.
+          chmod 755 "$BASE_WT"
           cleanup() {
             git worktree remove --force "$BASE_WT" >/dev/null 2>&1 || true
             rm -rf "$BASE_WT" >/dev/null 2>&1 || true
