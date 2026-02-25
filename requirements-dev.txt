@@ -188,7 +188,7 @@ pydantic-core==2.41.5
     #   pydantic
 pydantic-settings==2.13.1
     # via -r requirements-dev.in
-pyjwt[crypto]==2.10.1
+pyjwt[crypto]==2.11.0
     # via
     #   -r requirements-dev.in
     #   pyjwt
