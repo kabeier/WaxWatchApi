@@ -290,6 +290,72 @@ def test_patch_rule_rejects_whitespace_only_keywords(client, user, headers):
     assert r.status_code == 422, r.text
 
 
+def test_create_rule_rejects_negative_max_price(client, user, headers):
+    h = headers(user.id)
+
+    payload = {
+        "name": "Negative max price",
+        "query": {"keywords": ["primus"], "sources": ["discogs"], "max_price": -1},
+        "poll_interval_seconds": 600,
+    }
+    r = client.post("/api/watch-rules", json=payload, headers=h)
+    assert r.status_code == 422, r.text
+
+
+def test_create_rule_rejects_non_numeric_max_price(client, user, headers):
+    h = headers(user.id)
+
+    payload = {
+        "name": "Non numeric max price",
+        "query": {"keywords": ["primus"], "sources": ["discogs"], "max_price": "cheap"},
+        "poll_interval_seconds": 600,
+    }
+    r = client.post("/api/watch-rules", json=payload, headers=h)
+    assert r.status_code == 422, r.text
+
+
+def test_patch_rule_rejects_non_numeric_max_price(client, user, headers):
+    h = headers(user.id)
+
+    created = _create_rule(client, h)
+    assert created.status_code == 201, created.text
+    rule_id = created.json()["id"]
+
+    r = client.patch(
+        f"/api/watch-rules/{rule_id}",
+        json={"query": {"max_price": "not-a-number"}},
+        headers=h,
+    )
+    assert r.status_code == 422, r.text
+
+
+def test_create_rule_rejects_malformed_query_payload(client, user, headers):
+    h = headers(user.id)
+
+    payload = {
+        "name": "Malformed query",
+        "query": ["not", "an", "object"],
+        "poll_interval_seconds": 600,
+    }
+    r = client.post("/api/watch-rules", json=payload, headers=h)
+    assert r.status_code == 422, r.text
+
+
+def test_patch_rule_rejects_malformed_query_payload(client, user, headers):
+    h = headers(user.id)
+
+    created = _create_rule(client, h)
+    assert created.status_code == 201, created.text
+    rule_id = created.json()["id"]
+
+    r = client.patch(
+        f"/api/watch-rules/{rule_id}",
+        json={"query": "not-an-object"},
+        headers=h,
+    )
+    assert r.status_code == 422, r.text
+
+
 def test_watch_rules_cursor_pagination(client, user, headers):
     h = headers(user.id)
     first = _create_rule(client, h, name="A")

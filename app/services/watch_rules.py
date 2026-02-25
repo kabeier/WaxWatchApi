@@ -21,9 +21,22 @@ def _validate_rule_keywords(query: dict[str, Any]) -> None:
     if not isinstance(keywords, list):
         raise ValueError("query.keywords must be a list when provided")
 
-    cleaned = [str(k).strip().lower() for k in keywords if str(k).strip()]
+    cleaned = [k.strip().lower() for k in keywords if isinstance(k, str) and k.strip()]
     if keywords and not cleaned:
         raise ValueError("query.keywords must contain at least one non-empty keyword when provided")
+
+
+def _validate_rule_query_defensive(query: dict[str, Any]) -> None:
+    """Runtime guardrails for persisted/legacy rows; schema validation is the primary gate."""
+    _validate_rule_keywords(query)
+
+    max_price = query.get("max_price")
+    if max_price is None:
+        return
+    if not isinstance(max_price, int | float) or isinstance(max_price, bool):
+        raise ValueError("query.max_price must be a numeric value")
+    if max_price < 0:
+        raise ValueError("query.max_price must be non-negative")
 
 
 def ensure_user_exists(db: Session, user_id: UUID) -> models.User:
@@ -66,7 +79,7 @@ def create_watch_rule(
     db: Session, *, user_id: UUID, name: str, query: dict, poll_interval_seconds: int
 ) -> models.WatchSearchRule:
     ensure_user_exists(db, user_id)
-    _validate_rule_keywords(query)
+    _validate_rule_query_defensive(query)
     rule = models.WatchSearchRule(
         user_id=user_id,
         name=name,
@@ -181,7 +194,7 @@ def update_watch_rule(
         if not isinstance(merged_sources, list) or not merged_sources:
             raise ValueError("query.sources must remain a non-empty list")
 
-        _validate_rule_keywords(existing)
+        _validate_rule_query_defensive(existing)
 
         if existing != (rule.query or {}):
             rule.query = existing

@@ -22,7 +22,10 @@ def _normalize_and_validate_sources(query: dict[str, Any], *, require: bool) -> 
 
     cleaned: list[str] = []
     for s in sources:
-        s_clean = str(s).strip().lower()
+        if not isinstance(s, str):
+            raise ValueError("query.sources entries must be strings")
+
+        s_clean = s.strip().lower()
         if not s_clean:
             continue
         try:
@@ -49,12 +52,45 @@ def _normalize_and_validate_keywords(
     if not isinstance(keywords, list):
         raise ValueError("query.keywords must be a list when provided")
 
-    cleaned = [str(k).strip().lower() for k in keywords if str(k).strip()]
+    cleaned: list[str] = []
+    for keyword in keywords:
+        if not isinstance(keyword, str):
+            raise ValueError("query.keywords entries must be strings")
+        normalized = keyword.strip().lower()
+        if normalized:
+            cleaned.append(normalized)
 
     if require_non_empty_when_present and keywords and not cleaned:
         raise ValueError("query.keywords must contain at least one non-empty keyword when provided")
 
     query["keywords"] = cleaned
+    return query
+
+
+def _normalize_and_validate_known_keys(
+    query: dict[str, Any], *, allow_null_known_keys: bool
+) -> dict[str, Any]:
+    q_value = query.get("q")
+    if q_value is not None:
+        if not isinstance(q_value, str):
+            raise ValueError("query.q must be a string when provided")
+        normalized_q = q_value.strip().lower()
+        if not normalized_q:
+            raise ValueError("query.q must be non-empty when provided")
+        query["q"] = normalized_q
+    elif "q" in query and not allow_null_known_keys:
+        raise ValueError("query.q must be a string when provided")
+
+    max_price = query.get("max_price")
+    if max_price is not None:
+        if not isinstance(max_price, int | float) or isinstance(max_price, bool):
+            raise ValueError("query.max_price must be a numeric value")
+        if max_price < 0:
+            raise ValueError("query.max_price must be non-negative")
+        query["max_price"] = float(max_price)
+    elif "max_price" in query and not allow_null_known_keys:
+        raise ValueError("query.max_price must be a numeric value")
+
     return query
 
 
@@ -81,6 +117,7 @@ class WatchRuleCreate(WatchRuleBase):
     @field_validator("query")
     @classmethod
     def require_sources_on_create(cls, v: dict[str, Any]) -> dict[str, Any]:
+        v = _normalize_and_validate_known_keys(v, allow_null_known_keys=False)
         v = _normalize_and_validate_sources(v, require=True)
         return _normalize_and_validate_keywords(v, require_non_empty_when_present=True)
 
@@ -108,6 +145,7 @@ class WatchRuleUpdate(BaseModel):
     def validate_sources_if_present(cls, v: dict[str, Any] | None) -> dict[str, Any] | None:
         if v is None:
             return v
+        v = _normalize_and_validate_known_keys(v, allow_null_known_keys=True)
         v = _normalize_and_validate_sources(v, require=False)
         return _normalize_and_validate_keywords(v, require_non_empty_when_present=True)
 

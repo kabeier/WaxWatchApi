@@ -70,8 +70,9 @@ Expected update workflow:
 
 1. Implement API/schema changes.
 2. Update `docs/FRONTEND_API_CONTRACT.md` in the same PR.
-3. Run local checks (`make lint`, `make fmt-check`, `make check-contract-sync`, or `make ci-local`).
-4. Push only when Ruff lint and Ruff format checks pass for all commits in the PR.
+3. Before commiting, run Ruff lint and format checks locally (`make lint` and `make fmt-check`, or `make ci-local`).
+4. Run local checks (`make lint`, `make fmt-check`, `make check-contract-sync`, or `make ci-local`).
+5. Push only when Ruff lint and Ruff format checks pass for all commits in the PR.
 
 Provider/source contract note:
 
