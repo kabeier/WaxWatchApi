@@ -99,6 +99,29 @@ If category labels are not available in metrics, maintain a static route map in 
 
 For scheduler and notification lag SLOs, add/maintain explicit instrumentation if these timestamps are not yet exposed as metrics.
 
+## Performance smoke harness (SLO-gated)
+
+Run the lightweight k6 harness at `scripts/perf/core_flows_smoke.js` to continuously validate core flows against SLO-aligned thresholds:
+
+- **authenticated list endpoints** (`flow=auth_list`):
+  - p95 latency `< 400ms`
+  - error rate `< 1%`
+- **rule polling task path** (`flow=rule_poll`):
+  - p95 latency `< 900ms`
+  - error rate `< 1%`
+- **provider request logging write path** (`flow=provider_log_write`):
+  - p95 latency `< 700ms`
+  - error rate `< 1%`
+
+Use `make perf-smoke` for local or staging execution. The command supports either a local `k6` binary or a Docker fallback image and expects `PERF_BASE_URL`, `PERF_BEARER_TOKEN`, and (unless disabled) `PERF_RULE_ID`.
+
+### Results cadence and ownership
+
+- **Pre-release gate**: Release owner runs `make perf-smoke` before each production release candidate.
+- **Post-change validation**: DB/platform owner runs `make perf-smoke` after major schema/index changes.
+- **Ongoing operations cadence**: Primary on-call (or delegated service owner) runs the smoke suite weekly in staging and records results in the team ops log.
+- **Escalation policy**: Any threshold breach blocks release until triaged and either remediated or explicitly accepted with owner sign-off.
+
 ## Suggested alert rules
 
 1. **API elevated latency (warning/critical by endpoint category)**

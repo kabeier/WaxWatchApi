@@ -10,6 +10,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 
 ### Added
 - Changelog governance across contribution guidance, CI policy checks, and PR template requirements.
+- Added a k6-based perf smoke harness (`make perf-smoke`) with SLO-aligned thresholds and deployment/operations run requirements.
 
 ## [0.1.0] - 2026-02-25
 
