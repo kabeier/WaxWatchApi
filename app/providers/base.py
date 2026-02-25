@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Protocol
@@ -59,6 +60,19 @@ class ProviderCapabilityContract:
     rate_limits_documented: bool
     listing_completeness: str
     pagination_model: ProviderPaginationModel
+
+
+@dataclass(frozen=True)
+class ProviderRequestLog:
+    endpoint: str
+    method: str = "GET"
+    status_code: int | None = None
+    duration_ms: int | None = None
+    error: str | None = None
+    meta: dict[str, Any] | None = None
+
+
+ProviderRequestLogger = Callable[[ProviderRequestLog], None]
 
 
 class ProviderClient(Protocol):

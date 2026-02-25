@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.db import models
-from app.providers.base import ProviderError, ProviderListing
+from app.providers.base import ProviderError, ProviderListing, ProviderRequestLog
 from app.providers.registry import get_provider_class, list_available_providers
 from app.schemas.search import SearchListingOut, SearchPagination, SearchQuery, SearchResponse
 from app.services.provider_requests import log_provider_request
@@ -104,50 +104,74 @@ def run_search(db: Session, *, user_id: UUID, query: SearchQuery) -> SearchRespo
     for provider_name in providers:
         provider_enum = models.Provider(provider_name)
         provider_cls = get_provider_class(provider_name)
-        provider_client = provider_cls()
         endpoint = getattr(provider_cls, "default_endpoint", "/unknown")
         providers_searched.append(provider_name)
 
-        try:
-            provider_results = provider_client.search(query=provider_query, limit=per_provider_limit)
+        logged_rows = 0
+
+        def _request_logger(req: ProviderRequestLog, provider: models.Provider = provider_enum) -> None:
+            nonlocal logged_rows
             log_provider_request(
                 db,
                 user_id=user_id,
-                provider=provider_enum,
-                endpoint=endpoint,
-                method="GET",
-                status_code=200,
-                duration_ms=getattr(provider_client, "last_duration_ms", None),
-                error=None,
-                meta=getattr(provider_client, "last_request_meta", None),
+                provider=provider,
+                endpoint=req.endpoint,
+                method=req.method,
+                status_code=req.status_code,
+                duration_ms=req.duration_ms,
+                error=req.error,
+                meta=req.meta,
             )
+            logged_rows += 1
+
+        try:
+            provider_client = provider_cls(request_logger=_request_logger)
+        except TypeError:
+            provider_client = provider_cls()
+
+        try:
+            provider_results = provider_client.search(query=provider_query, limit=per_provider_limit)
+            if logged_rows == 0:
+                log_provider_request(
+                    db,
+                    user_id=user_id,
+                    provider=provider_enum,
+                    endpoint=endpoint,
+                    method="GET",
+                    status_code=200,
+                    duration_ms=getattr(provider_client, "last_duration_ms", None),
+                    error=None,
+                    meta=getattr(provider_client, "last_request_meta", None),
+                )
             listings.extend(provider_results)
         except ProviderError as exc:
             provider_errors[provider_name] = str(exc)
-            log_provider_request(
-                db,
-                user_id=user_id,
-                provider=provider_enum,
-                endpoint=exc.endpoint or endpoint,
-                method=exc.method or "GET",
-                status_code=exc.status_code,
-                duration_ms=exc.duration_ms,
-                error=str(exc)[:500],
-                meta=exc.meta,
-            )
+            if logged_rows == 0:
+                log_provider_request(
+                    db,
+                    user_id=user_id,
+                    provider=provider_enum,
+                    endpoint=exc.endpoint or endpoint,
+                    method=exc.method or "GET",
+                    status_code=exc.status_code,
+                    duration_ms=exc.duration_ms,
+                    error=str(exc)[:500],
+                    meta=exc.meta,
+                )
         except Exception as exc:  # pragma: no cover
             provider_errors[provider_name] = str(exc)
-            log_provider_request(
-                db,
-                user_id=user_id,
-                provider=provider_enum,
-                endpoint=endpoint,
-                method="GET",
-                status_code=None,
-                duration_ms=getattr(provider_client, "last_duration_ms", None),
-                error=str(exc)[:500],
-                meta={"exception_type": exc.__class__.__name__},
-            )
+            if logged_rows == 0:
+                log_provider_request(
+                    db,
+                    user_id=user_id,
+                    provider=provider_enum,
+                    endpoint=endpoint,
+                    method="GET",
+                    status_code=None,
+                    duration_ms=getattr(provider_client, "last_duration_ms", None),
+                    error=str(exc)[:500],
+                    meta={"exception_type": exc.__class__.__name__},
+                )
 
     filtered = [item for item in listings if _passes_filters(item, query)]
     filtered.sort(key=lambda item: (item.price, item.provider, item.external_id))
