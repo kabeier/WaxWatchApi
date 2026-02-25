@@ -290,3 +290,48 @@ Frontend teams should generate API clients from OpenAPI and use examples for:
 - mocked storybook fixtures
 - e2e happy-path payload contracts
 - typed form defaults for create/edit flows
+
+---
+
+## 4.6 Provider Request Observability (User + Admin)
+
+### `GET /api/provider-requests`
+- **Audience:** Authenticated end user.
+- **Scope:** Returns only the caller's `provider_requests` rows.
+- **Pagination:** Supports shared pagination params (`limit`, `offset`, `cursor`) with stable ordering (`created_at DESC, id DESC`).
+
+### `GET /api/provider-requests/summary`
+- **Audience:** Authenticated end user.
+- **Scope:** Per-provider summary for only the caller's rows.
+- **Response fields:**
+  - `provider`
+  - `total_requests`
+  - `error_requests` (`status_code >= 400`)
+  - `avg_duration_ms`
+
+### `GET /api/provider-requests/admin`
+- **Audience:** Admin-only (claim/role-gated).
+- **Scope:** Cross-user query endpoint for provider request diagnostics.
+- **Authorization contract:** Caller must include admin-capable claims (for example `role=admin`, `user_role=admin`, `app_metadata.roles` containing `admin`, or equivalent admin permission claim).
+- **Filtering params (all optional):**
+  - `provider` (`discogs` | `ebay` | `mock`)
+  - `status_code_gte` (100-599)
+  - `status_code_lte` (100-599)
+  - `created_from` (ISO8601 timestamp)
+  - `created_to` (ISO8601 timestamp)
+  - `user_id` (UUID)
+- **Validation rules:**
+  - `status_code_gte` cannot be greater than `status_code_lte`.
+  - `created_from` cannot be later than `created_to`.
+- **Pagination:** Supports shared pagination params (`limit`, `offset`, `cursor`).
+- **Response shape:** Same as user list plus `id` and `user_id` to support cross-user triage views.
+
+### `GET /api/provider-requests/admin/summary`
+- **Audience:** Admin-only (same auth gate as `/admin`).
+- **Scope:** Cross-user summary grouped by `provider`.
+- **Filtering params:** Same filter set as `/api/provider-requests/admin`.
+- **Response fields:**
+  - `provider`
+  - `total_requests`
+  - `error_requests`
+  - `avg_duration_ms`

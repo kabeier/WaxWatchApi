@@ -80,3 +80,46 @@ def get_current_user_id_allow_inactive(
     db: Annotated[Session, Depends(get_db)],
 ) -> UUID:
     return _resolve_current_user(request, credentials, db, require_active=False)
+
+
+def _has_admin_claims(claims: dict | None) -> bool:
+    if not isinstance(claims, dict):
+        return False
+
+    admin_roles = {"admin", "service_role"}
+    direct_role_claims = (claims.get("role"), claims.get("user_role"))
+    for role in direct_role_claims:
+        if isinstance(role, str) and role.strip().lower() in admin_roles:
+            return True
+
+    app_metadata = claims.get("app_metadata")
+    if isinstance(app_metadata, dict):
+        app_role = app_metadata.get("role")
+        if isinstance(app_role, str) and app_role.strip().lower() in admin_roles:
+            return True
+        app_roles = app_metadata.get("roles")
+        if isinstance(app_roles, list) and any(
+            isinstance(role, str) and role.strip().lower() in admin_roles for role in app_roles
+        ):
+            return True
+
+    raw_scope = claims.get("scope")
+    scopes = raw_scope.split() if isinstance(raw_scope, str) else []
+
+    permission_like_claims = []
+    for key in ("roles", "permissions"):
+        value = claims.get(key)
+        if isinstance(value, list):
+            permission_like_claims.extend([v for v in value if isinstance(v, str)])
+
+    normalized = {value.strip().lower() for value in [*scopes, *permission_like_claims]}
+    return "provider_requests:read_all" in normalized or "admin" in normalized
+
+
+def get_current_admin_user_id(
+    request: Request,
+    user_id: Annotated[UUID, Depends(get_current_user_id)],
+) -> UUID:
+    if not _has_admin_claims(getattr(request.state, "token_claims", None)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user_id

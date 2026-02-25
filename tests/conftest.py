@@ -182,6 +182,7 @@ def sign_jwt():
         aud: str = AUTH_AUDIENCE,
         exp_delta_seconds: int = 3600,
         kid: str = TEST_KID,
+        extra_claims: dict | None = None,
     ) -> str:
         now = datetime.now(tz=timezone.utc)
         payload = {
@@ -191,6 +192,8 @@ def sign_jwt():
             "iat": int(now.timestamp()),
             "exp": int((now + timedelta(seconds=exp_delta_seconds)).timestamp()),
         }
+        if extra_claims:
+            payload.update(extra_claims)
         return jwt.encode(payload, PRIVATE_KEY_PEM, algorithm="RS256", headers={"kid": kid})
 
     return _sign_jwt
