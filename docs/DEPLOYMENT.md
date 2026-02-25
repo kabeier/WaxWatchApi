@@ -55,3 +55,7 @@ Before each production deploy:
 5. `make migrate-prod` succeeds.
 6. `make prod-up` succeeds and health checks are green.
 7. Post-deploy smoke test completed (`/healthz`, `/readyz`, critical API path).
+
+## Change synchronization requirement
+
+When introducing new environment variables, CI/test commands, or Make targets, update `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, and `CONTRIBUTING.md` in the same PR, plus any affected docs.
