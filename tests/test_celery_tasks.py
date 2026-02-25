@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+import pytest
+from celery.exceptions import Retry
 from sqlalchemy.orm import sessionmaker
 
 from app.db import models
@@ -79,6 +81,9 @@ def test_deliver_notification_task_retries_runtime_errors(db_session, user, monk
         return notification
 
     monkeypatch.setattr("app.tasks.send_email", _flaky_send_email)
+
+    with pytest.raises(Retry):
+        deliver_notification_task.apply(args=[str(notification.id)])
 
     result = deliver_notification_task.apply(args=[str(notification.id)])
     assert result.successful()
