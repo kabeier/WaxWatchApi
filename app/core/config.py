@@ -50,6 +50,17 @@ class Settings(BaseSettings):
     scheduler_poll_interval_seconds: int = 15
     scheduler_batch_size: int = 100
     scheduler_rule_limit: int = 20
+    scheduler_next_run_jitter_seconds: int = 5
+    scheduler_failure_retry_jitter_seconds: int = 5
+
+    celery_broker_url: str = "redis://redis:6379/0"
+    celery_result_backend: str = "redis://redis:6379/1"
+    celery_task_always_eager: bool = False
+    celery_task_eager_propagates: bool = True
+    celery_task_retry_backoff_seconds: int = 5
+    celery_task_max_retries: int = 4
+    celery_worker_prefetch_multiplier: int = 1
+    celery_worker_max_tasks_per_child: int = 100
 
     # Logging
     log_level: str = "INFO"

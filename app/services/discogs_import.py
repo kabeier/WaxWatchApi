@@ -224,6 +224,15 @@ class DiscogsImportService:
         user_id: UUID,
         source: str,
     ) -> models.ImportJob:
+        return self.create_import_job(db, user_id=user_id, source=source)
+
+    def create_import_job(
+        self,
+        db: Session,
+        *,
+        user_id: UUID,
+        source: str,
+    ) -> models.ImportJob:
         link = self.get_status(db, user_id=user_id)
         if not link:
             raise HTTPException(status_code=400, detail="Discogs is not connected")
@@ -259,7 +268,25 @@ class DiscogsImportService:
             event_type=models.EventType.IMPORT_STARTED,
             payload={"job_id": str(job.id), "source": source},
         )
+        return job
 
+    def execute_import_job(self, db: Session, *, job_id: UUID) -> models.ImportJob:
+        job = db.query(models.ImportJob).filter(models.ImportJob.id == job_id).one_or_none()
+        if not job:
+            raise HTTPException(status_code=404, detail="Import job not found")
+        if job.status != "running":
+            return job
+
+        link = (
+            db.query(models.ExternalAccountLink)
+            .filter(models.ExternalAccountLink.id == job.external_account_link_id)
+            .one()
+        )
+        access_token = self._get_decrypted_access_token(db, link=link)
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Discogs OAuth callback not completed")
+
+        source = job.import_scope
         try:
             import_sources = ["wantlist", "collection"] if source == "both" else [source]
             for selected_source in import_sources:
@@ -270,7 +297,7 @@ class DiscogsImportService:
             job.updated_at = datetime.now(timezone.utc)
             self._emit_import_event(
                 db,
-                user_id=user_id,
+                user_id=job.user_id,
                 event_type=models.EventType.IMPORT_COMPLETED,
                 payload={
                     "job_id": str(job.id),
@@ -288,7 +315,7 @@ class DiscogsImportService:
             job.updated_at = datetime.now(timezone.utc)
             self._emit_import_event(
                 db,
-                user_id=user_id,
+                user_id=job.user_id,
                 event_type=models.EventType.IMPORT_FAILED,
                 payload={"job_id": str(job.id), "source": source, "error": safe_error},
             )

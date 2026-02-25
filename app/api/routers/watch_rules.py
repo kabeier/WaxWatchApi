@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -11,7 +11,7 @@ from app.api.pagination import PaginationParams, get_pagination_params
 from app.core.logging import get_logger
 from app.schemas.watch_rules import WatchRuleCreate, WatchRuleOut, WatchRuleUpdate
 from app.services import watch_rules as service
-from app.services.background import backfill_rule_matches_task
+from app.services.background import enqueue_backfill_rule_matches_task
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/watch-rules", tags=["watch-rules"])
@@ -30,7 +30,6 @@ def _safe_sources(payload_query: dict | None) -> list[str] | None:
 def create_rule(
     request: Request,
     payload: WatchRuleCreate,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
@@ -68,7 +67,7 @@ def create_rule(
         raise HTTPException(status_code=500, detail="db error") from None
 
     # DEV: backfill recent listings so user sees matches immediately
-    background_tasks.add_task(backfill_rule_matches_task, user_id, rule.id)
+    enqueue_backfill_rule_matches_task(user_id, rule.id)
 
     logger.info(
         "watch_rules.create.success",
