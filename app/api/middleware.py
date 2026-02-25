@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import time
 import uuid
+from typing import Any
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -13,7 +14,9 @@ from app.core.request_context import reset_request_id, set_request_id
 logger = get_logger("app.request")
 
 try:
-    import sentry_sdk
+    import sentry_sdk as _sentry_sdk
+
+    sentry_sdk: Any | None = _sentry_sdk
 except Exception:  # pragma: no cover - optional dependency
     sentry_sdk = None
 
