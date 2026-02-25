@@ -133,7 +133,7 @@ pop-loop==1.1.0
     # via
     #   -r requirements.in
     #   pop
-prometheus-client==0.23.1
+prometheus-client==0.24.1
     # via -r requirements.in
 prompt-toolkit==3.0.52
     # via click-repl
