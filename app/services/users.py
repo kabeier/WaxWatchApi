@@ -109,7 +109,7 @@ def deactivate_user_account(db: Session, *, user_id: UUID) -> datetime:
 
 
 def hard_delete_user_account(db: Session, *, user_id: UUID) -> datetime:
-    user = _owned_active_user(db, user_id=user_id)
+    user = _owned_user(db, user_id=user_id)
     deleted_at = datetime.now(timezone.utc)
     db.delete(user)
     db.flush()

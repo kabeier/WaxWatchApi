@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id, get_db
+from app.api.deps import get_current_user_id, get_current_user_id_allow_inactive, get_db
 from app.core.logging import get_logger
 from app.schemas.users import (
     DeactivateAccountResponse,
@@ -87,7 +87,7 @@ def deactivate_me(
 def hard_delete_me(
     request: Request,
     db: Session = Depends(get_db),
-    user_id: UUID = Depends(get_current_user_id),
+    user_id: UUID = Depends(get_current_user_id_allow_inactive),
 ):
     request_id = getattr(request.state, "request_id", "-")
     logger.info("profile.hard_delete.call", extra={"request_id": request_id, "user_id": str(user_id)})

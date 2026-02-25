@@ -16,7 +16,9 @@ This document defines profile lifecycle behavior for the `/api/me` endpoints.
 
 - Endpoint: `DELETE /api/me/hard-delete`.
 - Behavior:
-  - Permanently deletes the user row and relies on SQLAlchemy relationship cascade + FK rules for related data.
+  - Requires bearer authentication and subject authorization; route dependency (`get_current_user_id_allow_inactive`) still enforces token validity/user identity while allowing inactive subjects to proceed.
+  - Checks that the user record exists, then permanently deletes it regardless of `users.is_active` state (active and previously deactivated accounts are both eligible).
+  - Returns `404 User profile not found` when the account does not exist (including repeated hard-delete attempts after successful deletion).
   - Current implementation executes synchronously in-request.
 
 ## Retention Window
