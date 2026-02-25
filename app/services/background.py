@@ -2,17 +2,12 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from app.db.base import SessionLocal
-from app.services.backfill import backfill_matches_for_rule
+from app.tasks import backfill_rule_matches_task as celery_backfill_rule_matches_task
+
+
+def enqueue_backfill_rule_matches_task(user_id: UUID, rule_id: UUID) -> None:
+    celery_backfill_rule_matches_task.delay(str(user_id), str(rule_id))
 
 
 def backfill_rule_matches_task(user_id: UUID, rule_id: UUID) -> None:
-    db = SessionLocal()
-    try:
-        backfill_matches_for_rule(db, user_id=user_id, rule_id=rule_id)
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise
-    finally:
-        db.close()
+    celery_backfill_rule_matches_task.run(str(user_id), str(rule_id))

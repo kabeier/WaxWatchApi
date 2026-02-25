@@ -177,3 +177,6 @@ typing-inspection==0.4.2
     #   pydantic-settings
 uvicorn==0.41.0
     # via -r requirements.in
+
+celery==5.4.0
+redis==5.2.1

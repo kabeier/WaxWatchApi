@@ -6,12 +6,12 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import models
-from app.services.background import backfill_rule_matches_task
+from app.tasks import backfill_rule_matches_task
 
 
 def test_backfill_rule_matches_task_commits_rows_visible_across_sessions(db_session: Session, monkeypatch):
     testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
-    monkeypatch.setattr("app.services.background.SessionLocal", testing_session_local)
+    monkeypatch.setattr("app.tasks.SessionLocal", testing_session_local)
 
     user_id = uuid.uuid4()
     rule_id = uuid.uuid4()
@@ -53,7 +53,7 @@ def test_backfill_rule_matches_task_commits_rows_visible_across_sessions(db_sess
     finally:
         setup_session.close()
 
-    backfill_rule_matches_task(user_id, rule_id)
+    backfill_rule_matches_task.run(str(user_id), str(rule_id))
 
     verify_session = testing_session_local()
     try:
@@ -88,7 +88,7 @@ def test_backfill_rule_matches_task_commits_rows_visible_across_sessions(db_sess
 
 def test_backfill_rule_matches_task_rolls_back_when_enqueue_raises(db_session: Session, monkeypatch):
     testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
-    monkeypatch.setattr("app.services.background.SessionLocal", testing_session_local)
+    monkeypatch.setattr("app.tasks.SessionLocal", testing_session_local)
 
     user_id = uuid.uuid4()
     rule_id = uuid.uuid4()
@@ -140,7 +140,7 @@ def test_backfill_rule_matches_task_rolls_back_when_enqueue_raises(db_session: S
     monkeypatch.setattr("app.services.backfill.enqueue_from_event", _raise_after_flush)
 
     try:
-        backfill_rule_matches_task(user_id, rule_id)
+        backfill_rule_matches_task.run(str(user_id), str(rule_id))
     except RuntimeError as exc:
         assert str(exc) == "forced enqueue failure"
     else:
