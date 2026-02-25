@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev
-PROD_ENV_FILE ?= .env.prod
+PROD_REQUIRED_ENV_VARS ?= DATABASE_URL AUTH_ISSUER AUTH_JWKS_URL TOKEN_CRYPTO_KMS_KEY_ID
 
 COMPOSE := docker compose
 PYTHON ?= python
@@ -29,7 +29,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install
 
 help:
 	@echo ""
@@ -80,8 +80,9 @@ help:
 	@echo "  make gh MSG='...'          Run ci-local, then commit & push if successful"
 	@echo ""
 	@echo "Production"
-	@echo "  make migrate-prod          Run migrations against prod DB"
-	@echo "  make prod-up               Run production compose stack"
+	@echo "  make check-prod-env        Fail if required runtime prod env vars are missing"
+	@echo "  make migrate-prod          Run migrations using runtime-injected prod secrets"
+	@echo "  make prod-up               Start production compose stack with runtime-injected secrets"
 	@echo ""
 up:
 	$(COMPOSE) --env-file $(DEV_ENV_FILE) up --build
@@ -410,10 +411,23 @@ ci-check-migrations:
 	$(COMPOSE) --env-file $(DEV_ENV_FILE) exec $(APP_SERVICE) python -m scripts.schema_drift_check
 
 # --- Prod migrations / run ---
-migrate-prod:
-	@if [ ! -f "$(PROD_ENV_FILE)" ]; then echo "$(PROD_ENV_FILE) not found"; exit 1; fi
-	$(COMPOSE) --env-file $(PROD_ENV_FILE) run --rm $(APP_SERVICE) alembic upgrade head
+check-prod-env:
+	@set -euo pipefail; \
+	missing=""; \
+	for var in $(PROD_REQUIRED_ENV_VARS); do \
+		if [ -z "$${!var:-}" ]; then \
+			missing="$$missing $$var"; \
+		fi; \
+	done; \
+	if [ -n "$$missing" ]; then \
+		echo "Missing required production env vars/secrets:$$missing"; \
+		echo "Inject them at runtime from CI/CD secrets or your secret manager before running production targets."; \
+		exit 1; \
+	fi; \
+	echo "Production env check passed."
 
-prod-up:
-	@if [ ! -f "$(PROD_ENV_FILE)" ]; then echo "$(PROD_ENV_FILE) not found"; exit 1; fi
-	$(COMPOSE) --env-file $(PROD_ENV_FILE) -f docker-compose.yml up --build
+migrate-prod: check-prod-env
+	$(COMPOSE) run --rm $(APP_SERVICE) alembic upgrade head
+
+prod-up: check-prod-env
+	$(COMPOSE) -f docker-compose.yml up --build
