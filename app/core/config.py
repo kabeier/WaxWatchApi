@@ -47,6 +47,12 @@ class Settings(BaseSettings):
     ebay_campaign_id: str | None = None
     ebay_custom_id: str | None = None
 
+    notification_email_provider: str = "stub"
+    ses_region: str = "us-east-1"
+    ses_sender_email: str = "noreply@example.com"
+    ses_configuration_set: str | None = None
+    ses_endpoint_url: str | None = None
+
     scheduler_poll_interval_seconds: int = 15
     scheduler_batch_size: int = 100
     scheduler_rule_limit: int = 20

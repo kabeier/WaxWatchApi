@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.db import models
+from app.services.email_provider import EmailDeliveryRequest, get_email_provider
 from app.services.task_dispatcher import enqueue_notification_delivery
 
 logger = get_logger(__name__)
@@ -133,16 +134,51 @@ def send_email(db: Session, *, notification: models.Notification) -> models.Noti
     if not preference.email_enabled:
         return notification
 
-    now = datetime.now(timezone.utc)
-    notification.status = models.NotificationStatus.sent
-    notification.delivered_at = now
-    notification.failed_at = None
-    notification.updated_at = now
-
-    logger.info(
-        "notifications.email.sent",
-        extra={"notification_id": str(notification.id), "event_id": str(notification.event_id)},
+    provider = get_email_provider()
+    request = EmailDeliveryRequest(
+        to_address=notification.user.email,
+        subject=f"WaxWatch notification: {notification.event_type.value}",
+        text_body=(
+            f"You have a new {notification.event_type.value} notification. "
+            f"Notification id: {notification.id}."
+        ),
     )
+    delivery_result = provider.send_email(request)
+
+    now = datetime.now(timezone.utc)
+    if delivery_result.success:
+        notification.status = models.NotificationStatus.sent
+        notification.delivered_at = now
+        notification.failed_at = None
+        notification.updated_at = now
+
+        logger.info(
+            "notifications.email.sent",
+            extra={
+                "notification_id": str(notification.id),
+                "event_id": str(notification.event_id),
+                "provider_message_id": delivery_result.provider_message_id,
+            },
+        )
+    else:
+        notification.status = models.NotificationStatus.failed
+        notification.failed_at = now
+        notification.updated_at = now
+
+        logger.warning(
+            "notifications.email.failed",
+            extra={
+                "notification_id": str(notification.id),
+                "event_id": str(notification.event_id),
+                "retryable": delivery_result.retryable,
+                "error_code": delivery_result.error_code,
+                "error_message": delivery_result.error_message,
+            },
+        )
+        if delivery_result.retryable:
+            db.flush()
+            raise RuntimeError(delivery_result.error_message or "email provider temporary failure")
+
     db.flush()
     return notification
 
