@@ -32,5 +32,8 @@ jobs:
       - name: Validate docker compose files
         run: make check-docker-config
 
+      - name: Validate .env.sample covers Settings fields
+        run: python scripts/check_env_sample.py
+
       - name: Run CI flow (lint, migration, drift, tests incl token crypto/redaction)
         run: make ci-local
