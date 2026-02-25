@@ -42,13 +42,16 @@ def git(*args: str, check: bool = True) -> str:
 def git_ref_exists(ref: str) -> bool:
     if not ref:
         return False
-    return subprocess.run(
-        ["git", "rev-parse", "--verify", ref],
-        cwd=ROOT,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        check=False,
-    ).returncode == 0
+    return (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", ref],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode
+        == 0
+    )
 
 
 def detect_base_ref() -> str:
