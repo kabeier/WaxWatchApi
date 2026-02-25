@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from sqlalchemy.orm import sessionmaker
+
 from app.db import models
 from app.tasks import deliver_notification_task
 
 
-def test_deliver_notification_task_is_idempotent(db_session, user):
+def test_deliver_notification_task_is_idempotent(db_session, user, monkeypatch):
+    testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
+    monkeypatch.setattr("app.tasks.SessionLocal", testing_session_local)
+
     event = models.Event(
         user_id=user.id,
         type=models.EventType.RULE_CREATED,
@@ -38,6 +43,9 @@ def test_deliver_notification_task_is_idempotent(db_session, user):
 
 
 def test_deliver_notification_task_retries_runtime_errors(db_session, user, monkeypatch):
+    testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
+    monkeypatch.setattr("app.tasks.SessionLocal", testing_session_local)
+
     event = models.Event(
         user_id=user.id,
         type=models.EventType.RULE_CREATED,
@@ -62,13 +70,16 @@ def test_deliver_notification_task_retries_runtime_errors(db_session, user, monk
         calls["count"] += 1
         if calls["count"] == 1:
             raise RuntimeError("temporary provider failure")
-        notification.status = models.NotificationStatus.sent
-        notification.delivered_at = datetime.now(timezone.utc)
-        notification.updated_at = datetime.now(timezone.utc)
-        return notification
+        task_notification = _kwargs["notification"]
+        task_notification.status = models.NotificationStatus.sent
+        task_notification.delivered_at = datetime.now(timezone.utc)
+        task_notification.updated_at = datetime.now(timezone.utc)
+        return task_notification
 
     monkeypatch.setattr("app.tasks.send_email", _flaky_send_email)
 
     result = deliver_notification_task.apply(args=[str(notification.id)])
     assert result.successful()
     assert calls["count"] == 2
+    db_session.refresh(notification)
+    assert notification.status == models.NotificationStatus.sent
