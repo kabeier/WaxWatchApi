@@ -26,6 +26,18 @@ SCHEDULER_RUNS_TOTAL = Counter(
     labelnames=("outcome",),
 )
 
+LISTING_MATCH_DECISIONS_TOTAL = Counter(
+    "waxwatch_listing_match_decisions_total",
+    "Listing Discogs mapping decisions by outcome",
+    labelnames=("outcome",),
+)
+
+LISTING_MATCH_QUALITY_PROXY_TOTAL = Counter(
+    "waxwatch_listing_match_quality_proxy_total",
+    "Proxy quality counters for listing Discogs mapping",
+    labelnames=("metric",),
+)
+
 
 def record_request_latency(*, method: str, path: str, status_code: int, duration_seconds: float) -> None:
     REQUEST_LATENCY_SECONDS.labels(method=method, path=path, status_code=str(status_code)).observe(
@@ -54,6 +66,14 @@ def record_scheduler_rule_outcome(*, success: bool) -> None:
 
 def record_scheduler_run(*, failed_rules: int) -> None:
     SCHEDULER_RUNS_TOTAL.labels(outcome="failed" if failed_rules else "success").inc()
+
+
+def record_listing_match_decision(*, outcome: str) -> None:
+    LISTING_MATCH_DECISIONS_TOTAL.labels(outcome=outcome).inc()
+
+
+def record_listing_match_quality_proxy(*, metric: str) -> None:
+    LISTING_MATCH_QUALITY_PROXY_TOTAL.labels(metric=metric).inc()
 
 
 def metrics_payload() -> tuple[bytes, str]:

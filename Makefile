@@ -30,7 +30,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-contract-sync ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks typecheck pre-commit-install
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-contract-sync ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching typecheck pre-commit-install
 
 help:
 	@echo ""
@@ -74,6 +74,7 @@ help:
 	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests"
 	@echo "  make test-token-security   Run token crypto + redaction focused tests"
 	@echo "  make test-celery-tasks     Run celery task tests in eager mode (CI-safe)"
+	@echo "  make test-matching         Run Discogs listing-matching focused tests"
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy"
@@ -307,6 +308,30 @@ test-token-security:
 	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
 	$(PYTHON) -m pytest -q tests/test_token_crypto_logging.py tests/test_discogs_integration_router.py -rA
 
+
+
+test-matching:
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
+	$(PYTHON) -m pytest -q tests/test_matching.py -rA
+
 test-celery-tasks:
 	ENVIRONMENT=test \
 	LOG_LEVEL=INFO \
@@ -368,7 +393,7 @@ ci-db-tests:
 	$(MAKE) wait-test-db; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_background_tasks.py tests/test_token_crypto_logging.py --disable-warnings --maxfail=1"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q --no-cov tests/test_background_tasks.py tests/test_token_crypto_logging.py tests/test_matching.py --disable-warnings --maxfail=1"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER)"
 
 # Mirrors the GitHub Actions CI job

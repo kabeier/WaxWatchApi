@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.logging import get_logger
 from app.db import models
 from app.monetization.outbound import tracked_outbound_path
+from app.services.matching import enrich_listing_mapping
 from app.services.notifications import enqueue_from_event
 from app.services.watch_rules import ensure_user_exists
 
@@ -353,6 +354,7 @@ def ingest_and_match(
         ensure_user_exists(db, user_id)
 
         listing, created_listing, created_snapshot = upsert_listing(db, listing_payload)
+        enrich_listing_mapping(db, user_id=user_id, listing=listing)
         created_matches = match_listing_to_rules(db, user_id=user_id, listing=listing)
 
     return listing, created_listing, created_snapshot, created_matches
