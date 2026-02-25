@@ -132,6 +132,7 @@ GET /api/events?offset=99999     # 200 []
 ### `GET /api/me`
 - **Screen:** `SettingsProfileScreen` (initial load).
 - **Action:** Load user profile and integrations summary.
+- **Integrations contract detail:** `integrations[].linked` is derived strictly from whether a row exists in `external_account_links` for the same `user_id` and `provider` (for example, Discogs can be linked while eBay is not). `integrations[].watch_rule_count` is computed independently from `watch_search_rules.query.sources` and must not be used to infer linkage state.
 
 ### `PATCH /api/me`
 - **Screen:** `SettingsProfileScreen`.

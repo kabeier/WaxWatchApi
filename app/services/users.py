@@ -134,6 +134,19 @@ def _owned_active_user(db: Session, *, user_id: UUID) -> models.User:
 
 def _integration_summary_for_user(db: Session, *, user_id: UUID) -> list[IntegrationSummary]:
     counts: dict[str, int] = {provider: 0 for provider in DEFAULT_PROVIDER_SUMMARY}
+    linked_by_provider: dict[str, bool] = {provider: False for provider in DEFAULT_PROVIDER_SUMMARY}
+
+    links = (
+        db.query(models.ExternalAccountLink.provider)
+        .filter(models.ExternalAccountLink.user_id == user_id)
+        .all()
+    )
+    for (provider,) in links:
+        provider_key = provider.value if isinstance(provider, models.Provider) else str(provider)
+        key = provider_key.strip().lower()
+        if key in linked_by_provider:
+            linked_by_provider[key] = True
+
     rules = db.query(models.WatchSearchRule.query).filter(models.WatchSearchRule.user_id == user_id).all()
     for (query_payload,) in rules:
         if not isinstance(query_payload, dict):
@@ -147,6 +160,10 @@ def _integration_summary_for_user(db: Session, *, user_id: UUID) -> list[Integra
                 counts[key] += 1
 
     return [
-        IntegrationSummary(provider=provider, linked=counts[provider] > 0, watch_rule_count=counts[provider])
+        IntegrationSummary(
+            provider=provider,
+            linked=linked_by_provider[provider],
+            watch_rule_count=counts[provider],
+        )
         for provider in DEFAULT_PROVIDER_SUMMARY
     ]

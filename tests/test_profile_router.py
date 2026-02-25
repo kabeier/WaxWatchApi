@@ -153,3 +153,78 @@ def test_patch_me_validation_error_shape(client, user, headers):
     assert payload["error"]["code"] == "validation_error"
     assert payload["error"]["status"] == 422
     assert isinstance(payload["error"]["details"], list)
+
+
+def test_get_me_integrations_linked_true_when_account_linked_with_zero_rules(
+    client, user, headers, db_session
+):
+    db_session.add(
+        models.ExternalAccountLink(
+            user_id=user.id,
+            provider=models.Provider.discogs,
+            external_user_id="discogs-linked-user",
+        )
+    )
+    db_session.flush()
+
+    response = client.get("/api/me", headers=headers(user.id))
+
+    assert response.status_code == 200
+    integrations = {item["provider"]: item for item in response.json()["integrations"]}
+    assert integrations["discogs"]["linked"] is True
+    assert integrations["discogs"]["watch_rule_count"] == 0
+
+
+def test_get_me_integrations_linked_false_when_no_account_linked_with_rules(
+    client, user, headers, db_session
+):
+    db_session.add(
+        models.WatchSearchRule(
+            user_id=user.id,
+            name="Discogs Search",
+            query={"sources": ["discogs"]},
+            poll_interval_seconds=600,
+        )
+    )
+    db_session.flush()
+
+    response = client.get("/api/me", headers=headers(user.id))
+
+    assert response.status_code == 200
+    integrations = {item["provider"]: item for item in response.json()["integrations"]}
+    assert integrations["discogs"]["linked"] is False
+    assert integrations["discogs"]["watch_rule_count"] == 1
+
+
+def test_get_me_integrations_mixed_providers_keep_linkage_independent(client, user, headers, db_session):
+    db_session.add_all(
+        [
+            models.ExternalAccountLink(
+                user_id=user.id,
+                provider=models.Provider.discogs,
+                external_user_id="discogs-linked-user",
+            ),
+            models.WatchSearchRule(
+                user_id=user.id,
+                name="Discogs + Ebay Search",
+                query={"sources": ["discogs", "ebay"]},
+                poll_interval_seconds=600,
+            ),
+            models.WatchSearchRule(
+                user_id=user.id,
+                name="Ebay Search",
+                query={"sources": ["ebay"]},
+                poll_interval_seconds=600,
+            ),
+        ]
+    )
+    db_session.flush()
+
+    response = client.get("/api/me", headers=headers(user.id))
+
+    assert response.status_code == 200
+    integrations = {item["provider"]: item for item in response.json()["integrations"]}
+    assert integrations["discogs"]["linked"] is True
+    assert integrations["discogs"]["watch_rule_count"] == 1
+    assert integrations["ebay"]["linked"] is False
+    assert integrations["ebay"]["watch_rule_count"] == 2
