@@ -81,7 +81,7 @@ For scheduler and notification lag SLOs, add/maintain explicit instrumentation i
    - Query/search endpoints: p95 `> 1.1s` for 10m (warning), `> 1.5s` for 10m (critical).
    - Write endpoints: p95 `> 850ms` for 10m (warning), `> 1.2s` for 10m (critical).
 
-2. **API elevated 5xx rate (critical)**
+2. **API elevated 5xx rate (warning/critical)**
    - `5xx_count / total_count > 0.02` for 10m (warning).
    - `5xx_count / total_count > 0.05` for 10m (critical).
 
@@ -114,12 +114,12 @@ For scheduler and notification lag SLOs, add/maintain explicit instrumentation i
 3. Correlate with provider errors and DB readiness (`/readyz`).
 4. Compare current 10m performance against 28d SLO trend to estimate budget burn rate.
 5. If category p95 exceeds critical threshold for >10m, page on-call and start incident channel.
-3. Inspect logs for matching `request_id` and slow-path routes.
-4. Mitigate:
+6. Inspect logs for matching `request_id` and slow-path routes.
+7. Mitigate:
    - lower fan-out/providers on heavy queries,
    - scale API workers,
    - reduce expensive query limits.
-6. Exit criteria: category p95 back under SLO target for 30m and 5xx ratio < 1%.
+8. Exit criteria: category p95 back under SLO target for 30m and 5xx ratio < 1%.
 
 ### Failure class: Provider outage / throttling
 1. Identify impacted provider via error ratio and status-code spikes.
