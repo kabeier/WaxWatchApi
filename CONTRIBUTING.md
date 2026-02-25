@@ -17,6 +17,8 @@ Use the same commands that CI uses before opening a pull request:
 
 `make ci-local` mirrors the CI gates and runs:
 
+- Docker compose render validation (`make check-docker-config`)
+- Environment/governance sync checks (`make check-policy-sync`, `make check-change-surface`)
 - Frontend API contract sync check (`python scripts/check_frontend_contract_sync.py`)
 - Ruff lint (`ruff check .`)
 - Ruff format check (`ruff format --check .`)
@@ -38,7 +40,9 @@ Use the same commands that CI uses before opening a pull request:
   - `app/services/matching.py`
   - `app/core/token_crypto.py`
 - CI enforces the non-regression policy by comparing PR coverage output (`coverage.json`) against base-branch coverage output.
-- `make ci-local` and `make ci-db-tests` continue to mirror CI gates so failures surface locally before push.
+- `make ci-local` is the canonical CI contract target invoked by both local developers and GitHub Actions.
+- `make ci-db-tests` remains the database-backed test segment used by `ci-local` and must keep migration + drift + full pytest discovery with coverage.
+- Focused targets (for example `make test-matching`, `make test-token-security`) are local debugging helpers only and are non-authoritative for CI pass/fail.
 
 ## Pre-commit hooks
 
