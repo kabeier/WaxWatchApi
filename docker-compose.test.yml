@@ -23,6 +23,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Run test commands as root so coverage artifacts written to the bind-mounted
+    # workspace (for CI regression checks) do not fail with host/container UID mismatch.
+    user: "0:0"
     working_dir: /app
     volumes:
       - ./:/app
