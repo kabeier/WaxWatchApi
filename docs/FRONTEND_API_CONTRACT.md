@@ -11,6 +11,7 @@ This contract captures **current API behavior** and maps it to intended React su
   - Added a changelog section for endpoint/schema contract tracking.
   - Added breaking-change/deprecation rules with minimum support windows.
   - Added CI contract-sync workflow requirement keyed on `app/api/` and `app/schemas/` changes.
+  - Clarified profile hard-delete semantics: `DELETE /api/me/hard-delete` performs immediate permanent deletion (no API-enforced retention window).
 
 ## 1) Auth + Session Assumptions
 
@@ -24,6 +25,7 @@ This contract captures **current API behavior** and maps it to intended React su
   - Login/token issuance happens outside this API (Supabase/Auth provider).
   - `POST /api/me/logout` returns a logout marker payload for client-side/session-provider sign-out orchestration.
   - `DELETE /api/me` deactivates local account state; frontend should then clear session and route to signed-out state.
+  - `DELETE /api/me/hard-delete` immediately and permanently deletes the authenticated user record when it exists.
 
 ---
 
@@ -163,6 +165,15 @@ GET /api/events?offset=99999     # 200 []
 - **Screen:** `DangerZoneAccountScreen`.
 - **Action:** User confirms **Deactivate account**.
 - **Frontend behavior:** Show irreversible warning, then clear session after success.
+
+### `DELETE /api/me/hard-delete`
+- **Screen:** `DangerZoneAccountScreen`.
+- **Action:** User confirms **Permanently delete account**.
+- **Backend behavior contract:**
+  - Allowed for both active and previously deactivated accounts.
+  - Executes immediate permanent deletion when the user exists (no API-enforced waiting/retention period).
+  - Returns `404` when the profile is already deleted/non-existent (including repeat requests after success).
+- **Frontend behavior:** treat success as terminal account removal and clear local session/auth state immediately.
 
 ---
 
