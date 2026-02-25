@@ -219,7 +219,7 @@ rend==7.0.2
     #   pop-config
 ruff==0.9.7
     # via -r requirements-dev.in
-sentry-sdk==2.46.0
+sentry-sdk==2.53.0
     # via -r requirements-dev.in
 six==1.17.0
     # via python-dateutil
