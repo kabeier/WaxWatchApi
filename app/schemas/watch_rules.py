@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.db import models
+from app.providers.registry import get_provider_registration
 
 
 def _normalize_and_validate_sources(query: dict[str, Any], *, require: bool) -> dict[str, Any]:
@@ -26,7 +26,7 @@ def _normalize_and_validate_sources(query: dict[str, Any], *, require: bool) -> 
         if not s_clean:
             continue
         try:
-            models.Provider(s_clean)
+            get_provider_registration(s_clean)
         except ValueError as e:
             raise ValueError(f"Invalid provider source: {s_clean}") from e
         cleaned.append(s_clean)

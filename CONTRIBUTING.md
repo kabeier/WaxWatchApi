@@ -73,6 +73,11 @@ Expected update workflow:
 3. Run local checks (`make lint`, `make fmt-check`, `make check-contract-sync`, or `make ci-local`).
 4. Push only when Ruff lint and Ruff format checks pass for all commits in the PR.
 
+Provider/source contract note:
+
+- Treat provider-facing API fields (for example `watch_search_rules.query.sources` and `/api/me` integration summaries) as **registry-backed**. They represent only providers registered and enabled by runtime configuration, not every value in `models.Provider` / DB enum.
+- When changing provider enablement rules or registration behavior, update tests and contract docs in the same PR so frontend choices stay aligned with backend-accepted sources.
+
 ## Environment configuration policy
 
 - `.env.sample` is documentation for local/dev values only.

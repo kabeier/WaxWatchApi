@@ -144,7 +144,7 @@ GET /api/events?offset=99999     # 200 []
 ### `GET /api/me`
 - **Screen:** `SettingsProfileScreen` (initial load).
 - **Action:** Load user profile and integrations summary.
-- **Integrations contract detail:** `integrations[].linked` is derived strictly from whether a row exists in `external_account_links` for the same `user_id` and `provider` (for example, Discogs can be linked while eBay is not). `integrations[].watch_rule_count` is computed independently from `watch_search_rules.query.sources` and must not be used to infer linkage state.
+- **Integrations contract detail:** `integrations[]` only includes providers that are both registered and currently enabled by backend configuration (registry-backed list, not the full DB enum). `integrations[].linked` is derived strictly from whether a row exists in `external_account_links` for the same `user_id` and `provider` (for example, Discogs can be linked while eBay is not). `integrations[].watch_rule_count` is computed independently from `watch_search_rules.query.sources` and must not be used to infer linkage state.
 
 ### `PATCH /api/me`
 - **Screen:** `SettingsProfileScreen`.
@@ -286,6 +286,7 @@ The API has two watch paradigms; frontend can present both under a single “Ale
 **Screens + actions:**
 - `AlertsListScreen`: view + paginate + disable/hard-delete.
 - `AlertEditorScreen`: create/update rule name, sources, polling interval.
+- `query.sources` is validated against the live provider registry; values must be registered+enabled provider keys. Frontend must not submit enum-only/disabled values, and should refresh provider choices from profile integrations or provider-capabilities endpoints.
 - `AlertDetailScreen`: inspect scheduling fields (`last_run_at`, `next_run_at`).
 
 ### B) Release watchlist entries (`/api/watch-releases`)
