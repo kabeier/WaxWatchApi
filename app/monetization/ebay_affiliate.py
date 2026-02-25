@@ -9,7 +9,7 @@ def to_affiliate_url(raw_url: str) -> str:
     """Build an eBay Partner Network redirect URL from a raw listing URL."""
     clean = (raw_url or "").strip()
     if not clean:
-        return raw_url
+        return ""
 
     campaign_id = (settings.ebay_campaign_id or "").strip()
     if not campaign_id:
