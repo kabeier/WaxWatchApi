@@ -38,7 +38,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         if sentry_sdk is not None:
             sentry_sdk.set_tag("request_id", request_id)
-            sentry_sdk.set_context("request", {"id": request_id, "path": request.url.path, "method": request.method})
+            sentry_sdk.set_context(
+                "request", {"id": request_id, "path": request.url.path, "method": request.method}
+            )
 
         try:
             response = await call_next(request)

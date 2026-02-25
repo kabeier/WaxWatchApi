@@ -116,4 +116,6 @@ def test_run_rule_once_records_provider_metrics(db_session, user, monkeypatch):
     run_rule_once(db_session, user_id=user.id, rule_id=rule.id, limit=5)
 
     payload = generate_latest().decode("utf-8")
-    assert 'waxwatch_provider_call_results_total{outcome="success",provider="ebay",status_code="200"}' in payload
+    assert (
+        'waxwatch_provider_call_results_total{outcome="success",provider="ebay",status_code="200"}' in payload
+    )

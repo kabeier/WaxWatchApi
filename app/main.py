@@ -89,7 +89,9 @@ def create_app() -> FastAPI:
                 message=message,
                 code="http_error",
                 status=exc.status_code,
-                details={"request_id": request_id, "context": details} if details is not None else {"request_id": request_id},
+                details={"request_id": request_id, "context": details}
+                if details is not None
+                else {"request_id": request_id},
             ),
         )
 

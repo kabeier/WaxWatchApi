@@ -28,7 +28,9 @@ SCHEDULER_RUNS_TOTAL = Counter(
 
 
 def record_request_latency(*, method: str, path: str, status_code: int, duration_seconds: float) -> None:
-    REQUEST_LATENCY_SECONDS.labels(method=method, path=path, status_code=str(status_code)).observe(duration_seconds)
+    REQUEST_LATENCY_SECONDS.labels(method=method, path=path, status_code=str(status_code)).observe(
+        duration_seconds
+    )
 
 
 def record_provider_call_result(*, provider: str, status_code: int | None, error: str | None) -> None:
