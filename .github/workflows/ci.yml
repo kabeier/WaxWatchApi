@@ -53,7 +53,7 @@ jobs:
       - name: Static type check
         run: make typecheck
 
-      - name: Migration, drift, and test gates (with coverage threshold)
+      - name: Migration, focused uplift suite, drift, and test gates (with coverage threshold)
         env:
           COVERAGE_FAIL_UNDER: "75"
         run: make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
