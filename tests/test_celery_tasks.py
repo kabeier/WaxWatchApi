@@ -8,9 +8,13 @@ from app.db import models
 from app.tasks import deliver_notification_task
 
 
-def test_deliver_notification_task_is_idempotent(db_session, user, monkeypatch):
+def _bind_task_session_local(db_session, monkeypatch) -> None:
     testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
     monkeypatch.setattr("app.tasks.SessionLocal", testing_session_local)
+
+
+def test_deliver_notification_task_is_idempotent(db_session, user, monkeypatch):
+    _bind_task_session_local(db_session, monkeypatch)
 
     event = models.Event(
         user_id=user.id,
@@ -43,8 +47,7 @@ def test_deliver_notification_task_is_idempotent(db_session, user, monkeypatch):
 
 
 def test_deliver_notification_task_retries_runtime_errors(db_session, user, monkeypatch):
-    testing_session_local = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
-    monkeypatch.setattr("app.tasks.SessionLocal", testing_session_local)
+    _bind_task_session_local(db_session, monkeypatch)
 
     event = models.Event(
         user_id=user.id,
@@ -66,15 +69,14 @@ def test_deliver_notification_task_retries_runtime_errors(db_session, user, monk
 
     calls = {"count": 0}
 
-    def _flaky_send_email(*_args, **_kwargs):
+    def _flaky_send_email(_db, *, notification):
         calls["count"] += 1
         if calls["count"] == 1:
             raise RuntimeError("temporary provider failure")
-        task_notification = _kwargs["notification"]
-        task_notification.status = models.NotificationStatus.sent
-        task_notification.delivered_at = datetime.now(timezone.utc)
-        task_notification.updated_at = datetime.now(timezone.utc)
-        return task_notification
+        notification.status = models.NotificationStatus.sent
+        notification.delivered_at = datetime.now(timezone.utc)
+        notification.updated_at = datetime.now(timezone.utc)
+        return notification
 
     monkeypatch.setattr("app.tasks.send_email", _flaky_send_email)
 
