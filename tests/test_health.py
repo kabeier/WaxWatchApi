@@ -26,7 +26,7 @@ def test_readyz_returns_503_when_db_probe_fails(client, monkeypatch):
 
     r = client.get("/readyz")
     assert r.status_code == 503
-    payload = r.json()["detail"]
+    payload = r.json()["error"]["details"]
     assert payload["status"] == "not_ready"
     assert payload["checks"]["db"] == {
         "status": "failed",
@@ -44,7 +44,7 @@ def test_readyz_returns_503_when_redis_required_and_unavailable(client, monkeypa
 
     r = client.get("/readyz")
     assert r.status_code == 503
-    payload = r.json()["detail"]
+    payload = r.json()["error"]["details"]
     assert payload["status"] == "not_ready"
     assert payload["checks"]["redis"] == {
         "status": "failed",
