@@ -5,12 +5,17 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func
-from sqlalchemy.orm import Query, Session
+from sqlalchemy.orm import Query as SAQuery
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin_user_id, get_current_user_id, get_db
 from app.api.pagination import PaginationParams, apply_created_id_pagination, get_pagination_params
 from app.db import models
-from app.schemas.provider_requests import ProviderRequestAdminOut, ProviderRequestOut, ProviderRequestSummaryOut
+from app.schemas.provider_requests import (
+    ProviderRequestAdminOut,
+    ProviderRequestOut,
+    ProviderRequestSummaryOut,
+)
 
 router = APIRouter(prefix="/provider-requests", tags=["provider-requests"])
 
@@ -20,7 +25,7 @@ def _provider_to_string(provider: models.Provider | str) -> str:
 
 
 def _apply_admin_filters(
-    query: Query,
+    query: SAQuery,
     *,
     provider: models.Provider | None,
     status_code_gte: int | None,
@@ -28,7 +33,7 @@ def _apply_admin_filters(
     created_from: datetime | None,
     created_to: datetime | None,
     user_id: UUID | None,
-) -> Query:
+) -> SAQuery:
     if status_code_gte is not None and status_code_lte is not None and status_code_gte > status_code_lte:
         raise HTTPException(status_code=422, detail="status_code_gte cannot be greater than status_code_lte")
     if created_from is not None and created_to is not None and created_from > created_to:
@@ -143,7 +148,11 @@ def provider_request_summary_admin(
         user_id=user_id,
     )
 
-    rows = base_query.group_by(models.ProviderRequest.provider).order_by(models.ProviderRequest.provider.asc()).all()
+    rows = (
+        base_query.group_by(models.ProviderRequest.provider)
+        .order_by(models.ProviderRequest.provider.asc())
+        .all()
+    )
 
     return [
         ProviderRequestSummaryOut(

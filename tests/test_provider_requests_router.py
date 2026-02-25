@@ -50,7 +50,9 @@ def test_provider_requests_router_exposes_only_authenticated_user_rows(
     assert summary[0]["total_requests"] == 1
 
 
-def test_provider_requests_admin_routes_require_admin_claims(client, user, user2, headers, db_session, sign_jwt):
+def test_provider_requests_admin_routes_require_admin_claims(
+    client, user, user2, headers, db_session, sign_jwt
+):
     db_session.add_all(
         [
             models.ProviderRequest(
