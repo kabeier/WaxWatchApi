@@ -37,10 +37,12 @@ def _get_auth_verifier():
     return build_verifier()
 
 
-def get_current_user_id(
+def _resolve_current_user(
     request: Request,
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-    db: Annotated[Session, Depends(get_db)],
+    credentials: HTTPAuthorizationCredentials | None,
+    db: Session,
+    *,
+    require_active: bool,
 ) -> UUID:
     if credentials is None:
         logger.info(
@@ -56,9 +58,25 @@ def get_current_user_id(
     verified = _get_auth_verifier().verify(credentials.credentials)
 
     user = db.query(models.User).filter(models.User.id == verified.user_id).first()
-    if user is not None and not user.is_active:
+    if require_active and user is not None and not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
 
     request.state.user_id = str(verified.user_id)
     request.state.token_claims = verified.claims
     return verified.user_id
+
+
+def get_current_user_id(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UUID:
+    return _resolve_current_user(request, credentials, db, require_active=True)
+
+
+def get_current_user_id_allow_inactive(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UUID:
+    return _resolve_current_user(request, credentials, db, require_active=False)

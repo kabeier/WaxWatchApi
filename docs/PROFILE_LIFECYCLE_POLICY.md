@@ -16,7 +16,7 @@ This document defines profile lifecycle behavior for the `/api/me` endpoints.
 
 - Endpoint: `DELETE /api/me/hard-delete`.
 - Behavior:
-  - Requires normal authentication/authorization (`get_current_user_id`) so only the authenticated subject can delete its own account.
+  - Requires bearer authentication and subject authorization; route dependency (`get_current_user_id_allow_inactive`) still enforces token validity/user identity while allowing inactive subjects to proceed.
   - Checks that the user record exists, then permanently deletes it regardless of `users.is_active` state (active and previously deactivated accounts are both eligible).
   - Returns `404 User profile not found` when the account does not exist (including repeated hard-delete attempts after successful deletion).
   - Current implementation executes synchronously in-request.
