@@ -222,3 +222,30 @@ def test_send_email_marks_failed_without_raise_for_non_retryable_provider_errors
 
     assert email_notification.status == models.NotificationStatus.failed
     assert email_notification.failed_at is not None
+
+
+def test_mark_notification_read_not_found_for_other_user(client, db_session, user, user2, headers):
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+    notification = notifications[0]
+
+    response = client.post(f"/api/notifications/{notification.id}/read", headers=headers(user2.id))
+
+    assert response.status_code == 404
+    body = response.json()
+    assert body["error"]["message"] == "notification not found"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 404
+
+
+def test_send_email_raises_value_error_for_non_email_channel(db_session, user):
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(db_session, event=event)
+    realtime_notification = next(
+        notification
+        for notification in notifications
+        if notification.channel == models.NotificationChannel.realtime
+    )
+
+    with pytest.raises(ValueError, match="notification channel must be email"):
+        send_email(db_session, notification=realtime_notification)

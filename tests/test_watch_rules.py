@@ -3,6 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
 from app.providers.registry import list_available_providers
@@ -371,3 +373,36 @@ def test_watch_rules_cursor_pagination(client, user, headers):
     resp = client.get(f"/api/watch-rules?limit=2&cursor={cursor}", headers=h)
     assert resp.status_code == 200
     assert len(resp.json()) >= 1
+
+
+def test_patch_rule_rejects_removing_sources(client, user, headers):
+    h = headers(user.id)
+    created = _create_rule(client, h)
+    assert created.status_code == 201, created.text
+
+    rule_id = created.json()["id"]
+    response = client.patch(
+        f"/api/watch-rules/{rule_id}",
+        json={"query": {"sources": None}},
+        headers=h,
+    )
+
+    assert response.status_code == 400, response.text
+    assert "query.sources cannot be removed" in response.text
+
+
+def test_create_rule_returns_500_on_database_error(client, user, headers, monkeypatch):
+    h = headers(user.id)
+
+    def _raise_db_error(*_args, **_kwargs):
+        raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr("app.api.routers.watch_rules.service.create_watch_rule", _raise_db_error)
+
+    response = _create_rule(client, h)
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500
