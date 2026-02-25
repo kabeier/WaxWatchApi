@@ -213,7 +213,7 @@ def _rule_matches_listing(
 
     max_price = q.get("max_price")
     if isinstance(max_price, (int | float)):
-        rule_currency_raw = q.get("currency") or user_currency
+        rule_currency_raw = q.get("currency") or user_currency or "USD"
         rule_currency = str(rule_currency_raw).strip().upper() if rule_currency_raw else None
         listing_currency = str(listing.currency).strip().upper()
 
