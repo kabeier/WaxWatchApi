@@ -23,7 +23,7 @@ Use the same commands that CI uses before opening a pull request:
 
 - Docker compose render validation (`make check-docker-config`)
 - Environment/governance sync checks (`make check-policy-sync`, which includes `make check-change-surface`)
-- Frontend API contract sync check (`python scripts/check_frontend_contract_sync.py`)
+- API schema contract sync gate (`make check-api-schema-contract`), which runs deterministic OpenAPI drift detection and frontend contract doc sync enforcement
 - Ruff lint (`ruff check .`)
 - Ruff format check (`ruff format --check .`)
 - Mypy type checks (`mypy app scripts tests`)
@@ -183,11 +183,21 @@ When rotating pinned SHAs:
 
 When your PR changes API-facing code in `app/api/` or `app/schemas/`, complete this checklist:
 
-- [ ] Update `docs/FRONTEND_API_CONTRACT.md`.
+- [ ] Update `docs/FRONTEND_API_CONTRACT.md` whenever API-facing code or the OpenAPI snapshot changes.
 - [ ] Bump/refresh the contract version field at the top of `docs/FRONTEND_API_CONTRACT.md`.
 - [ ] Add a changelog entry in `CHANGELOG.md` for endpoint or schema changes.
 - [ ] If behavior is breaking, document deprecation timeline under the breaking-change rules.
-- [ ] Run `make check-contract-sync` and `make check-openapi-snapshot` (or `make ci-local`) before pushing.
+- [ ] Run `make check-api-schema-contract` (or `make ci-local`) before pushing.
+
+### OpenAPI contract workflow
+
+Treat `docs/openapi.snapshot.json` as a committed baseline artifact generated from `app/main.py`.
+
+- Export/update baseline with `make openapi-snapshot` (`python -m scripts.openapi_snapshot --update`).
+- Validate no drift with `make check-openapi-snapshot` (`python -m scripts.openapi_snapshot --check`).
+- Enforce schema+frontend contract synchronization with `make check-api-schema-contract`.
+
+If `make check-openapi-snapshot` fails, regenerate the snapshot and update `docs/FRONTEND_API_CONTRACT.md` + `CHANGELOG.md` in the same PR before rerunning CI gates.
 
 ## Changelog update policy
 
@@ -240,10 +250,11 @@ Enforcement notes:
 - CI runs `python scripts/check_change_surface.py` to enforce integration hygiene when a PR touches testing workflow, CI config, task orchestration, or settings surfaces.
 - The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`).
 - Exception: change-surface-triggered PRs that are strictly test/governance-only (no API/runtime/migration-affecting behavior changes) may omit `CHANGELOG.md`.
-- CI also runs `python scripts/check_frontend_contract_sync.py`, which fails if changes under `app/api/` or `app/schemas/` do not include a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
+- CI runs `make check-api-schema-contract`, which combines two hard gates: `python -m scripts.openapi_snapshot --check` and `python scripts/check_frontend_contract_sync.py`.
+- The OpenAPI snapshot gate fails when deterministic OpenAPI output from `app/main.py` differs from `docs/openapi.snapshot.json`; refresh with `make openapi-snapshot`.
+- The frontend contract gate fails when API-facing files (`app/api/**`, `app/schemas/**`) or the schema artifact (`docs/openapi.snapshot.json`) change without a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
 - This includes non-schema router changes (for example health/metrics behavior updates) because frontend contract changelog must track API-facing adjustments.
 - When health/metrics router behavior changes, keep targeted tests updated for scrape-time metric branches to avoid silent coverage regressions in CI.
-- CI also runs `python -m scripts.openapi_snapshot --check`, which fails when generated OpenAPI output from `app/main.py` differs from `docs/openapi.snapshot.json`.
 
 ### Change-surface remediation checklist
 

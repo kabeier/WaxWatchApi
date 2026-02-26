@@ -45,8 +45,12 @@ jobs:
           make verify-test-deps
           make check-docker-config
           make check-policy-sync
-          make check-contract-sync
-          make check-openapi-snapshot
+
+      - name: Enforce API schema contract sync
+        run: make check-api-schema-contract
+
+      - name: Run lint/format/type checks
+        run: |
           make lint
           make fmt-check
           make typecheck

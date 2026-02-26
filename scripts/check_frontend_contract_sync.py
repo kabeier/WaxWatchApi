@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CONTRACT_DOC = "docs/FRONTEND_API_CONTRACT.md"
 WATCHED_PREFIXES = ("app/api/", "app/schemas/")
+SCHEMA_ARTIFACT = "docs/openapi.snapshot.json"
 
 
 def git(*args: str, check: bool = True) -> str:
@@ -67,16 +68,20 @@ def main() -> int:
     api_facing_changes = sorted(
         path for path in diff_files if any(path.startswith(prefix) for prefix in WATCHED_PREFIXES)
     )
+    schema_artifact_changed = SCHEMA_ARTIFACT in diff_files
 
-    if not api_facing_changes:
-        print("ok: no app/api or app/schemas changes detected")
+    if not api_facing_changes and not schema_artifact_changed:
+        print("ok: no API schema/contract changes detected")
         return 0
 
     if CONTRACT_DOC not in diff_files:
         print("Contract sync violation detected.")
-        print("The following API-facing files changed:")
-        for path in api_facing_changes:
-            print(f" - {path}")
+        if api_facing_changes:
+            print("The following API-facing files changed:")
+            for path in api_facing_changes:
+                print(f" - {path}")
+        if schema_artifact_changed:
+            print(f"Schema artifact changed: {SCHEMA_ARTIFACT}")
         print(f"Expected an update to: {CONTRACT_DOC}")
         print(
             "Please update contract version/changelog and any endpoint/schema notes in docs/FRONTEND_API_CONTRACT.md."

@@ -2,42 +2,15 @@ from __future__ import annotations
 
 import argparse
 import difflib
-import enum
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
 
-from cryptography.fernet import Fernet
+from scripts.export_openapi import build_openapi_schema, render_deterministic_openapi_json
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SNAPSHOT_PATH = ROOT / "docs" / "openapi.snapshot.json"
-
-
-def _ensure_str_enum_support() -> None:
-    if hasattr(enum, "StrEnum"):
-        return
-
-    class _CompatStrEnum(str, enum.Enum):  # noqa: UP042
-        pass
-
-    enum.StrEnum = _CompatStrEnum  # type: ignore[misc,assignment]
-
-
-def _build_schema() -> dict[str, Any]:
-    os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://snapshot:snapshot@localhost:5432/snapshot")
-    os.environ.setdefault("ENVIRONMENT", "prod")
-    os.environ.setdefault("TOKEN_CRYPTO_LOCAL_KEY", Fernet.generate_key().decode("utf-8"))
-
-    _ensure_str_enum_support()
-    from app.main import app
-
-    return app.openapi()
-
-
-def _to_deterministic_json(payload: dict[str, Any]) -> str:
-    return json.dumps(payload, indent=2, sort_keys=True, separators=(",", ": ")) + "\n"
 
 
 def _classify_changes(old: dict[str, Any], new: dict[str, Any]) -> list[str]:
@@ -113,8 +86,8 @@ def main() -> int:
     args = _parse_args()
     snapshot_path = Path(args.snapshot_path)
 
-    schema = _build_schema()
-    rendered = _to_deterministic_json(schema)
+    schema = build_openapi_schema()
+    rendered = render_deterministic_openapi_json(schema)
 
     if args.update:
         snapshot_path.parent.mkdir(parents=True, exist_ok=True)

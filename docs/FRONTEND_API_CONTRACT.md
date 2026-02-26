@@ -1,11 +1,13 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-26.2`
+**Contract version:** `2026-02-26.3`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-26.3`
+  - Clarified API contract workflow: OpenAPI schema snapshot (`docs/openapi.snapshot.json`) is a required baseline artifact generated from `app/main.py`, and schema snapshot updates must include same-PR contract doc changelog updates.
 - `2026-02-26.2`
   - Documented observability endpoint behavior update: `/metrics` now emits `waxwatch_db_connection_utilization` at scrape time using live SQLAlchemy pool usage, while remaining non-frontend/non-schema API surface (`include_in_schema=false`).
 - `2026-02-26.1`
