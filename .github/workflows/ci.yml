@@ -129,3 +129,7 @@ jobs:
         run: |
           test -f scripts/perf/core_flows_smoke.js
           test -f scripts/perf/README.md
+          test -f .github/workflows/smoke.yml
+          grep -q "perf_base_url:" .github/workflows/smoke.yml
+          grep -q "perf_rule_id:" .github/workflows/smoke.yml
+          grep -q "PERF_BASE_URL source:" .github/workflows/smoke.yml

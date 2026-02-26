@@ -120,10 +120,13 @@ A dedicated GitHub Actions workflow (`.github/workflows/smoke.yml`) runs this su
 GitHub configuration checklist for the `perf-smoke` environment:
 
 1. Open **Settings → Environments → perf-smoke** in the repository (create the environment if missing).
-2. Add environment variable `PERF_BASE_URL` with the deployed API base URL (for example, staging).
-3. Add environment secret `PERF_BEARER_TOKEN` with a valid bearer token used by smoke requests.
+2. Add environment secret `PERF_BEARER_TOKEN` with a valid bearer token used by smoke requests.
+3. Add environment variable `PERF_BASE_URL` with the deployed API base URL (for example, staging).
 4. Optionally add environment variable `PERF_RULE_ID` when you want to exercise the rule-run smoke path.
-5. Trigger `.github/workflows/smoke.yml` via **Run workflow** and verify artifacts include:
+5. (Recommended fallback) add repository variables `PERF_BASE_URL` and optional `PERF_RULE_ID`.
+6. Trigger `.github/workflows/smoke.yml` via **Run workflow**; optionally set `perf_base_url` and/or `perf_rule_id` input overrides.
+7. Runtime resolution order is: `workflow_dispatch` input → `perf-smoke` environment variable → repository variable.
+8. Verify artifacts include:
    - `artifacts/perf/perf-smoke.log`
    - `artifacts/perf/k6-summary.json`
 

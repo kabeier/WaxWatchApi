@@ -147,6 +147,11 @@ Required environment for `make perf-smoke`:
 
 The harness enforces SLO-aligned thresholds for read/query/write-like flows and should be treated as a deploy-blocking check when thresholds are exceeded.
 
+For GitHub Actions runs (`.github/workflows/smoke.yml`), `PERF_BASE_URL` and `PERF_RULE_ID` resolve in this order:
+1. `workflow_dispatch` input override (`perf_base_url`, `perf_rule_id`),
+2. `perf-smoke` environment variable,
+3. repository variable fallback.
+
 ## Discogs scheduled sync tuning
 
 The Celery beat schedule now includes `app.tasks.sync_discogs_lists` for background Discogs list refreshes.

@@ -51,9 +51,53 @@ These thresholds mirror the read/query/write latency and availability guardrails
 
 A dedicated workflow at `.github/workflows/smoke.yml` runs `make perf-smoke` outside core PR CI so remote-environment flakiness does not block merges.
 
-- Triggers: `workflow_dispatch` (manual) and weekly `schedule`.
-- Environment scope: configure a GitHub Environment (for example `perf-smoke`) with:
-  - required variable `PERF_BASE_URL`,
-  - required secret `PERF_BEARER_TOKEN`,
-  - optional variable `PERF_RULE_ID` (set `PERF_ENABLE_RULE_RUN=0` in the environment to skip rule-run checks when absent).
-- Artifacts: each run uploads `artifacts/perf/k6-summary.json` and `artifacts/perf/perf-smoke.log` for trend review and incident triage.
+### 1) One-time GitHub setup
+
+1. Create (or reuse) a GitHub Environment named `perf-smoke`.
+2. In **Settings → Secrets and variables → Actions** configure:
+   - **Environment secret** in `perf-smoke`:
+     - `PERF_BEARER_TOKEN` (**required**)
+   - **Environment variables** in `perf-smoke`:
+     - `PERF_BASE_URL` (**recommended default**)
+     - `PERF_RULE_ID` (optional)
+   - **Repository variables** (fallback when environment vars are absent):
+     - `PERF_BASE_URL` (fallback)
+     - `PERF_RULE_ID` (optional fallback)
+
+### 2) Runtime resolution order
+
+For `PERF_BASE_URL` and `PERF_RULE_ID`, the workflow resolves values in this exact order:
+
+1. `workflow_dispatch` input override,
+2. environment variable from `perf-smoke`,
+3. repository variable fallback.
+
+The workflow prints a safe diagnostic summary showing whether each required value is set and which source was selected. Secret values are never printed.
+
+### 3) Run manually (workflow_dispatch)
+
+1. Open **Actions → Performance Smoke → Run workflow**.
+2. Optionally provide:
+   - `perf_base_url` to override `PERF_BASE_URL` for this run only,
+   - `perf_rule_id` to override `PERF_RULE_ID` for this run only.
+3. Click **Run workflow**.
+
+### 4) Scheduled run
+
+- The workflow also runs weekly via cron (`0 13 * * 2`).
+
+### 5) Validation and failure behavior
+
+- Hard-fail conditions:
+  - `PERF_BASE_URL` unresolved after fallback.
+  - `PERF_BEARER_TOKEN` missing.
+- `PERF_RULE_ID` is optional (set `PERF_ENABLE_RULE_RUN=0` to skip rule-run checks when absent in your target environment).
+
+### 6) Artifacts
+
+Each run uploads:
+
+- `artifacts/perf/k6-summary.json`
+- `artifacts/perf/perf-smoke.log`
+
+Use these artifacts for trend review and incident triage.

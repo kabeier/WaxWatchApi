@@ -2,11 +2,21 @@ name: Performance Smoke
 
 on:
   workflow_dispatch:
+    inputs:
+      perf_base_url:
+        description: "Optional override for PERF_BASE_URL"
+        required: false
+        type: string
+      perf_rule_id:
+        description: "Optional override for PERF_RULE_ID"
+        required: false
+        type: string
   schedule:
     # Weekly staged smoke run to track latency/error trends outside PR CI.
     - cron: "0 13 * * 2"
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -18,18 +28,107 @@ jobs:
     runs-on: ubuntu-latest
     environment: perf-smoke
     env:
-      PERF_BASE_URL: ${{ vars.PERF_BASE_URL }}
       PERF_BEARER_TOKEN: ${{ secrets.PERF_BEARER_TOKEN }}
-      PERF_RULE_ID: ${{ vars.PERF_RULE_ID }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
 
+      - name: Resolve runtime configuration with fallback
+        uses: actions/github-script@v7
+        env:
+          PERF_BASE_URL_INPUT: ${{ github.event.inputs.perf_base_url || '' }}
+          PERF_RULE_ID_INPUT: ${{ github.event.inputs.perf_rule_id || '' }}
+          PERF_ENVIRONMENT_NAME: perf-smoke
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const envName = process.env.PERF_ENVIRONMENT_NAME;
+
+            async function getEnvironmentVariable(name) {
+              try {
+                const response = await github.rest.actions.getEnvironmentVariable({
+                  owner,
+                  repo,
+                  environment_name: envName,
+                  name,
+                });
+                return (response.data.value || "").trim();
+              } catch (error) {
+                if (error.status === 404) {
+                  return "";
+                }
+                throw error;
+              }
+            }
+
+            async function getRepoVariable(name) {
+              try {
+                const response = await github.rest.actions.getRepoVariable({
+                  owner,
+                  repo,
+                  name,
+                });
+                return (response.data.value || "").trim();
+              } catch (error) {
+                if (error.status === 404) {
+                  return "";
+                }
+                throw error;
+              }
+            }
+
+            function resolveValue(inputValue, envValue, repoValue, inputSourceName) {
+              if (inputValue) {
+                return { value: inputValue, source: inputSourceName };
+              }
+              if (envValue) {
+                return { value: envValue, source: `environment variable (${envName})` };
+              }
+              if (repoValue) {
+                return { value: repoValue, source: "repository variable" };
+              }
+              return { value: "", source: "unset" };
+            }
+
+            const baseUrlInput = (process.env.PERF_BASE_URL_INPUT || "").trim();
+            const ruleIdInput = (process.env.PERF_RULE_ID_INPUT || "").trim();
+
+            const [baseUrlEnv, baseUrlRepo, ruleIdEnv, ruleIdRepo] = await Promise.all([
+              getEnvironmentVariable("PERF_BASE_URL"),
+              getRepoVariable("PERF_BASE_URL"),
+              getEnvironmentVariable("PERF_RULE_ID"),
+              getRepoVariable("PERF_RULE_ID"),
+            ]);
+
+            const resolvedBaseUrl = resolveValue(
+              baseUrlInput,
+              baseUrlEnv,
+              baseUrlRepo,
+              "workflow_dispatch input",
+            );
+            const resolvedRuleId = resolveValue(
+              ruleIdInput,
+              ruleIdEnv,
+              ruleIdRepo,
+              "workflow_dispatch input",
+            );
+
+            core.exportVariable("PERF_BASE_URL", resolvedBaseUrl.value);
+            core.exportVariable("PERF_RULE_ID", resolvedRuleId.value);
+            core.exportVariable("PERF_BASE_URL_SOURCE", resolvedBaseUrl.source);
+            core.exportVariable("PERF_RULE_ID_SOURCE", resolvedRuleId.source);
+
       - name: Validate required environment-scoped configuration
         run: |
           set -euo pipefail
-          test -n "${PERF_BASE_URL}" || (echo "PERF_BASE_URL repo/environment variable is required" && exit 1)
+          echo "PERF_BASE_URL set: $([[ -n "${PERF_BASE_URL}" ]] && echo yes || echo no)"
+          echo "PERF_BEARER_TOKEN set: $([[ -n "${PERF_BEARER_TOKEN}" ]] && echo yes || echo no)"
+          echo "PERF_RULE_ID set: $([[ -n "${PERF_RULE_ID}" ]] && echo yes || echo no)"
+          echo "PERF_BASE_URL source: ${PERF_BASE_URL_SOURCE}"
+          echo "PERF_RULE_ID source: ${PERF_RULE_ID_SOURCE}"
+          test -n "${PERF_BASE_URL}" || (echo "PERF_BASE_URL input/environment/repository variable is required" && exit 1)
           test -n "${PERF_BEARER_TOKEN}" || (echo "PERF_BEARER_TOKEN environment secret is required" && exit 1)
 
       - name: Install k6
