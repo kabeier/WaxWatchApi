@@ -476,7 +476,7 @@ ci-celery-redis-smoke:
 	$(MAKE) wait-test-db; \
 	$(MAKE) wait-test-redis; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
-	worker_container="$$($(COMPOSE) -f $(TEST_DB_COMPOSE) run -d --name waxwatch-celery-smoke-worker -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true $(TEST_APP_SERVICE) celery -A app.core.celery_app.celery_app worker --loglevel=WARNING --pool=solo --concurrency=1 --queues=waxwatch)"; \
+	worker_container="$$($(COMPOSE) -f $(TEST_DB_COMPOSE) run -d --name waxwatch-celery-smoke-worker -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true $(TEST_APP_SERVICE) 'celery -A app.core.celery_app.celery_app worker --loglevel=WARNING --pool=solo --concurrency=1 --queues=waxwatch')"; \
 	for i in $$(seq 1 30); do \
 		if [ "$$(docker inspect -f '{{.State.Running}}' $$worker_container 2>/dev/null || true)" = "true" ] && docker logs $$worker_container 2>&1 | tail -n 200 | grep -q "ready"; then \
 			break; \
