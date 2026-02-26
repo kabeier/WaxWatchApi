@@ -26,7 +26,7 @@ def test_celery_redis_roundtrip_and_readiness(monkeypatch):
     payload = "redis-smoke"
     with start_worker(
         celery_app,
-        perform_ping_check=False,
+        perform_ping_check=True,
         loglevel="WARNING",
         pool="solo",
         concurrency=1,
