@@ -69,7 +69,7 @@ email-validator==2.3.0
     # via -r requirements.in
 fastapi==0.129.0
     # via -r requirements.in
-greenlet==3.3.1
+greenlet==3.3.2
     # via
     #   -r requirements.in
     #   sqlalchemy
