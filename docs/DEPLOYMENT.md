@@ -221,6 +221,7 @@ The API enforces in-process, rolling-window request throttling for both anonymou
   - `/api/integrations/discogs/*`
   - `/api/stream/events`
 - A `429` response includes `Retry-After` and a standard error envelope with `code: rate_limited`.
+- Scope-specific throttles are enforced in-route for `/api/search*`, `/api/watch-rules*`, `/api/integrations/discogs/*`, and `/api/stream/events`, while global limits still apply to all `/api/*` traffic.
 
 Environment knobs (all non-secret):
 
@@ -234,3 +235,5 @@ Environment knobs (all non-secret):
 - `RATE_LIMIT_STREAM_EVENTS_RPM`, `RATE_LIMIT_STREAM_EVENTS_BURST`
 
 Tune per environment based on expected traffic, worker capacity, and provider quota ceilings.
+
+CI enforcement note: the database-backed CI workflow also executes `tests/test_rate_limit.py` explicitly to guard the 429 envelope and scoped-throttle contract.

@@ -24,7 +24,11 @@ from app.schemas.discogs import (
 from app.services.discogs_import import discogs_import_service
 from app.tasks import run_discogs_import_task
 
-router = APIRouter(prefix="/integrations/discogs", tags=["integrations", "discogs"])
+router = APIRouter(
+    prefix="/integrations/discogs",
+    tags=["integrations", "discogs"],
+    dependencies=[Depends(rate_limit_scope("discogs", require_authenticated_principal=True))],
+)
 
 
 @router.post(

@@ -10,7 +10,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.logging import get_logger
 from app.core.metrics import record_request_latency
-from app.core.rate_limit import RateLimitExceededError, enforce_global_rate_limit, is_rate_limit_exempt_path
+from app.core.rate_limit import (
+    RateLimitExceededError,
+    enforce_global_rate_limit,
+    is_rate_limit_exempt_path,
+)
 from app.core.request_context import reset_request_id, set_request_id
 
 logger = get_logger("app.request")

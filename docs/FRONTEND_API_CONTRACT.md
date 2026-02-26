@@ -150,6 +150,13 @@ GET /api/events?offset=99999     # 200 []
 
 Some endpoints enforce stricter request throttling (`/api/search*`, `/api/watch-rules*`, `/api/integrations/discogs/*`, `/api/stream/events`).
 
+Scope mapping used in `error.details.scope` for these routes:
+
+- `/api/search*` → `search`
+- `/api/watch-rules*` → `watch_rules`
+- `/api/integrations/discogs/*` → `discogs`
+- `/api/stream/events` → `stream_events`
+
 When throttled, clients receive:
 
 - HTTP `429`

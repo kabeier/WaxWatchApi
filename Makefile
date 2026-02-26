@@ -35,7 +35,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-smoke-workflow-config check-change-surface check-contract-sync check-openapi-snapshot openapi-snapshot check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version security-deps-audit security-secrets-scan
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-smoke-workflow-config check-change-surface check-contract-sync check-openapi-snapshot openapi-snapshot check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security test-rate-limit worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version security-deps-audit security-secrets-scan
 
 help:
 	@echo ""
@@ -360,6 +360,48 @@ test-token-security:
 
 
 
+test-rate-limit:
+	# Local debugging helper only (non-authoritative for CI pass/fail).
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
+	$(PYTHON) -m alembic upgrade heads
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
+	timeout 240s $(PYTHON) -m pytest --no-cov -vv -s --maxfail=1 tests/test_rate_limit.py -rA
 test-matching:
 	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
