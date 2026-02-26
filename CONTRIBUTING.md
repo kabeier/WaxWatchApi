@@ -279,3 +279,5 @@ Always add/adjust tests under `tests/` for both limit-exceeded and exempt-path b
 
 When a change touches integration surfaces (tests, CI workflow, task orchestration, or settings), update governance files together in the same PR: `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant contributor/operator documentation.
 
+
+- Rate-limit behavior changes should include/refresh `tests/test_rate_limit.py` and keep CI/local governance hooks (`make test-rate-limit`, `.github/workflows/ci.yml`) synchronized in the same PR.

@@ -235,3 +235,5 @@ Environment knobs (all non-secret):
 - `RATE_LIMIT_STREAM_EVENTS_RPM`, `RATE_LIMIT_STREAM_EVENTS_BURST`
 
 Tune per environment based on expected traffic, worker capacity, and provider quota ceilings.
+
+CI enforcement note: the database-backed CI workflow also executes `tests/test_rate_limit.py` explicitly to guard the 429 envelope and scoped-throttle contract.
