@@ -21,6 +21,9 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
+      - name: Verify lockfiles were generated with Python 3.12
+        run: make check-lock-python-version
+
       - name: Install deps
         run: |
           python -m pip install --upgrade pip
