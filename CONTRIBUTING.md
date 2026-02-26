@@ -26,6 +26,7 @@ Use the same commands that CI uses before opening a pull request:
 - Alembic migration check against test DB
 - Schema drift check
 - Pytest with coverage collection and threshold enforcement (`--cov-fail-under=85` by default)
+- Dedicated orchestrated Celery/Redis smoke test (`make ci-celery-redis-smoke`, backed by `scripts/ci_celery_redis_smoke.sh`)
 
 
 ## Performance smoke workflow
@@ -87,6 +88,8 @@ pre-commit run --hook-stage pre-push --all-files
 ```
 
 Following this workflow ensures your branch meets the same lint, formatting, typing, migration, and coverage gates that run in CI.
+
+Note: `tests/test_celery_redis_integration.py` is orchestrated-only and gated by `RUN_CELERY_REDIS_INTEGRATION=1`, which is set by `make ci-celery-redis-smoke`.
 
 ## Lockfile refresh workflow (Python 3.12)
 

@@ -30,6 +30,26 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
 
+      - name: Print CI provenance (debug)
+        run: |
+          git rev-parse HEAD
+          git show --name-only --oneline -n 1
+          sed -n '1,120p' tests/test_celery_redis_integration.py
+
+
+      - name: Verify Celery integration test guardrails (debug)
+        run: |
+          set -euo pipefail
+          test_file="tests/test_celery_redis_integration.py"
+          if ! grep -q "RUN_CELERY_REDIS_INTEGRATION" "$test_file" \
+            || ! grep -Eq "@pytest.mark.integration|pytest\.mark\.integration" "$test_file" \
+            || ! grep -Eq "skipif|pytest\.skip" "$test_file"; then
+            echo "Celery integration guardrails missing from $test_file"
+            echo "Expected: RUN_CELERY_REDIS_INTEGRATION + integration marker + skipif/skip guard"
+            sed -n '1,80p' "$test_file"
+            exit 1
+          fi
+
       - name: Run canonical CI target
         env:
           COVERAGE_FAIL_UNDER: "85"
@@ -37,10 +57,6 @@ jobs:
         # `scripts/check_change_surface.py` (governance + changelog sync gate).
         run: make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
 
-
-      - name: Run Redis-backed Celery smoke test (dependency PRs)
-        if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
-        run: make ci-celery-redis-smoke
 
       - name: Compare PR coverage against base branch
         if: github.event_name == 'pull_request'
@@ -57,8 +73,23 @@ jobs:
           PR_SHA="${GITHUB_SHA}"
 
           git checkout --force "$BASE_SHA"
-          make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+          # Base branches may not include Celery smoke isolation yet. Run a minimal
+          # DB coverage pass here and explicitly ignore worker-dependent integration tests.
+          trap 'docker compose -f docker-compose.test.yml down >/dev/null 2>&1 || true' EXIT
+          docker compose -f docker-compose.test.yml up -d postgres redis
+          make wait-test-db
+          for _ in $(seq 1 60); do
+            if docker compose -f docker-compose.test.yml exec -T redis redis-cli ping >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "alembic upgrade heads"
+          docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "python -m scripts.schema_drift_check"
+          docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$COVERAGE_FAIL_UNDER --ignore=tests/test_celery_redis_integration.py"
           mv coverage.json coverage.base.json
+          docker compose -f docker-compose.test.yml down >/dev/null 2>&1 || true
+          trap - EXIT
 
           git checkout --force "$PR_SHA"
           mv coverage.pr.json coverage.json
