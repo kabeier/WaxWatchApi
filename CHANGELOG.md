@@ -15,6 +15,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added API request throttling with configurable global/authenticated/anonymous defaults, high-risk endpoint scopes (`/api/search`, `/api/watch-rules*`, `/api/integrations/discogs/*`, `/api/stream/events`), and standardized `429` `rate_limited` error envelopes with `Retry-After`.
 - Added regression coverage proving throttled and non-throttled behavior across prioritized API scopes (`search`, `watch_rules`, `discogs`, and `stream_events`).
 - Added CI hardening for throttling governance by introducing a dedicated DB-backed `tests/test_rate_limit.py` workflow step and a matching local `make test-rate-limit` helper target.
+- Adjusted targeted throttling regression execution to run `alembic upgrade head` first and execute `tests/test_rate_limit.py` with `--no-cov` so schema/bootstrap issues and global coverage gates do not mask rate-limit contract failures.
 - Added dedicated security workflows for Python CodeQL (`.github/workflows/security.yml`), dependency auditing via `pip-audit` (`.github/workflows/dependency-audit.yml`), and optional PR secret scanning via Gitleaks (`.github/workflows/secrets-scan.yml`).
 - Added a dedicated non-blocking GitHub Actions perf smoke workflow (`.github/workflows/smoke.yml`) with environment-scoped secrets/vars and uploaded k6 summary/log artifacts for trend visibility.
 - Changelog governance across contribution guidance, CI policy checks, and PR template requirements.

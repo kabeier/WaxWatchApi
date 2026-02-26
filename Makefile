@@ -381,9 +381,27 @@ test-rate-limit:
 	EBAY_CLIENT_SECRET=test-ebay-client-secret \
 	EBAY_CAMPAIGN_ID=1234567890 \
 	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
-	$(PYTHON) -m pytest -q tests/test_rate_limit.py -rA
-
-
+	$(PYTHON) -m alembic upgrade head
+	ENVIRONMENT=test \
+	LOG_LEVEL=INFO \
+	JSON_LOGS=false \
+	DATABASE_URL=$(TEST_DATABASE_URL) \
+	DB_POOL=queue \
+	DB_POOL_SIZE=5 \
+	DB_MAX_OVERFLOW=10 \
+	AUTH_ISSUER=$(TEST_AUTH_ISSUER) \
+	AUTH_AUDIENCE=$(TEST_AUTH_AUDIENCE) \
+	AUTH_JWKS_URL=$(TEST_AUTH_JWKS_URL) \
+	AUTH_JWT_ALGORITHMS='$(TEST_AUTH_JWT_ALGORITHMS)' \
+	AUTH_JWKS_CACHE_TTL_SECONDS=$(TEST_AUTH_JWKS_CACHE_TTL_SECONDS) \
+	AUTH_CLOCK_SKEW_SECONDS=$(TEST_AUTH_CLOCK_SKEW_SECONDS) \
+	DISCOGS_USER_AGENT=test-agent \
+	DISCOGS_TOKEN=test-token \
+	EBAY_CLIENT_ID=test-ebay-client-id \
+	EBAY_CLIENT_SECRET=test-ebay-client-secret \
+	EBAY_CAMPAIGN_ID=1234567890 \
+	TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) \
+	$(PYTHON) -m pytest --no-cov -q tests/test_rate_limit.py -rA
 test-matching:
 	# Local debugging helper only (non-authoritative for CI pass/fail).
 	ENVIRONMENT=test \
