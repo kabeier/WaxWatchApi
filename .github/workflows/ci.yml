@@ -49,6 +49,9 @@ jobs:
       - name: Enforce API schema contract sync
         run: make check-api-schema-contract
 
+      - name: Enforce Alembic multi-head migration target policy
+        run: make check-alembic-upgrade-target
+
       - name: Run lint/format/type checks
         run: |
           make lint

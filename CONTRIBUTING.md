@@ -24,6 +24,7 @@ Use the same commands that CI uses before opening a pull request:
 - Docker compose render validation (`make check-docker-config`)
 - Environment/governance sync checks (`make check-policy-sync`, which includes `make check-change-surface`)
 - API schema contract sync gate (`make check-api-schema-contract`), which runs deterministic OpenAPI drift detection and frontend contract doc sync enforcement
+- Alembic migration target policy check (`make check-alembic-upgrade-target`) to prevent singular `alembic upgrade head` usage in automation
 - Ruff lint (`ruff check .`)
 - Ruff format check (`ruff format --check .`)
 - Mypy type checks (`mypy app scripts tests`)

@@ -20,6 +20,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Added `scripts/check_alembic_upgrade_target.py` plus Make/CI wiring (`make check-alembic-upgrade-target`) to block regressions back to singular `alembic upgrade head` in automation paths.
 - Switched Makefile migration invocations from `alembic upgrade head` to `alembic upgrade heads` so local/CI migration targets work with multi-head revision graphs.
 - Hardened API contract governance with a deterministic OpenAPI export utility sourced from `app/main.py`, a dedicated `make check-api-schema-contract` gate, CI step wiring, and contract-sync enforcement when `docs/openapi.snapshot.json` changes without `docs/FRONTEND_API_CONTRACT.md` updates.
 - Updated CI/composite workflow action references to the requested major versions (checkout 6.0.2, setup-python 6.2.0, upload-artifact 6.0.0, CodeQL v4) and synchronized governance notes in `.env.sample`, `Makefile`, and `CONTRIBUTING.md` for change-surface policy compliance.
