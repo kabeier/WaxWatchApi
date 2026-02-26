@@ -73,7 +73,9 @@ jobs:
           PR_SHA="${GITHUB_SHA}"
 
           git checkout --force "$BASE_SHA"
-          make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+          # Base branches may not include the orchestrated Celery smoke isolation yet,
+          # so force-ignore the worker-dependent integration test for coverage baseline.
+          PYTEST_ADDOPTS="--ignore=tests/test_celery_redis_integration.py"             make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
           mv coverage.json coverage.base.json
 
           git checkout --force "$PR_SHA"
