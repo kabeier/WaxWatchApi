@@ -28,6 +28,9 @@ GIT_REMOTE ?= origin
 GIT_BRANCH ?= main
 TAG ?= ci
 
+# Governance note: when CI/security workflow action references are refreshed,
+# keep this file, .env.sample, CHANGELOG.md, and CONTRIBUTING.md updated together
+# so check-change-surface/check-policy-sync can validate synchronized intent.
 # Ruff helpers
 FIX ?=
 RUFF_ARGS ?=
