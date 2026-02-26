@@ -67,6 +67,15 @@ make perf-smoke
 
 The harness validates core authenticated list, rule polling, and provider-request logging flows using SLO-aligned latency/error thresholds. See `scripts/perf/README.md` and `docs/OPERATIONS_OBSERVABILITY.md` for thresholds and ownership/cadence expectations.
 
+GitHub Actions (`.github/workflows/smoke.yml`) also supports manual run-time overrides via `workflow_dispatch` inputs:
+- `perf_base_url`
+- `perf_rule_id`
+
+Runtime fallback precedence in the workflow is fixed:
+1. `workflow_dispatch` input,
+2. `perf-smoke` environment variable,
+3. repository variable fallback.
+
 ## Coverage policy
 
 - Coverage gating is aligned between `pytest.ini`, `Makefile`, and CI (`.github/workflows/ci.yml`) with a default floor of **85%** (`--cov-fail-under=85`).

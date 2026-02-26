@@ -32,7 +32,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version security-deps-audit security-secrets-scan
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-smoke-workflow-config check-change-surface check-contract-sync check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version security-deps-audit security-secrets-scan
 
 help:
 	@echo ""
@@ -433,7 +433,16 @@ check-docker-config:
 check-policy-sync:
 	$(PYTHON) scripts/check_env_sample.py
 	$(MAKE) check-compose-secret-defaults
+	$(MAKE) check-smoke-workflow-config
 	$(MAKE) check-change-surface
+
+check-smoke-workflow-config:
+	@set -euo pipefail; \
+	test -f .github/workflows/smoke.yml; \
+	grep -q "perf_base_url:" .github/workflows/smoke.yml; \
+	grep -q "perf_rule_id:" .github/workflows/smoke.yml; \
+	grep -q "PERF_BASE_URL source:" .github/workflows/smoke.yml; \
+	echo "ok: smoke workflow dispatch/fallback diagnostics are present"
 
 check-compose-secret-defaults:
 	$(PYTHON) scripts/check_compose_secret_defaults.py
