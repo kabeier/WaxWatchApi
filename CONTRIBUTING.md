@@ -26,7 +26,7 @@ Use the same commands that CI uses before opening a pull request:
 - Alembic migration check against test DB
 - Schema drift check
 - Pytest with coverage collection and threshold enforcement (`--cov-fail-under=85` by default)
-- Dedicated orchestrated Celery/Redis smoke test (`make ci-celery-redis-smoke`)
+- Dedicated orchestrated Celery/Redis smoke test (`make ci-celery-redis-smoke`, backed by `scripts/ci_celery_redis_smoke.sh`)
 
 
 ## Performance smoke workflow
