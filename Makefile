@@ -84,7 +84,7 @@ help:
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make check-compose-secret-defaults Validate fail-closed secret default policy in compose"
-	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy (change-surface/changelog + CI concurrency docs sync)"
+	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy (change-surface/changelog + CI concurrency/docs + action pinning sync)"
 	@echo "  make check-change-surface  Validate integration hygiene change-surface policy"
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"

@@ -6,6 +6,9 @@ on:
     # Weekly staged smoke run to track latency/error trends outside PR CI.
     - cron: "0 13 * * 2"
 
+permissions:
+  contents: read
+
 concurrency:
   group: perf-smoke-${{ github.ref }}
   cancel-in-progress: false
@@ -14,9 +17,6 @@ jobs:
   perf-smoke:
     runs-on: ubuntu-latest
     environment: perf-smoke
-    permissions:
-      contents: read
-
     env:
       PERF_BASE_URL: ${{ vars.PERF_BASE_URL }}
       PERF_BEARER_TOKEN: ${{ secrets.PERF_BEARER_TOKEN }}
@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
 
       - name: Validate required environment-scoped configuration
         run: |
@@ -44,7 +44,7 @@ jobs:
 
       - name: Upload smoke artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
         with:
           name: perf-smoke-${{ github.run_id }}
           retention-days: 30
