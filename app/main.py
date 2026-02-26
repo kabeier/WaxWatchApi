@@ -9,7 +9,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api.middleware import RequestIDMiddleware
+from app.api.middleware import GlobalRateLimitMiddleware, RequestIDMiddleware
 from app.api.routers.dev_ingest import router as dev_ingest_router
 from app.api.routers.dev_runner import router as dev_runner_router
 
@@ -27,6 +27,7 @@ from app.api.routers.watch_rules import router as watch_rules_router
 from app.core.config import settings
 from app.core.error_reporting import configure_error_reporting
 from app.core.logging import configure_logging, get_logger
+from app.core.rate_limit import RateLimitExceededError
 
 logger = get_logger(__name__)
 
@@ -76,6 +77,7 @@ def create_app() -> FastAPI:
         allow_credentials=settings.cors_allow_credentials,
     )
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(GlobalRateLimitMiddleware)
 
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
@@ -93,6 +95,19 @@ def create_app() -> FastAPI:
                 code="http_error",
                 status=exc.status_code,
                 details=details,
+            ),
+        )
+
+    @app.exception_handler(RateLimitExceededError)
+    async def rate_limit_exception_handler(request: Request, exc: RateLimitExceededError):
+        return JSONResponse(
+            status_code=429,
+            headers={"Retry-After": str(exc.retry_after_seconds)},
+            content=_error_response_payload(
+                message="rate limit exceeded",
+                code="rate_limited",
+                status=429,
+                details={"scope": exc.scope, "retry_after_seconds": exc.retry_after_seconds},
             ),
         )
 

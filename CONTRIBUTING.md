@@ -257,3 +257,15 @@ If `scripts/check_change_surface.py` fails:
    make ci-local
    ```
 4. If the surface change was accidental, revert it instead of bypassing the policy.
+
+
+## API throttling contribution notes
+
+When updating request throttling behavior, keep these surfaces synchronized in the same PR:
+
+- `app/core/config.py` and `.env.sample` for any new/renamed rate-limit settings.
+- `docs/DEPLOYMENT.md` for operator tuning guidance.
+- `docs/FRONTEND_API_CONTRACT.md` for `429` client expectations (`Retry-After`, envelope shape, backoff guidance).
+- `CHANGELOG.md` under `Unreleased`.
+
+Always add/adjust tests under `tests/` for both limit-exceeded and exempt-path behavior.

@@ -89,6 +89,23 @@ class Settings(BaseSettings):
     cors_allowed_headers: list[str] = ["Authorization", "Content-Type"]
     cors_allow_credentials: bool = False
 
+    # Rate limiting
+    rate_limit_enabled: bool = True
+    rate_limit_global_authenticated_rpm: int = 120
+    rate_limit_global_authenticated_burst: int = 30
+    rate_limit_global_anonymous_rpm: int = 60
+    rate_limit_global_anonymous_burst: int = 10
+    rate_limit_auth_endpoint_rpm: int = 20
+    rate_limit_auth_endpoint_burst: int = 5
+    rate_limit_search_rpm: int = 30
+    rate_limit_search_burst: int = 10
+    rate_limit_watch_rules_rpm: int = 60
+    rate_limit_watch_rules_burst: int = 20
+    rate_limit_discogs_rpm: int = 30
+    rate_limit_discogs_burst: int = 10
+    rate_limit_stream_events_rpm: int = 12
+    rate_limit_stream_events_burst: int = 2
+
     # Token crypto (at-rest encryption for provider credentials)
     token_crypto_kms_key_id: str | None = None
     token_crypto_local_key_path: str | None = None

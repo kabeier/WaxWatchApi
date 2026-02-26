@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id, get_db
+from app.api.deps import get_current_user_id, get_db, rate_limit_scope
 from app.api.pagination import PaginationParams, apply_created_id_pagination, get_pagination_params
 from app.db import models
 from app.schemas.notifications import NotificationOut, UnreadCountOut
@@ -71,6 +71,7 @@ def unread_count(
 async def stream_events(
     request: Request,
     user_id: UUID = Depends(get_current_user_id),
+    _: None = Depends(rate_limit_scope("stream_events", require_authenticated_principal=True)),
 ):
     queue = await stream_broker.subscribe(user_id)
 
