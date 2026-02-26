@@ -117,6 +117,16 @@ Use `make perf-smoke` for local or staging execution. The command supports eithe
 
 A dedicated GitHub Actions workflow (`.github/workflows/smoke.yml`) runs this suite on demand and on a weekly schedule using environment-scoped configuration (`PERF_BASE_URL` variable, `PERF_BEARER_TOKEN` secret, optional `PERF_RULE_ID` variable). This workflow is intentionally separate from pull-request CI so flaky remote staging dependencies cannot block merges.
 
+GitHub configuration checklist for the `perf-smoke` environment:
+
+1. Open **Settings → Environments → perf-smoke** in the repository (create the environment if missing).
+2. Add environment variable `PERF_BASE_URL` with the deployed API base URL (for example, staging).
+3. Add environment secret `PERF_BEARER_TOKEN` with a valid bearer token used by smoke requests.
+4. Optionally add environment variable `PERF_RULE_ID` when you want to exercise the rule-run smoke path.
+5. Trigger `.github/workflows/smoke.yml` via **Run workflow** and verify artifacts include:
+   - `artifacts/perf/perf-smoke.log`
+   - `artifacts/perf/k6-summary.json`
+
 Each run publishes `k6-summary.json` and the smoke log as artifacts; use these artifacts to compare p95/error-rate drift week-over-week.
 
 Artifacts are retained for 30 days by default in GitHub Actions so weekly trend comparisons and short incident retrospectives use the same source outputs.
