@@ -33,6 +33,7 @@ Use the same commands that CI uses before opening a pull request:
 - Dedicated orchestrated Celery/Redis smoke test (`make ci-celery-redis-smoke`, backed by `scripts/ci_celery_redis_smoke.sh`)
 
 ### CI trigger intent and enforcement
+- Performance smoke automation is intentionally isolated in `.github/workflows/smoke.yml` so remote staging instability never blocks core PR CI merges.
 
 The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four events and split into granular required-check jobs (`static-checks` and `db-tests`) so contributors get faster first-failure feedback:
 

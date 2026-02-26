@@ -1,0 +1,53 @@
+name: Performance Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly staged smoke run to track latency/error trends outside PR CI.
+    - cron: "0 13 * * 2"
+
+concurrency:
+  group: perf-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  perf-smoke:
+    runs-on: ubuntu-latest
+    environment: perf-smoke
+    permissions:
+      contents: read
+
+    env:
+      PERF_BASE_URL: ${{ vars.PERF_BASE_URL }}
+      PERF_BEARER_TOKEN: ${{ secrets.PERF_BEARER_TOKEN }}
+      PERF_RULE_ID: ${{ vars.PERF_RULE_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate required environment-scoped configuration
+        run: |
+          set -euo pipefail
+          test -n "${PERF_BASE_URL}" || (echo "PERF_BASE_URL repo/environment variable is required" && exit 1)
+          test -n "${PERF_BEARER_TOKEN}" || (echo "PERF_BEARER_TOKEN environment secret is required" && exit 1)
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 smoke suite
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/perf
+          export K6_SUMMARY_EXPORT=artifacts/perf/k6-summary.json
+          make perf-smoke 2>&1 | tee artifacts/perf/perf-smoke.log
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-smoke-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            artifacts/perf/perf-smoke.log
+            artifacts/perf/k6-summary.json

@@ -46,3 +46,14 @@ make perf-smoke
   - `http_req_failed` rate `< 1%`
 
 These thresholds mirror the read/query/write latency and availability guardrails in `docs/OPERATIONS_OBSERVABILITY.md`.
+
+## GitHub Actions smoke workflow
+
+A dedicated workflow at `.github/workflows/smoke.yml` runs `make perf-smoke` outside core PR CI so remote-environment flakiness does not block merges.
+
+- Triggers: `workflow_dispatch` (manual) and weekly `schedule`.
+- Environment scope: configure a GitHub Environment (for example `perf-smoke`) with:
+  - required variable `PERF_BASE_URL`,
+  - required secret `PERF_BEARER_TOKEN`,
+  - optional variable `PERF_RULE_ID` (set `PERF_ENABLE_RULE_RUN=0` in the environment to skip rule-run checks when absent).
+- Artifacts: each run uploads `artifacts/perf/k6-summary.json` and `artifacts/perf/perf-smoke.log` for trend review and incident triage.
