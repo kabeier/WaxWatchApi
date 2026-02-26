@@ -46,6 +46,7 @@ jobs:
           make check-docker-config
           make check-policy-sync
           make check-contract-sync
+          make check-openapi-snapshot
           make lint
           make fmt-check
           make typecheck

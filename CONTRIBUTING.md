@@ -185,7 +185,7 @@ When your PR changes API-facing code in `app/api/` or `app/schemas/`, complete t
 - [ ] Bump/refresh the contract version field at the top of `docs/FRONTEND_API_CONTRACT.md`.
 - [ ] Add a changelog entry in `CHANGELOG.md` for endpoint or schema changes.
 - [ ] If behavior is breaking, document deprecation timeline under the breaking-change rules.
-- [ ] Run `make check-contract-sync` (or `make ci-local`) before pushing.
+- [ ] Run `make check-contract-sync` and `make check-openapi-snapshot` (or `make ci-local`) before pushing.
 
 ## Changelog update policy
 
@@ -207,7 +207,7 @@ Expected update workflow:
 1. Implement API/schema changes.
 2. Update `docs/FRONTEND_API_CONTRACT.md` in the same PR.
 3. Before commiting, run Ruff lint and format checks locally (`make lint` and `make fmt-check`, or `make ci-local`).
-4. Run local checks (`make lint`, `make fmt-check`, `make check-contract-sync`, or `make ci-local`).
+4. Run local checks (`make lint`, `make fmt-check`, `make check-contract-sync`, `make check-openapi-snapshot`, or `make ci-local`).
 5. Push only when Ruff lint and Ruff format checks pass for all commits in the PR.
 
 Provider/source contract note:
@@ -239,6 +239,7 @@ Enforcement notes:
 - The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`).
 - Exception: change-surface-triggered PRs that are strictly test/governance-only (no API/runtime/migration-affecting behavior changes) may omit `CHANGELOG.md`.
 - CI also runs `python scripts/check_frontend_contract_sync.py`, which fails if changes under `app/api/` or `app/schemas/` do not include a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
+- CI also runs `python -m scripts.openapi_snapshot --check`, which fails when generated OpenAPI output from `app/main.py` differs from `docs/openapi.snapshot.json`.
 
 ### Change-surface remediation checklist
 
