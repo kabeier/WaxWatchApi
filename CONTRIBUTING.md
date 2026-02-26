@@ -53,7 +53,12 @@ The harness validates core authenticated list, rule polling, and provider-reques
   - `app/services/watch_rules.py`
   - `app/services/matching.py`
   - `app/core/token_crypto.py`
-- CI enforces the non-regression policy by comparing PR coverage output (`coverage.json`) against base-branch coverage output.
+- On pull-request CI runs, the workflow enforces non-regression with this exact sequence:
+  1. Run `make ci-local` on the PR revision to generate `coverage.json`.
+  2. Fetch and check out the base branch commit from `github.base_ref`.
+  3. Run `make ci-local` on the base revision to generate `coverage.base.json`.
+  4. Check out the PR revision again, restore `coverage.json`, then run `python scripts/check_coverage_regression.py`.
+  5. Fail the job when total coverage or any listed high-risk module coverage is lower than base.
 - `make ci-local` is the canonical CI contract target invoked by both local developers and GitHub Actions.
 - `make ci-db-tests` remains the database-backed test segment used by `ci-local` and must keep migration + drift + full pytest discovery with coverage.
 - Focused targets (for example `make test-matching`, `make test-token-security`) are local debugging helpers only and are non-authoritative for CI pass/fail.

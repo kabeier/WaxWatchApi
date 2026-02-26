@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: ["**"]
+  pull_request:
 
 jobs:
   backend:
@@ -11,6 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Use Python
         uses: actions/setup-python@v6
@@ -30,6 +33,29 @@ jobs:
         # `make ci-local` runs `make check-policy-sync`, which includes
         # `scripts/check_change_surface.py` (governance + changelog sync gate).
         run: make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+
+      - name: Compare PR coverage against base branch
+        if: github.event_name == 'pull_request'
+        env:
+          COVERAGE_FAIL_UNDER: "85"
+        run: |
+          set -euo pipefail
+
+          test -f coverage.json
+          mv coverage.json coverage.pr.json
+
+          git fetch --no-tags --prune --depth=1 origin "${{ github.base_ref }}"
+          BASE_SHA="$(git rev-parse FETCH_HEAD)"
+          PR_SHA="${GITHUB_SHA}"
+
+          git checkout --force "$BASE_SHA"
+          make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+          mv coverage.json coverage.base.json
+
+          git checkout --force "$PR_SHA"
+          mv coverage.pr.json coverage.json
+
+          python scripts/check_coverage_regression.py
 
       - name: Verify perf smoke harness files
         run: |
