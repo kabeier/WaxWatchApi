@@ -54,7 +54,7 @@ help:
 	@echo "  make worker-logs           Follow celery worker logs"
 	@echo ""
 	@echo "Database (Dev / Local Docker DB)"
-	@echo "  make migrate               Apply migrations (upgrade head)"
+	@echo "  make migrate               Apply migrations (upgrade heads)"
 	@echo "  make revision MSG='...'    Create autogen Alembic revision"
 	@echo "  make revision-msg MSG='...' Create empty Alembic revision"
 	@echo "  make downgrade REV=-1      Downgrade migration"
@@ -208,7 +208,7 @@ test-db-reset:
 test-with-docker-db: test-db-up
 	$(MAKE) wait-test-db
 	$(MAKE) verify-test-deps
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade head"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "pytest -q -rA"
 
@@ -563,7 +563,7 @@ gh: ci-local
 	
 # --- Alembic (dev/local db) ---
 migrate:
-	$(COMPOSE) --env-file $(DEV_ENV_FILE) exec $(APP_SERVICE) alembic upgrade head
+	$(COMPOSE) --env-file $(DEV_ENV_FILE) exec $(APP_SERVICE) alembic upgrade heads
 
 revision:
 	@if [ -z "$(MSG)" ]; then echo "MSG is required. Example: make revision MSG='add listings table'"; exit 1; fi
@@ -606,7 +606,7 @@ check-prod-env:
 	echo "Production env check passed."
 
 migrate-prod: check-prod-env
-	$(COMPOSE) run --rm $(APP_SERVICE) alembic upgrade head
+	$(COMPOSE) run --rm $(APP_SERVICE) alembic upgrade heads
 
 prod-up: check-prod-env
 	$(COMPOSE) -f docker-compose.yml up --build
