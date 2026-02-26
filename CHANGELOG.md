@@ -10,6 +10,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 
 ### Added
 - Added dedicated security workflows for Python CodeQL (`.github/workflows/security.yml`), dependency auditing via `pip-audit` (`.github/workflows/dependency-audit.yml`), and optional PR secret scanning via Gitleaks (`.github/workflows/secrets-scan.yml`).
+- Added a dedicated non-blocking GitHub Actions perf smoke workflow (`.github/workflows/smoke.yml`) with environment-scoped secrets/vars and uploaded k6 summary/log artifacts for trend visibility.
 - Changelog governance across contribution guidance, CI policy checks, and PR template requirements.
 - Added a k6-based perf smoke harness (`make perf-smoke`) with SLO-aligned thresholds and deployment/operations run requirements.
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.

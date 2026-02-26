@@ -119,6 +119,8 @@ A dedicated GitHub Actions workflow (`.github/workflows/smoke.yml`) runs this su
 
 Each run publishes `k6-summary.json` and the smoke log as artifacts; use these artifacts to compare p95/error-rate drift week-over-week.
 
+Artifacts are retained for 30 days by default in GitHub Actions so weekly trend comparisons and short incident retrospectives use the same source outputs.
+
 ### Results cadence and ownership
 
 - **Pre-release gate**: Release owner runs `make perf-smoke` before each production release candidate.

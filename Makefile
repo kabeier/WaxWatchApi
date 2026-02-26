@@ -88,7 +88,7 @@ help:
 	@echo "  make check-change-surface  Validate integration hygiene change-surface policy"
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
-	@echo "  make perf-smoke            Run k6 core-flow perf smoke harness (local/staging)"
+	@echo "  make perf-smoke            Run k6 core-flow perf smoke harness (local/staging/GHA smoke workflow)"
 	@echo "  make security-deps-audit   Run local pip-audit against requirements*.in/txt"
 	@echo "  make security-secrets-scan Run local gitleaks repository scan (if installed)"
 	@echo ""
