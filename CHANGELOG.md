@@ -9,6 +9,8 @@ with release dates in ISO format (`YYYY-MM-DD`).
 ## [Unreleased]
 
 ### Added
+- Added a deploy-blocking `Release Gates` GitHub Actions workflow that runs perf smoke and validates scheduler/queue lag thresholds via `scripts/perf/verify_release_gates.py`.
+- Added explicit release-gate threshold tables and baseline expectation guidance (including scheduler lag max and queue lag p95/p99 capture) in observability docs.
 - Added measurable scaling acceptance criteria across operations/deployment docs, including explicit SLO/saturation thresholds (scheduler lag, queue backlog, DB connection utilization), baseline recording guidance, and scale-up runbook triggers for API workers, Celery concurrency, and DB pool/PgBouncer tuning.
 - Added Prometheus metrics for scheduler lag, notification backlog, provider failure totals, and DB connection utilization support in `app/core/metrics.py`, with scheduler/notification instrumentation and tests verifying exposure.
 - Added deterministic OpenAPI snapshot gating via `scripts/openapi_snapshot.py`, `docs/openapi.snapshot.json`, Make targets (`make openapi-snapshot` / `make check-openapi-snapshot`), and CI enforcement to objectively validate API contract drift alongside frontend contract doc sync.
@@ -23,6 +25,8 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Aligned `scripts/perf/core_flows_smoke.js` thresholds and perf README documentation to the same read/query/write SLO gates used for release decisions, including p95/p99 latency, error-rate, and check-rate constraints.
+- Expanded deployment documentation with scaling knobs for API workers, SQLAlchemy/ PgBouncer pool sizing, and Redis/Celery runtime tuning tied to release-gate reruns.
 - Added Alembic merge revision `2dc6fd57f7d9` to unify previously divergent migration heads into a single tip for deterministic `alembic upgrade head` behavior.
 - Updated CI/composite workflow action references to the requested major versions (checkout 6.0.2, setup-python 6.2.0, upload-artifact 6.0.0, CodeQL v4) and synchronized governance notes in `.env.sample`, `Makefile`, and `CONTRIBUTING.md` for change-surface policy compliance.
 - Corrected change-surface governance triggers so direct edits to `app/tasks.py` now enforce synchronized updates to required governance artifacts (Makefile/CI/.env sample/docs/CHANGELOG).

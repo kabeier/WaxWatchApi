@@ -79,6 +79,20 @@
 
 ## Concrete SLO targets
 
+### Release gate thresholds (deploy-blocking)
+
+A production release is blocked unless **all** of the following are true for the release candidate:
+
+| Gate | Metric source | Threshold |
+| --- | --- | --- |
+| Read-flow latency | `flow=auth_list` k6 smoke | p95 `< 400ms`, p99 `< 700ms`, error rate `< 1%` |
+| Query-flow latency | `flow=rule_poll` k6 smoke | p95 `< 900ms`, p99 `< 1200ms`, error rate `< 1%` |
+| Write-flow latency | `flow=provider_log_write` k6 smoke | p95 `< 700ms`, p99 `< 1000ms`, error rate `< 1%` |
+| Scheduler freshness | `waxwatch_scheduler_lag_seconds` | p95 `< 60s`, max `< 180s` |
+| Queue lag | Celery enqueue-to-start lag | p95 `< 30s`, p99 `< 90s` |
+
+If one gate fails, release remains on hold until remediation or explicit owner sign-off with documented risk acceptance.
+
 ### API latency and error SLOs (rolling 28d, per endpoint category)
 - **Read endpoints** (`GET` collection/detail): p95 `< 400ms`, p99 `< 700ms`, 5xx ratio `< 1%`.
 - **Query/search endpoints** (watch/search fan-out): p95 `< 900ms`, p99 `< 1200ms`, 5xx ratio `< 1%`.
@@ -116,8 +130,23 @@ A scaling change is accepted only when all checks pass in the same release windo
 | provider_log_write p95 latency | _fill from k6 summary_ | `< 700ms` |
 | flow error rate (all smoke flows) | _fill from k6 summary_ | `< 1%` |
 | scheduler lag p95 | _fill from dashboard_ | `< 60s` |
+| scheduler lag max | _fill from dashboard_ | `< 180s` |
+| queue lag p95 | _fill from worker dashboard_ | `< 30s` |
+| queue lag p99 | _fill from worker dashboard_ | `< 90s` |
 | notification backlog (email/realtime) | _fill from dashboard_ | `< 500 / < 1000` |
 | db connection utilization p95 | _fill from dashboard_ | `< 0.70` |
+
+### Baseline result record (latest run)
+
+| Run date | Environment | Result | Notes |
+| --- | --- | --- | --- |
+| _TBD by release owner_ | _staging/perf-smoke_ | _pending_ | Attach `k6-summary.json` + scheduler/queue lag screenshots/log extracts. |
+
+### Baseline expectations (for release candidate review)
+
+- **Expectation floor:** first post-change smoke run should remain within 10% of the previous accepted baseline for each latency percentile.
+- **Regression trigger:** any p95/p99 increase greater than 20% (even if still under hard thresholds) requires a follow-up investigation ticket before release.
+- **Minimum evidence set:** attach `k6-summary.json`, scheduler lag snapshot, and queue lag snapshot to the release log entry.
 
 ## Performance smoke harness (SLO-gated)
 
@@ -139,6 +168,7 @@ Run the lightweight k6 harness at `scripts/perf/core_flows_smoke.js` to continuo
 Use `make perf-smoke` for local or staging execution. The command supports either a local `k6` binary or a Docker fallback image and expects `PERF_BASE_URL`, `PERF_BEARER_TOKEN`, and (unless disabled) `PERF_RULE_ID`.
 
 A dedicated GitHub Actions workflow (`.github/workflows/smoke.yml`) runs this suite on demand and on a weekly schedule using environment-scoped configuration (`PERF_BASE_URL` variable, `PERF_BEARER_TOKEN` secret, optional `PERF_RULE_ID` variable). This workflow is intentionally separate from pull-request CI so flaky remote staging dependencies cannot block merges.
+For deploy-blocking verification, run `.github/workflows/release-gates.yml`, which requires scheduler/queue lag inputs and fails the release gate if any latency/error/lag threshold is breached.
 
 GitHub configuration checklist for the `perf-smoke` environment:
 

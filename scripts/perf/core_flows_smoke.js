@@ -20,6 +20,12 @@ const scenarioVus = Number(__ENV.PERF_VUS || '2');
 const scenarioDuration = __ENV.PERF_DURATION || '30s';
 const ruleScenarioEnabled = (__ENV.PERF_ENABLE_RULE_RUN || '1') === '1';
 
+const sloThresholds = {
+  authList: { p95: 400, p99: 700, errorRate: 0.01, checksRate: 0.99 },
+  rulePoll: { p95: 900, p99: 1200, errorRate: 0.01, checksRate: 0.99 },
+  providerLogWrite: { p95: 700, p99: 1000, errorRate: 0.01, checksRate: 0.99 },
+};
+
 export const options = {
   scenarios: {
     authenticated_list_endpoints: {
@@ -47,17 +53,17 @@ export const options = {
     },
   },
   thresholds: {
-    'http_req_failed{flow:auth_list}': ['rate<0.01'],
-    'http_req_duration{flow:auth_list}': ['p(95)<400', 'p(99)<700'],
-    'checks{flow:auth_list}': ['rate>0.99'],
+    'http_req_failed{flow:auth_list}': [`rate<${sloThresholds.authList.errorRate}`],
+    'http_req_duration{flow:auth_list}': [`p(95)<${sloThresholds.authList.p95}`, `p(99)<${sloThresholds.authList.p99}`],
+    'checks{flow:auth_list}': [`rate>${sloThresholds.authList.checksRate}`],
 
-    'http_req_failed{flow:rule_poll}': ['rate<0.01'],
-    'http_req_duration{flow:rule_poll}': ['p(95)<900', 'p(99)<1200'],
-    'checks{flow:rule_poll}': ['rate>0.99'],
+    'http_req_failed{flow:rule_poll}': [`rate<${sloThresholds.rulePoll.errorRate}`],
+    'http_req_duration{flow:rule_poll}': [`p(95)<${sloThresholds.rulePoll.p95}`, `p(99)<${sloThresholds.rulePoll.p99}`],
+    'checks{flow:rule_poll}': [`rate>${sloThresholds.rulePoll.checksRate}`],
 
-    'http_req_failed{flow:provider_log_write}': ['rate<0.01'],
-    'http_req_duration{flow:provider_log_write}': ['p(95)<700', 'p(99)<1000'],
-    'checks{flow:provider_log_write}': ['rate>0.99'],
+    'http_req_failed{flow:provider_log_write}': [`rate<${sloThresholds.providerLogWrite.errorRate}`],
+    'http_req_duration{flow:provider_log_write}': [`p(95)<${sloThresholds.providerLogWrite.p95}`, `p(99)<${sloThresholds.providerLogWrite.p99}`],
+    'checks{flow:provider_log_write}': [`rate>${sloThresholds.providerLogWrite.checksRate}`],
   },
 };
 

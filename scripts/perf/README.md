@@ -36,14 +36,17 @@ make perf-smoke
 ## Acceptance thresholds (SLO-aligned)
 
 - `auth_list` scenario:
-  - `http_req_duration` p95 `< 400ms`
+  - `http_req_duration` p95 `< 400ms`, p99 `< 700ms`
   - `http_req_failed` rate `< 1%`
+  - `checks` rate `> 99%`
 - `rule_poll` scenario:
-  - `http_req_duration` p95 `< 900ms`
+  - `http_req_duration` p95 `< 900ms`, p99 `< 1200ms`
   - `http_req_failed` rate `< 1%`
+  - `checks` rate `> 99%`
 - `provider_log_write` scenario:
-  - `http_req_duration` p95 `< 700ms`
+  - `http_req_duration` p95 `< 700ms`, p99 `< 1000ms`
   - `http_req_failed` rate `< 1%`
+  - `checks` rate `> 99%`
 
 These thresholds mirror the read/query/write latency and availability guardrails in `docs/OPERATIONS_OBSERVABILITY.md`.
 
@@ -101,3 +104,17 @@ Each run uploads:
 - `artifacts/perf/perf-smoke.log`
 
 Use these artifacts for trend review and incident triage.
+
+## Release-gate validation
+
+Use `scripts/perf/verify_release_gates.py` after the smoke run to combine k6 threshold status with scheduler/queue lag dashboard inputs:
+
+```bash
+SCHEDULER_LAG_P95_SECONDS=12 \
+SCHEDULER_LAG_MAX_SECONDS=45 \
+QUEUE_LAG_P95_SECONDS=8 \
+QUEUE_LAG_P99_SECONDS=20 \
+python scripts/perf/verify_release_gates.py
+```
+
+This script is used by `.github/workflows/release-gates.yml` and fails the release gate when any threshold is breached.
