@@ -1,11 +1,13 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-26.0`
+**Contract version:** `2026-02-26.1`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-26.1`
+  - Added API throttling contract: high-risk endpoints can return `429` with `code: rate_limited`, `Retry-After` header, and `error.details.scope` + `retry_after_seconds` for client backoff handling.
 - `2026-02-26.0`
   - Extended `PATCH /api/me` + `GET /api/me` preferences contract with notification policy fields: `quiet_hours_start`, `quiet_hours_end`, `notification_timezone`, and `delivery_frequency` (`instant|hourly|daily`).
   - Clarified delivery semantics: notifications created during quiet hours are deferred until quiet hours end in the configured notification timezone; non-instant frequencies defer delivery based on the last successful send for that channel.
@@ -79,6 +81,7 @@ All framework/HTTP and validation failures are returned as:
 - `code` is currently one of:
   - `validation_error`
   - `http_error`
+  - `rate_limited`
 - Domain not-found and business-rule failures are emitted through `http_error` with useful `message` text.
 
 ### 3.2 Pagination conventions
@@ -139,6 +142,33 @@ GET /api/events?offset=-1        # 422 validation_error
 GET /api/events?offset=10&cursor=<token>  # 422 (cannot combine)
 GET /api/events?offset=99999     # 200 []
 ```
+
+
+### 3.3 Rate limiting + client behavior
+
+Some endpoints enforce stricter request throttling (`/api/search*`, `/api/watch-rules*`, `/api/integrations/discogs/*`, `/api/stream/events`).
+
+When throttled, clients receive:
+
+- HTTP `429`
+- `Retry-After` response header (seconds)
+- Standard envelope:
+
+```json
+{
+  "error": {
+    "message": "rate limit exceeded",
+    "code": "rate_limited",
+    "status": 429,
+    "details": {
+      "scope": "watch_rules",
+      "retry_after_seconds": 60
+    }
+  }
+}
+```
+
+Frontend guidance: pause automatic retries until `Retry-After` elapses, apply exponential backoff for repeated `429`s, and surface a non-fatal "too many requests" message in UX.
 
 ---
 

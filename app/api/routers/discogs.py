@@ -6,7 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id, get_db
+from app.api.deps import get_current_user_id, get_db, rate_limit_scope
 from app.schemas.discogs import (
     DiscogsConnectIn,
     DiscogsConnectOut,
@@ -27,7 +27,11 @@ from app.tasks import run_discogs_import_task
 router = APIRouter(prefix="/integrations/discogs", tags=["integrations", "discogs"])
 
 
-@router.post("/oauth/start", response_model=DiscogsOAuthStartOut)
+@router.post(
+    "/oauth/start",
+    response_model=DiscogsOAuthStartOut,
+    dependencies=[Depends(rate_limit_scope("auth_endpoints"))],
+)
 def start_discogs_oauth(
     payload: DiscogsOAuthStartIn,
     db: Session = Depends(get_db),
@@ -37,7 +41,11 @@ def start_discogs_oauth(
     return DiscogsOAuthStartOut(**started)
 
 
-@router.post("/oauth/callback", response_model=DiscogsConnectOut)
+@router.post(
+    "/oauth/callback",
+    response_model=DiscogsConnectOut,
+    dependencies=[Depends(rate_limit_scope("auth_endpoints"))],
+)
 def complete_discogs_oauth(
     payload: DiscogsOAuthCallbackIn,
     db: Session = Depends(get_db),

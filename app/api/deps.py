@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import build_verifier
 from app.core.logging import get_logger
+from app.core.rate_limit import ScopeName, enforce_rate_limit
 from app.db import models
 from app.db.base import SessionLocal
 
@@ -123,3 +124,14 @@ def get_current_admin_user_id(
     if not _has_admin_claims(getattr(request.state, "token_claims", None)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user_id
+
+
+def rate_limit_scope(scope: ScopeName, *, require_authenticated_principal: bool = False):
+    def _dependency(request: Request) -> None:
+        enforce_rate_limit(
+            request,
+            scope=scope,
+            require_authenticated_principal=require_authenticated_principal,
+        )
+
+    return _dependency

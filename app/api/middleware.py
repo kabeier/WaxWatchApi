@@ -9,6 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.logging import get_logger
 from app.core.metrics import record_request_latency
+from app.core.rate_limit import enforce_global_rate_limit, is_rate_limit_exempt_path
 from app.core.request_context import reset_request_id, set_request_id
 
 logger = get_logger("app.request")
@@ -19,6 +20,13 @@ try:
     sentry_sdk: Any | None = _sentry_sdk
 except Exception:  # pragma: no cover - optional dependency
     sentry_sdk = None
+
+
+class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.url.path.startswith("/api") and not is_rate_limit_exempt_path(request.url.path):
+            enforce_global_rate_limit(request)
+        return await call_next(request)
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):

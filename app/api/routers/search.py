@@ -5,12 +5,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id, get_db
+from app.api.deps import get_current_user_id, get_db, rate_limit_scope
 from app.schemas.search import SaveSearchAlertRequest, SearchQuery, SearchResponse
 from app.schemas.watch_rules import WatchRuleOut
 from app.services import search as search_service
 
-router = APIRouter(prefix="/search", tags=["search"])
+router = APIRouter(
+    prefix="/search",
+    tags=["search"],
+    dependencies=[Depends(rate_limit_scope("search", require_authenticated_principal=True))],
+)
 
 
 @router.post("", response_model=SearchResponse)

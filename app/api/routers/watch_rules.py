@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id, get_db
+from app.api.deps import get_current_user_id, get_db, rate_limit_scope
 from app.api.pagination import PaginationParams, get_pagination_params
 from app.core.logging import get_logger
 from app.schemas.watch_rules import WatchRuleCreate, WatchRuleOut, WatchRuleUpdate
@@ -14,7 +14,11 @@ from app.services import watch_rules as service
 from app.services.background import enqueue_backfill_rule_matches_task
 
 logger = get_logger(__name__)
-router = APIRouter(prefix="/watch-rules", tags=["watch-rules"])
+router = APIRouter(
+    prefix="/watch-rules",
+    tags=["watch-rules"],
+    dependencies=[Depends(rate_limit_scope("watch_rules", require_authenticated_principal=True))],
+)
 
 
 def _safe_sources(payload_query: dict | None) -> list[str] | None:

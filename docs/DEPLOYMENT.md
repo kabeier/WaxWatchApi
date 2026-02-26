@@ -172,3 +172,29 @@ Operational behavior:
 
 When introducing new environment variables, CI/test commands, or Make targets, update `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, `CONTRIBUTING.md`, and `CHANGELOG.md` (for behavior-impacting changes) in the same PR, plus any affected docs.
 CI enforces this through `python scripts/check_change_surface.py` and `python scripts/check_env_sample.py` in the workflow.
+
+
+## API request throttling policy
+
+The API enforces in-process, rolling-window request throttling for both anonymous and authenticated traffic.
+
+- Global limits are applied to all `/api/*` requests (health/readiness/metrics are exempt).
+- High-risk endpoints have tighter per-scope limits:
+  - `/api/search*`
+  - `/api/watch-rules*`
+  - `/api/integrations/discogs/*`
+  - `/api/stream/events`
+- A `429` response includes `Retry-After` and a standard error envelope with `code: rate_limited`.
+
+Environment knobs (all non-secret):
+
+- `RATE_LIMIT_ENABLED`
+- `RATE_LIMIT_GLOBAL_AUTHENTICATED_RPM`, `RATE_LIMIT_GLOBAL_AUTHENTICATED_BURST`
+- `RATE_LIMIT_GLOBAL_ANONYMOUS_RPM`, `RATE_LIMIT_GLOBAL_ANONYMOUS_BURST`
+- `RATE_LIMIT_AUTH_ENDPOINT_RPM`, `RATE_LIMIT_AUTH_ENDPOINT_BURST`
+- `RATE_LIMIT_SEARCH_RPM`, `RATE_LIMIT_SEARCH_BURST`
+- `RATE_LIMIT_WATCH_RULES_RPM`, `RATE_LIMIT_WATCH_RULES_BURST`
+- `RATE_LIMIT_DISCOGS_RPM`, `RATE_LIMIT_DISCOGS_BURST`
+- `RATE_LIMIT_STREAM_EVENTS_RPM`, `RATE_LIMIT_STREAM_EVENTS_BURST`
+
+Tune per environment based on expected traffic, worker capacity, and provider quota ceilings.
