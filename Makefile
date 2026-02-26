@@ -475,7 +475,7 @@ ci-celery-redis-smoke:
 	$(MAKE) wait-test-db; \
 	$(MAKE) wait-test-redis; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true -e RUN_CELERY_REDIS_INTEGRATION=1 $(TEST_APP_SERVICE) "celery -A app.core.celery_app.celery_app worker --detach --pidfile=/tmp/celery-worker.pid --logfile=/tmp/celery-worker.log --loglevel=WARNING --pool=solo --concurrency=1 --queues=waxwatch; trap 'if [ -s /tmp/celery-worker.pid ]; then worker_pid=\"$$(cat /tmp/celery-worker.pid)\"; if [ -n \"$$worker_pid\" ]; then kill $$worker_pid 2>/dev/null || true; fi; fi' EXIT; sleep 5; pytest -q tests/test_celery_redis_integration.py -rA --no-cov"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true -e RUN_CELERY_REDIS_INTEGRATION=1 $(TEST_APP_SERVICE) "celery -A app.core.celery_app.celery_app worker --detach --pidfile=/tmp/celery-worker.pid --logfile=/tmp/celery-worker.log --loglevel=WARNING --pool=solo --concurrency=1 --queues=waxwatch; trap 'if [ -s /tmp/celery-worker.pid ]; then kill "$$(cat /tmp/celery-worker.pid)" 2>/dev/null || true; fi' EXIT; sleep 5; pytest -q tests/test_celery_redis_integration.py -rA --no-cov"
 
 wait-test-db:
 	@set -euo pipefail; \
