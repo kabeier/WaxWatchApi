@@ -8,8 +8,8 @@ click==8.3.1
 colorama==0.4.6
 dict-toolbox==5.0.0
 email-validator==2.3.0
-fastapi==0.129.0
-greenlet==3.3.1
+fastapi==0.133.1
+greenlet==3.3.2
 h11==0.16.0
 httpcore==1.0.9
 httpx==0.28.1
@@ -39,10 +39,10 @@ toml==0.10.2
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.41.0
-pytest==8.3.5
+pytest==9.0.2
 pytest-cov==7.0.0
 ruff==0.15.2
-mypy==1.18.2
+mypy==1.19.1
 pre-commit==4.5.1
 
 celery==5.6.2
