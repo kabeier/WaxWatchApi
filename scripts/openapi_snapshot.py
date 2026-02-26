@@ -19,10 +19,10 @@ def _ensure_str_enum_support() -> None:
     if hasattr(enum, "StrEnum"):
         return
 
-    class _CompatStrEnum(str, enum.Enum):
+    class _CompatStrEnum(str, enum.Enum):  # noqa: UP042
         pass
 
-    enum.StrEnum = _CompatStrEnum
+    enum.StrEnum = _CompatStrEnum  # type: ignore[misc,assignment]
 
 
 def _build_schema() -> dict[str, Any]:
