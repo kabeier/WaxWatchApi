@@ -16,6 +16,15 @@ Set `ENVIRONMENT` to one of the documented values so route gating and observabil
 
 Avoid custom aliases where possible. If you must use a non-standard value, treat it as production-like unless you explicitly intend to expose dev routes.
 
+## CI job layout
+
+GitHub Actions CI is split into two primary jobs to improve required-check granularity and time-to-first-failure:
+
+- `static-checks`: `make ci-static-checks` (Ruff lint/format, mypy, policy/contract checks, and other non-DB gates).
+- `db-tests`: `make ci-db-tests` (test DB migrations + schema drift + pytest coverage), configured to run after `static-checks`.
+
+`make ci-local` remains the canonical local command and composes both jobs plus `make ci-celery-redis-smoke`.
+
 ## CI worker-dependent integration smoke
 
 The worker-dependent Celery/Redis roundtrip test is intentionally orchestrated outside default DB test discovery.

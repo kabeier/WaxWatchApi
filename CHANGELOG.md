@@ -11,6 +11,11 @@ with release dates in ISO format (`YYYY-MM-DD`).
 ### Added
 - Changelog governance across contribution guidance, CI policy checks, and PR template requirements.
 - Added a k6-based perf smoke harness (`make perf-smoke`) with SLO-aligned thresholds and deployment/operations run requirements.
+- Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
+
+### Changed
+- Split GitHub Actions CI into `static-checks` and `db-tests` jobs with shared Python setup via a composite action and `db-tests` dependency on `static-checks`.
+- Kept `make ci-local` as the canonical local parity command by composing `ci-static-checks`, `ci-db-tests`, and `ci-celery-redis-smoke`.
 
 ## [0.1.0] - 2026-02-25
 
