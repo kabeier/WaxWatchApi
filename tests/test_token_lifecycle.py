@@ -4,6 +4,7 @@ import importlib.util
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
 import sqlalchemy as sa
 
 from app.services.discogs_import import DiscogsImportService
@@ -169,9 +170,73 @@ def test_discogs_expires_at_from_token_payload_prefers_expires_in() -> None:
     assert with_none is None
 
 
-def test_backfill_migration_upgrade_backfills_string_scope_variant(db_session, user) -> None:
+def _run_backfill_upgrade(db_session: sa.orm.Session) -> None:
     module = _load_backfill_migration_module()
+    module.op.execute = lambda sql: db_session.execute(sa.text(sql))
+    module.upgrade()
+    db_session.flush()
 
+
+@pytest.mark.parametrize(
+    ("metadata", "expected_scopes"),
+    [
+        ({"scopes": "identity wantlist"}, ["identity", "wantlist"]),
+        ({"scopes": "  identity   wantlist  "}, ["identity", "wantlist"]),
+        ({"scopes": "identity\t\nwantlist"}, ["identity", "wantlist"]),
+        ({"scope": "identity inventory"}, ["identity", "inventory"]),
+        ({"scopes": ["identity", "wantlist"]}, ["identity", "wantlist"]),
+        ({"oauth_scopes": ["identity", "wantlist"]}, ["identity", "wantlist"]),
+        ({"scopes": "   "}, None),
+    ],
+)
+def test_backfill_migration_upgrade_normalizes_scope_variants(
+    db_session,
+    user,
+    metadata: dict[str, object],
+    expected_scopes: list[str] | None,
+) -> None:
+    token_metadata = {
+        "refresh_token": "refresh-from-metadata",
+        "token_type": "Bearer",
+        "expires_at": "2030-01-01T00:00:00+00:00",
+        **metadata,
+    }
+    link = DiscogsImportService().connect_account(
+        db_session,
+        user_id=user.id,
+        external_user_id="discogs-user",
+        access_token="access-token",
+        token_metadata=token_metadata,
+    )
+    link.refresh_token = None
+    link.token_type = None
+    link.scopes = None
+    link.access_token_expires_at = None
+    db_session.add(link)
+    db_session.flush()
+
+    before_scopes = db_session.execute(
+        sa.text("SELECT scopes FROM external_account_links WHERE id = :id"),
+        {"id": link.id},
+    ).scalar_one()
+    assert before_scopes is None
+
+    _run_backfill_upgrade(db_session)
+    db_session.refresh(link)
+
+    after_scopes = db_session.execute(
+        sa.text("SELECT scopes FROM external_account_links WHERE id = :id"),
+        {"id": link.id},
+    ).scalar_one()
+
+    assert link.refresh_token == "refresh-from-metadata"
+    assert link.token_type == "Bearer"
+    assert link.access_token_expires_at == datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert link.scopes == expected_scopes
+    assert after_scopes == expected_scopes
+
+
+def test_backfill_migration_upgrade_is_idempotent_for_scopes(db_session, user) -> None:
     link = DiscogsImportService().connect_account(
         db_session,
         user_id=user.id,
@@ -184,22 +249,18 @@ def test_backfill_migration_upgrade_backfills_string_scope_variant(db_session, u
             "scopes": "identity wantlist",
         },
     )
-    link.refresh_token = None
-    link.token_type = None
     link.scopes = None
-    link.access_token_expires_at = None
     db_session.add(link)
     db_session.flush()
 
-    module.op.execute = lambda sql: db_session.execute(sa.text(sql))
-    module.upgrade()
-    db_session.flush()
+    _run_backfill_upgrade(db_session)
+    db_session.refresh(link)
+    first_value = list(link.scopes or [])
+
+    _run_backfill_upgrade(db_session)
     db_session.refresh(link)
 
-    assert link.refresh_token == "refresh-from-metadata"
-    assert link.token_type == "Bearer"
-    assert link.scopes == ["identity", "wantlist"]
-    assert link.access_token_expires_at == datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert link.scopes == first_value
 
 
 def test_discogs_status_backfills_missing_normalized_fields_from_metadata(db_session, user) -> None:

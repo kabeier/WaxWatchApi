@@ -32,6 +32,7 @@ TAG ?= ci
 # keep this file, .env.sample, CHANGELOG.md, and CONTRIBUTING.md updated together
 # so check-change-surface/check-policy-sync can validate synchronized intent.
 # Token lifecycle normalization/backfill behavior is schema/service-driven; no new runtime env knobs were added.
+# Change-surface note: token lifecycle migration test changes still require governance/doc/changelog sync updates.
 # Ruff helpers
 FIX ?=
 RUFF_ARGS ?=

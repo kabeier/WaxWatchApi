@@ -51,6 +51,8 @@ The listing payload must satisfy shared ingest/search expectations:
 - [ ] Prices are numeric and currency is a 3-letter code when available.
 - [ ] Snapshot behavior expectation: ingest creates a `price_snapshots` row on listing create, and on updates whenever either `price` or `currency` changes (no new snapshot when both are unchanged).
 
+- [ ] Add/maintain migration tests that validate string scope normalization edge cases (tabs/newlines/blank values/fallback keys).
+
 ## 6) Verification
 
 - [ ] Run relevant tests for search/rule-runner/provider logging.
