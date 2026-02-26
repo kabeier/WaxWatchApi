@@ -24,7 +24,12 @@ def test_celery_redis_roundtrip_and_readiness(monkeypatch):
     assert probe_ok, probe_reason
 
     payload = "redis-smoke"
-    with start_worker(celery_app, perform_ping_check=False, pool="solo"):
+    with start_worker(
+        celery_app,
+        perform_ping_check=False,
+        pool="solo",
+        queues=[celery_app.conf.task_default_queue],
+    ):
         async_result = redis_roundtrip_echo_task.delay(payload)
 
         assert async_result.get(timeout=20) == payload
