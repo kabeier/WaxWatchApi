@@ -23,6 +23,7 @@ TRIGGER_GLOBS: dict[str, tuple[str, ...]] = {
     "task orchestration": (
         "Makefile",
         "docker-compose*.yml",
+        "app/tasks.py",
         "app/tasks/**",
         "app/worker.py",
     ),
