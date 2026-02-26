@@ -4,6 +4,11 @@ on:
   push:
     branches: ["main"]
   pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+  schedule:
+    # Weekly Monday maintenance/governance/dependency-smoke run.
+    - cron: "0 6 * * 1"
 
 jobs:
   backend:
