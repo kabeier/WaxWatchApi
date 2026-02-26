@@ -23,6 +23,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Added Alembic merge revision `2dc6fd57f7d9` to unify previously divergent migration heads into a single tip for deterministic `alembic upgrade head` behavior.
 - Updated CI/composite workflow action references to the requested major versions (checkout 6.0.2, setup-python 6.2.0, upload-artifact 6.0.0, CodeQL v4) and synchronized governance notes in `.env.sample`, `Makefile`, and `CONTRIBUTING.md` for change-surface policy compliance.
 - Corrected change-surface governance triggers so direct edits to `app/tasks.py` now enforce synchronized updates to required governance artifacts (Makefile/CI/.env sample/docs/CHANGELOG).
 - Added focused token lifecycle normalization unit coverage for Discogs metadata parsing/date coercion and migration extractor fallback paths to prevent coverage regression in DB CI gates.
