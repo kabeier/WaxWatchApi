@@ -1,7 +1,8 @@
 """Orchestrated integration tests for Celery + Redis roundtrips.
 
 These tests assume an external worker is already running and subscribed to the
-configured queue. CI should run them only from the dedicated Celery smoke target.
+configured queue. CI should run them only from the dedicated
+``ci-celery-redis-smoke`` target.
 """
 
 from __future__ import annotations
@@ -15,12 +16,16 @@ from app.core.celery_app import celery_app
 from app.core.config import settings
 from app.tasks import redis_roundtrip_echo_task
 
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(
+        os.getenv("RUN_CELERY_REDIS_INTEGRATION") != "1",
+        reason="Set RUN_CELERY_REDIS_INTEGRATION=1 to run orchestrated Celery/Redis integration",
+    ),
+]
 
-@pytest.mark.integration
+
 def test_celery_redis_roundtrip_and_readiness(monkeypatch):
-    if os.getenv("RUN_CELERY_REDIS_INTEGRATION") != "1":
-        pytest.skip("Set RUN_CELERY_REDIS_INTEGRATION=1 to run orchestrated Celery/Redis integration")
-
     monkeypatch.setattr(settings, "celery_task_always_eager", False)
 
     broker_url = settings.celery_broker_url

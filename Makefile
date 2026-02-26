@@ -497,6 +497,8 @@ wait-test-db:
 # - Keep governance checks, Ruff lint/format-check, typecheck, ci-db-tests, and ci-celery-redis-smoke in ci-local.
 # - Keep migration upgrade + schema drift checks + default pytest discovery with coverage in ci-db-tests.
 # - Worker-dependent integration tests must not rely on implicit worker presence in ci-db-tests.
+# - ci-db-tests intentionally excludes integration-marked tests (-m "not integration") and also ignores
+#   tests/test_celery_redis_integration.py as a belt-and-suspenders guard against worker-dependent leakage.
 # - ci-celery-redis-smoke readiness is checked by scripts/ci_celery_redis_smoke.sh via worker PID + logs (no inspect ping).
 ci-db-tests:
 	@set -euo pipefail; \
@@ -505,7 +507,7 @@ ci-db-tests:
 	$(MAKE) wait-test-db; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER) --ignore=tests/test_celery_redis_integration.py"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 -m 'not integration' --cov-fail-under=$(COVERAGE_FAIL_UNDER) --ignore=tests/test_celery_redis_integration.py"
 
 # Mirrors the GitHub Actions CI job
 ci-local:
