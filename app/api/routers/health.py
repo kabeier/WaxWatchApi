@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_db
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.core.metrics import metrics_payload
+from app.core.metrics import metrics_payload, set_db_connection_utilization
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["health"])
@@ -113,7 +113,27 @@ def _redis_required() -> bool:
     return not settings.celery_task_always_eager
 
 
+def _record_db_pool_utilization(db: Session) -> None:
+    bind = db.get_bind()
+    pool = getattr(bind, "pool", None)
+    if pool is None:
+        return
+
+    checkedout_fn = getattr(pool, "checkedout", None)
+    size_fn = getattr(pool, "size", None)
+    if not callable(checkedout_fn) or not callable(size_fn):
+        return
+
+    pool_size = size_fn()
+    if pool_size <= 0:
+        return
+
+    checked_out = checkedout_fn()
+    set_db_connection_utilization(utilization_ratio=checked_out / pool_size)
+
+
 @router.get("/metrics", include_in_schema=False)
-def metrics() -> Response:
+def metrics(db: Session = Depends(get_db)) -> Response:
+    _record_db_pool_utilization(db)
     payload, content_type = metrics_payload()
     return Response(content=payload, media_type=content_type)

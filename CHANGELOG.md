@@ -20,6 +20,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Wired `/metrics` collection to record `waxwatch_db_connection_utilization` from SQLAlchemy pool state so DB saturation telemetry is emitted at scrape-time.
 - Hardened GitHub Actions workflows by setting explicit top-level permissions defaults and pinning core actions to immutable commit SHAs; documented SHA rotation policy and Dependabot action-update expectations in contributor guidance.
 - Documented a security scanning triage/exception runbook and wired governance references into CI/Make/.env sample to keep change-surface checks synchronized.
 - Split GitHub Actions CI into `static-checks` and `db-tests` jobs with shared Python setup via a composite action and `db-tests` dependency on `static-checks`.
