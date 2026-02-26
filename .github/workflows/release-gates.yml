@@ -1,0 +1,79 @@
+name: Release Gates
+
+on:
+  workflow_dispatch:
+    inputs:
+      perf_base_url:
+        description: "Override PERF_BASE_URL"
+        required: false
+        type: string
+      perf_rule_id:
+        description: "Override PERF_RULE_ID"
+        required: false
+        type: string
+      scheduler_lag_p95_seconds:
+        description: "Observed scheduler lag p95 in seconds (must be < 60)"
+        required: true
+        type: string
+      scheduler_lag_max_seconds:
+        description: "Observed scheduler lag max in seconds (must be < 180)"
+        required: true
+        type: string
+      queue_lag_p95_seconds:
+        description: "Observed queue lag p95 in seconds (must be < 30)"
+        required: true
+        type: string
+      queue_lag_p99_seconds:
+        description: "Observed queue lag p99 in seconds (must be < 90)"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  release-gates:
+    runs-on: ubuntu-latest
+    environment: perf-smoke
+    env:
+      PERF_BASE_URL: ${{ github.event.inputs.perf_base_url || vars.PERF_BASE_URL || '' }}
+      PERF_RULE_ID: ${{ github.event.inputs.perf_rule_id || vars.PERF_RULE_ID || '' }}
+      PERF_BEARER_TOKEN: ${{ secrets.PERF_BEARER_TOKEN }}
+      SCHEDULER_LAG_P95_SECONDS: ${{ github.event.inputs.scheduler_lag_p95_seconds }}
+      SCHEDULER_LAG_MAX_SECONDS: ${{ github.event.inputs.scheduler_lag_max_seconds }}
+      QUEUE_LAG_P95_SECONDS: ${{ github.event.inputs.queue_lag_p95_seconds }}
+      QUEUE_LAG_P99_SECONDS: ${{ github.event.inputs.queue_lag_p99_seconds }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6.0.2 # v6.0.2
+
+      - name: Validate required perf inputs
+        run: |
+          set -euo pipefail
+          test -n "${PERF_BASE_URL}" || (echo "PERF_BASE_URL is required" && exit 1)
+          test -n "${PERF_BEARER_TOKEN}" || (echo "PERF_BEARER_TOKEN is required" && exit 1)
+
+      - name: Install k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 smoke suite
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/perf
+          export K6_SUMMARY_EXPORT=artifacts/perf/k6-summary.json
+          make perf-smoke 2>&1 | tee artifacts/perf/perf-smoke.log
+
+      - name: Verify scheduler/queue lag release gates
+        run: python scripts/perf/verify_release_gates.py
+
+      - name: Upload release-gate artifacts
+        if: always()
+        uses: actions/upload-artifact@v6.0.0 # v6.0.0
+        with:
+          name: release-gates-${{ github.run_id }}
+          retention-days: 30
+          path: |
+            artifacts/perf/perf-smoke.log
+            artifacts/perf/k6-summary.json
