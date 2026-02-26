@@ -85,6 +85,7 @@ jobs:
             exit 1
           fi
 
+      # DB CI target includes integration coverage for migrations/service changes (for example token lifecycle normalization).
       - name: Run DB CI target
         env:
           COVERAGE_FAIL_UNDER: "85"

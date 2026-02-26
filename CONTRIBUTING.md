@@ -272,3 +272,8 @@ When updating request throttling behavior, keep these surfaces synchronized in t
 - `CHANGELOG.md` under `Unreleased`.
 
 Always add/adjust tests under `tests/` for both limit-exceeded and exempt-path behavior.
+
+## Integration hygiene reminder
+
+When a change touches integration surfaces (tests, CI workflow, task orchestration, or settings), update governance files together in the same PR: `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant contributor/operator documentation.
+

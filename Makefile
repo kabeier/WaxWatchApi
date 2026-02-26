@@ -454,6 +454,7 @@ check-compose-secret-defaults:
 	$(PYTHON) scripts/check_compose_secret_defaults.py
 
 check-change-surface:
+	# Keep governance files/docs synchronized whenever integration surfaces (tests/CI/settings/task orchestration) change.
 	$(PYTHON) scripts/check_change_surface.py
 
 check-contract-sync:
