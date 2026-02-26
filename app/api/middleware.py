@@ -5,12 +5,11 @@ import uuid
 from typing import Any
 
 from fastapi import Request
-from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.logging import get_logger
 from app.core.metrics import record_request_latency
-from app.core.rate_limit import RateLimitExceededError, enforce_global_rate_limit, is_rate_limit_exempt_path
+from app.core.rate_limit import enforce_global_rate_limit, is_rate_limit_exempt_path
 from app.core.request_context import reset_request_id, set_request_id
 
 logger = get_logger("app.request")
@@ -26,24 +25,7 @@ except Exception:  # pragma: no cover - optional dependency
 class GlobalRateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         if request.url.path.startswith("/api") and not is_rate_limit_exempt_path(request.url.path):
-            try:
-                enforce_global_rate_limit(request)
-            except RateLimitExceededError as exc:
-                return JSONResponse(
-                    status_code=429,
-                    headers={"Retry-After": str(exc.retry_after_seconds)},
-                    content={
-                        "error": {
-                            "message": "rate limit exceeded",
-                            "code": "rate_limited",
-                            "status": 429,
-                            "details": {
-                                "scope": exc.scope,
-                                "retry_after_seconds": exc.retry_after_seconds,
-                            },
-                        }
-                    },
-                )
+            enforce_global_rate_limit(request)
         return await call_next(request)
 
 

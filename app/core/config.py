@@ -97,12 +97,17 @@ class Settings(BaseSettings):
     rate_limit_global_anonymous_burst: int = 10
     rate_limit_auth_endpoint_rpm: int = 20
     rate_limit_auth_endpoint_burst: int = 5
+    # High-risk endpoint scopes
+    # - /api/search*
     rate_limit_search_rpm: int = 30
     rate_limit_search_burst: int = 10
+    # - /api/watch-rules*
     rate_limit_watch_rules_rpm: int = 60
     rate_limit_watch_rules_burst: int = 20
+    # - /api/integrations/discogs/*
     rate_limit_discogs_rpm: int = 30
     rate_limit_discogs_burst: int = 10
+    # - /api/stream/events
     rate_limit_stream_events_rpm: int = 12
     rate_limit_stream_events_burst: int = 2
 

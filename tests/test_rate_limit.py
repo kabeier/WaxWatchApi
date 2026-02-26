@@ -30,6 +30,80 @@ def test_rate_limit_exceeded_returns_consistent_error_envelope(client, user, hea
     assert second.headers.get("retry-after")
 
 
+def test_high_risk_search_scope_is_throttled(client, user, headers, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "rate_limit_search_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_search_burst", 0)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_rpm", 100)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_burst", 0)
+    reset_rate_limiter_state()
+
+    auth_headers = headers(user.id)
+    payload = {
+        "name": "house alerts",
+        "query": {"keywords": ["house"], "providers": ["mock"]},
+        "poll_interval_seconds": 600,
+    }
+
+    first = client.post("/api/search/save-alert", headers=auth_headers, json=payload)
+    assert first.status_code == 200
+
+    second = client.post("/api/search/save-alert", headers=auth_headers, json=payload)
+    assert second.status_code == 429
+    assert second.json()["error"]["details"]["scope"] == "search"
+
+
+def test_high_risk_discogs_scope_is_throttled(client, user, headers, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "rate_limit_discogs_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_discogs_burst", 0)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_rpm", 100)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_burst", 0)
+    reset_rate_limiter_state()
+
+    auth_headers = headers(user.id)
+
+    first = client.get("/api/integrations/discogs/status", headers=auth_headers)
+    assert first.status_code == 200
+
+    second = client.get("/api/integrations/discogs/status", headers=auth_headers)
+    assert second.status_code == 429
+    assert second.json()["error"]["details"]["scope"] == "discogs"
+
+
+def test_stream_events_scope_is_throttled(client, user, headers, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "rate_limit_stream_events_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_stream_events_burst", 0)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_rpm", 100)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_burst", 0)
+    reset_rate_limiter_state()
+
+    auth_headers = headers(user.id)
+
+    with client.stream("GET", "/api/stream/events", headers=auth_headers) as first:
+        assert first.status_code == 200
+
+    second = client.get("/api/stream/events", headers=auth_headers)
+    assert second.status_code == 429
+    assert second.json()["error"]["details"]["scope"] == "stream_events"
+
+
+def test_rate_limiting_can_be_disabled_for_non_throttled_behavior(client, user, headers, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", False)
+    monkeypatch.setattr(settings, "rate_limit_watch_rules_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_watch_rules_burst", 0)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_global_authenticated_burst", 0)
+    reset_rate_limiter_state()
+
+    auth_headers = headers(user.id)
+    first = client.get("/api/watch-rules", headers=auth_headers)
+    second = client.get("/api/watch-rules", headers=auth_headers)
+    assert first.status_code == 200
+    assert second.status_code == 200
+
+
 def test_global_anonymous_limit_applies_but_healthz_is_exempt(monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
     monkeypatch.setattr(settings, "rate_limit_global_anonymous_rpm", 1)

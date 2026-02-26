@@ -221,6 +221,7 @@ The API enforces in-process, rolling-window request throttling for both anonymou
   - `/api/integrations/discogs/*`
   - `/api/stream/events`
 - A `429` response includes `Retry-After` and a standard error envelope with `code: rate_limited`.
+- Scope-specific throttles are enforced in-route for `/api/search*`, `/api/watch-rules*`, `/api/integrations/discogs/*`, and `/api/stream/events`, while global limits still apply to all `/api/*` traffic.
 
 Environment knobs (all non-secret):
 
