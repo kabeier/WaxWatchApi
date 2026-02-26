@@ -168,7 +168,7 @@ def test_run_rule_once_records_provider_failure_metrics(db_session, user, monkey
 
     payload = generate_latest().decode("utf-8")
     assert (
-        'waxwatch_provider_failures_total{error_type="rate_limited",provider="ebay",status_code="429"}'
+        'waxwatch_provider_failures_total{error_type="bad request",provider="ebay",status_code="429"}'
         in payload
     )
 
