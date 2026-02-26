@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from cryptography.fernet import Fernet
+
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_SNAPSHOT_PATH = ROOT / "docs" / "openapi.snapshot.json"
 
@@ -26,7 +28,7 @@ def _ensure_str_enum_support() -> None:
 def _build_schema() -> dict[str, Any]:
     os.environ.setdefault("DATABASE_URL", "postgresql+psycopg://snapshot:snapshot@localhost:5432/snapshot")
     os.environ.setdefault("ENVIRONMENT", "prod")
-    os.environ.setdefault("TOKEN_CRYPTO_LOCAL_KEY", "5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=")
+    os.environ.setdefault("TOKEN_CRYPTO_LOCAL_KEY", Fernet.generate_key().decode("utf-8"))
 
     _ensure_str_enum_support()
     from app.main import app
