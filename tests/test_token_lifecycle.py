@@ -4,6 +4,8 @@ import importlib.util
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import sqlalchemy as sa
+
 from app.services.discogs_import import DiscogsImportService
 from app.services.token_lifecycle import is_token_expired, should_refresh_access_token
 
@@ -16,6 +18,20 @@ def _load_migration_module():
         / "ab12cd34ef56_normalize_external_account_token_fields.py"
     )
     spec = importlib.util.spec_from_file_location("token_fields_migration", migration_path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _load_backfill_migration_module():
+    migration_path = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "7c9e1f2a4b6d_backfill_external_account_lifecycle_fields.py"
+    )
+    spec = importlib.util.spec_from_file_location("token_fields_backfill_migration", migration_path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -151,3 +167,95 @@ def test_discogs_expires_at_from_token_payload_prefers_expires_in() -> None:
 
     with_none = service._expires_at_from_token_payload({})
     assert with_none is None
+
+
+def test_backfill_migration_upgrade_backfills_string_scope_variant(db_session, user) -> None:
+    module = _load_backfill_migration_module()
+
+    link = DiscogsImportService().connect_account(
+        db_session,
+        user_id=user.id,
+        external_user_id="discogs-user",
+        access_token="access-token",
+        token_metadata={
+            "refresh_token": "refresh-from-metadata",
+            "token_type": "Bearer",
+            "expires_at": "2030-01-01T00:00:00+00:00",
+            "scopes": "identity wantlist",
+        },
+    )
+    link.refresh_token = None
+    link.token_type = None
+    link.scopes = None
+    link.access_token_expires_at = None
+    db_session.add(link)
+    db_session.flush()
+
+    module.op.execute = lambda sql: db_session.execute(sa.text(sql))
+    module.upgrade()
+    db_session.flush()
+    db_session.refresh(link)
+
+    assert link.refresh_token == "refresh-from-metadata"
+    assert link.token_type == "Bearer"
+    assert link.scopes == ["identity", "wantlist"]
+    assert link.access_token_expires_at == datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
+
+
+def test_discogs_status_backfills_missing_normalized_fields_from_metadata(db_session, user) -> None:
+    service = DiscogsImportService()
+    link = service.connect_account(
+        db_session,
+        user_id=user.id,
+        external_user_id="discogs-user",
+        access_token="access-token",
+        token_metadata={
+            "refresh_token": "metadata-refresh",
+            "token_type": "Bearer",
+            "scope": "identity inventory",
+            "expires_at": "2030-01-01T00:00:00+00:00",
+        },
+    )
+
+    link.refresh_token = None
+    link.token_type = None
+    link.scopes = None
+    link.access_token_expires_at = None
+    db_session.add(link)
+    db_session.flush()
+
+    hydrated_link = service.get_status(db_session, user_id=user.id)
+    assert hydrated_link is not None
+    assert hydrated_link.refresh_token == "metadata-refresh"
+    assert hydrated_link.token_type == "Bearer"
+    assert hydrated_link.scopes == ["identity", "inventory"]
+    assert hydrated_link.access_token_expires_at == datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
+
+
+def test_discogs_connect_account_preserves_existing_lifecycle_fields_when_omitted(db_session, user) -> None:
+    service = DiscogsImportService()
+    original_expiry = datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
+    service.connect_account(
+        db_session,
+        user_id=user.id,
+        external_user_id="discogs-user",
+        access_token="access-token-1",
+        token_metadata={"oauth_connected": True},
+        refresh_token="existing-refresh",
+        token_type="Bearer",
+        scopes=["identity"],
+        access_token_expires_at=original_expiry,
+    )
+
+    updated = service.connect_account(
+        db_session,
+        user_id=user.id,
+        external_user_id="discogs-user",
+        access_token="access-token-2",
+        token_metadata={"oauth_connected": True},
+    )
+
+    assert updated.refresh_token == "existing-refresh"
+    assert updated.token_type == "Bearer"
+    assert updated.scopes == ["identity"]
+    assert updated.access_token_expires_at == original_expiry
