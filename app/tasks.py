@@ -19,6 +19,11 @@ from app.services.scheduler import run_due_rules_once
 logger = get_task_logger(__name__)
 
 
+@celery_app.task(name="app.tasks.redis_roundtrip_echo")
+def redis_roundtrip_echo_task(payload: str) -> str:
+    return payload
+
+
 @celery_app.task(name="app.tasks.backfill_rule_matches")
 def backfill_rule_matches_task(user_id: str, rule_id: str) -> None:
     db = SessionLocal()

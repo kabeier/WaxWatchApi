@@ -34,6 +34,11 @@ jobs:
         # `scripts/check_change_surface.py` (governance + changelog sync gate).
         run: make ci-local COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
 
+
+      - name: Run Redis-backed Celery smoke test (dependency PRs)
+        if: github.event_name == 'pull_request' && github.actor == 'dependabot[bot]'
+        run: make ci-celery-redis-smoke
+
       - name: Compare PR coverage against base branch
         if: github.event_name == 'pull_request'
         env:
