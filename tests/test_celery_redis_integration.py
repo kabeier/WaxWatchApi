@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 import pytest
 from celery.contrib.testing.worker import start_worker
 
@@ -24,12 +26,13 @@ def test_celery_redis_roundtrip_and_readiness(monkeypatch):
     assert probe_ok, probe_reason
 
     payload = "redis-smoke"
+    queue_name = f"celery-redis-integration-{uuid.uuid4().hex}"
     with start_worker(
         celery_app,
         perform_ping_check=False,
         pool="solo",
-        queues=[celery_app.conf.task_default_queue],
+        queues=[queue_name],
     ):
-        async_result = redis_roundtrip_echo_task.delay(payload)
+        async_result = redis_roundtrip_echo_task.apply_async(args=[payload], queue=queue_name)
 
         assert async_result.get(timeout=20) == payload
