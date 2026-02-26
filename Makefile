@@ -32,7 +32,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version 
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version security-deps-audit security-secrets-scan
 
 help:
 	@echo ""
@@ -89,6 +89,8 @@ help:
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
 	@echo "  make perf-smoke            Run k6 core-flow perf smoke harness (local/staging)"
+	@echo "  make security-deps-audit   Run local pip-audit against requirements*.in/txt"
+	@echo "  make security-secrets-scan Run local gitleaks repository scan (if installed)"
 	@echo ""
 	@echo "Git / Release Workflow"
 	@echo "  make gh MSG='...'          Run ci-local, then commit & push if successful"
@@ -162,24 +164,15 @@ pre-commit-install:
 	pre-commit install --hook-type pre-push
 
 perf-smoke:
-	@if [ -z "$$PERF_BASE_URL" ] || [ -z "$$PERF_BEARER_TOKEN" ]; then \
-		echo "error: PERF_BASE_URL and PERF_BEARER_TOKEN are required"; \
-		echo "example: PERF_BASE_URL=http://127.0.0.1:8000 PERF_BEARER_TOKEN='<jwt>' PERF_RULE_ID='<uuid>' make perf-smoke"; \
-		exit 1; \
-	fi
-	@if command -v k6 >/dev/null 2>&1; then \
-		echo "Using local k6 binary"; \
-		k6 run scripts/perf/core_flows_smoke.js; \
-	else \
-		echo "k6 not found; using grafana/k6 Docker image"; \
-		docker run --rm -i \
-			-e PERF_BASE_URL -e PERF_BEARER_TOKEN -e PERF_RULE_ID -e PERF_ENABLE_RULE_RUN \
-			-e PERF_VUS -e PERF_DURATION -e PERF_LIST_PATH -e PERF_RELEASES_LIST_PATH -e PERF_SEARCH_PATH \
-			-e PERF_RULE_RUN_PATH -e PERF_SEARCH_KEYWORDS -e PERF_SEARCH_PROVIDERS -e PERF_SEARCH_PAGE \
-			-e PERF_SEARCH_PAGE_SIZE \
-			-v "$(PWD):/work" -w /work \
-			grafana/k6:0.52.0 run scripts/perf/core_flows_smoke.js; \
-	fi
+	@if [ -z "$$PERF_BASE_URL" ] || [ -z "$$PERF_BEARER_TOKEN" ]; then 		echo "error: PERF_BASE_URL and PERF_BEARER_TOKEN are required"; 		echo "example: PERF_BASE_URL=http://127.0.0.1:8000 PERF_BEARER_TOKEN='<jwt>' PERF_RULE_ID='<uuid>' make perf-smoke"; 		exit 1; 	fi
+	@if command -v k6 >/dev/null 2>&1; then 		echo "Using local k6 binary"; 		k6 run scripts/perf/core_flows_smoke.js; 	else 		echo "k6 not found; using grafana/k6 Docker image"; 		docker run --rm -i 			-e PERF_BASE_URL -e PERF_BEARER_TOKEN -e PERF_RULE_ID -e PERF_ENABLE_RULE_RUN 			-e PERF_VUS -e PERF_DURATION -e PERF_LIST_PATH -e PERF_RELEASES_LIST_PATH -e PERF_SEARCH_PATH 			-e PERF_RULE_RUN_PATH -e PERF_SEARCH_KEYWORDS -e PERF_SEARCH_PROVIDERS -e PERF_SEARCH_PAGE 			-e PERF_SEARCH_PAGE_SIZE 			-v "$(PWD):/work" -w /work 			grafana/k6:0.52.0 run scripts/perf/core_flows_smoke.js; 	fi
+
+security-deps-audit:
+	@set -euo pipefail; 	mapfile -t dep_files < <(find . -type f \( -name 'requirements*.txt' -o -name 'requirements*.in' \) | sort); 	if [ "$${#dep_files[@]}" -eq 0 ]; then 		echo "No requirements*.txt or requirements*.in files found; skipping audit."; 		exit 0; 	fi; 	$(PYTHON) -m pip install --upgrade pip pip-audit >/dev/null; 	for dep_file in "$${dep_files[@]}"; do 		echo "Auditing $${dep_file}"; 		$(PYTHON) -m pip_audit -r "$${dep_file}"; 	done
+
+security-secrets-scan:
+	@if ! command -v gitleaks >/dev/null 2>&1; then 		echo "error: gitleaks is not installed. Install from https://github.com/gitleaks/gitleaks/releases"; 		exit 1; 	fi
+	gitleaks detect --source . --verbose
 
 
 # Installs the local Python test toolchain (includes PyJWT/cryptography used in tests/conftest.py)

@@ -16,6 +16,16 @@ Set `ENVIRONMENT` to one of the documented values so route gating and observabil
 
 Avoid custom aliases where possible. If you must use a non-standard value, treat it as production-like unless you explicitly intend to expose dev routes.
 
+## Security workflow layout
+
+Security checks are intentionally separated from the main CI job graph to keep permissions minimal and scopes explicit:
+
+- `.github/workflows/security.yml`: CodeQL (Python) on pull requests and a weekly schedule.
+- `.github/workflows/dependency-audit.yml`: `pip-audit` on dependency-file PR changes and weekly schedule.
+- `.github/workflows/secrets-scan.yml`: Gitleaks pull-request secret scanning.
+
+Security triage and exception handling process is documented in `docs/OPERATIONS_OBSERVABILITY.md` and should be followed for any failing security scan.
+
 ## CI job layout
 
 GitHub Actions CI is split into two primary jobs to improve required-check granularity and time-to-first-failure:

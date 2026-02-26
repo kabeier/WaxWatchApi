@@ -44,6 +44,14 @@ The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four 
 
 If your change affects CI behavior or governance policy, update this section alongside `.github/workflows/ci.yml` in the same PR.
 
+Security checks are additionally split into dedicated workflows for least-privilege operation:
+
+- `.github/workflows/security.yml` (CodeQL for Python on PR + weekly cadence)
+- `.github/workflows/dependency-audit.yml` (`pip-audit` on `requirements*.in/txt` changes + weekly cadence)
+- `.github/workflows/secrets-scan.yml` (Gitleaks on PRs)
+
+For local parity, use `make security-deps-audit` and `make security-secrets-scan` before opening security-sensitive PRs.
+
 
 ## Performance smoke workflow
 

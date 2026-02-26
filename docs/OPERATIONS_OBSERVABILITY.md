@@ -215,3 +215,31 @@ Use `make perf-smoke` for local or staging execution. The command supports eithe
 - [ ] On-call paging policy wired to all critical alerts.
 - [ ] Runbook links embedded in each alert with the matching failure class section.
 - [ ] Weekly review includes 28d API/provider budget consumption and 7d scheduler/notification lag compliance.
+
+## Security scanning triage and exception process
+
+The repository now runs dedicated security workflows for CodeQL, dependency auditing (`pip-audit`), and secrets scanning (Gitleaks). Use the process below whenever one of these workflows fails:
+
+1. **Triage and validate**
+   - Confirm the alert is reproducible on the current PR head.
+   - Identify severity and exploitability in our runtime context (production-facing path, privileged path, test-only/dev-only).
+   - For dependency findings, verify whether a vulnerable package is actually imported/reachable in app code.
+
+2. **Remediate by default**
+   - Prefer upgrading, replacing, or removing affected dependencies/secrets patterns.
+   - For leaked secret findings, rotate the credential first, then remove and invalidate historical exposure where possible.
+   - For code findings, patch the vulnerable path and add regression coverage when practical.
+
+3. **Exception handling (time-bound only)**
+   - If immediate remediation is not possible, open a tracked exception entry in the PR description and issue tracker with:
+     - finding identifier/tool,
+     - risk rationale,
+     - compensating controls,
+     - owner,
+     - expiration/review date.
+   - Exceptions must be approved by a maintainer and reviewed at least weekly until closed.
+
+4. **Closure criteria**
+   - Workflow returns to green on the branch/PR.
+   - Linked exception (if any) is closed or renewed with explicit maintainer approval.
+   - Post-incident notes are added to the ops log for medium/high findings.
