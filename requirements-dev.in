@@ -39,7 +39,7 @@ toml==0.10.2
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.41.0
-pytest==8.3.5
+pytest==9.0.2
 pytest-cov==7.0.0
 ruff==0.15.2
 mypy==1.18.2
