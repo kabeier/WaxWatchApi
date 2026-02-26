@@ -80,3 +80,4 @@ def test_scheduler_records_metrics(db_session, user):
     payload = generate_latest().decode("utf-8")
     assert 'waxwatch_scheduler_rule_outcomes_total{outcome="success"}' in payload
     assert 'waxwatch_scheduler_runs_total{outcome="success"}' in payload
+    assert "waxwatch_scheduler_lag_seconds" in payload

@@ -65,7 +65,7 @@ PERF_RULE_ID='<uuid>' \
 make perf-smoke
 ```
 
-The harness validates core authenticated list, rule polling, and provider-request logging flows using SLO-aligned latency/error thresholds. See `scripts/perf/README.md` and `docs/OPERATIONS_OBSERVABILITY.md` for thresholds and ownership/cadence expectations.
+The harness validates core authenticated list, rule polling, and provider-request logging flows using SLO-aligned latency/error thresholds (p95+p99 latency per flow, `<1%` request failures, and `>99%` k6 check pass-rate). See `scripts/perf/README.md` and `docs/OPERATIONS_OBSERVABILITY.md` for thresholds and ownership/cadence expectations.
 
 GitHub Actions (`.github/workflows/smoke.yml`) also supports manual run-time overrides via `workflow_dispatch` inputs:
 - `perf_base_url`
@@ -239,6 +239,8 @@ Enforcement notes:
 - The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`).
 - Exception: change-surface-triggered PRs that are strictly test/governance-only (no API/runtime/migration-affecting behavior changes) may omit `CHANGELOG.md`.
 - CI also runs `python scripts/check_frontend_contract_sync.py`, which fails if changes under `app/api/` or `app/schemas/` do not include a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
+- This includes non-schema router changes (for example health/metrics behavior updates) because frontend contract changelog must track API-facing adjustments.
+- When health/metrics router behavior changes, keep targeted tests updated for scrape-time metric branches to avoid silent coverage regressions in CI.
 - CI also runs `python -m scripts.openapi_snapshot --check`, which fails when generated OpenAPI output from `app/main.py` differs from `docs/openapi.snapshot.json`.
 
 ### Change-surface remediation checklist

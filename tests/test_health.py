@@ -72,3 +72,86 @@ def test_metrics_endpoint_exposes_prometheus_payload(client):
     assert r.status_code == 200
     assert "text/plain" in r.headers["content-type"]
     assert "waxwatch_request_latency_seconds" in r.text
+    assert "waxwatch_scheduler_lag_seconds" in r.text
+    assert "waxwatch_provider_failures_total" in r.text
+    assert "waxwatch_db_connection_utilization" in r.text
+
+
+def test_record_db_pool_utilization_sets_ratio(monkeypatch):
+    from app.api.routers import health
+
+    calls: list[float] = []
+
+    class _Pool:
+        def checkedout(self):
+            return 3
+
+        def size(self):
+            return 10
+
+    class _Bind:
+        pool = _Pool()
+
+    class _DB:
+        def get_bind(self):
+            return _Bind()
+
+    monkeypatch.setattr(
+        health, "set_db_connection_utilization", lambda *, utilization_ratio: calls.append(utilization_ratio)
+    )
+
+    health._record_db_pool_utilization(_DB())
+
+    assert calls == [0.3]
+
+
+def test_record_db_pool_utilization_skips_when_pool_size_non_positive(monkeypatch):
+    from app.api.routers import health
+
+    calls: list[float] = []
+
+    class _Pool:
+        def checkedout(self):
+            return 1
+
+        def size(self):
+            return 0
+
+    class _Bind:
+        pool = _Pool()
+
+    class _DB:
+        def get_bind(self):
+            return _Bind()
+
+    monkeypatch.setattr(
+        health, "set_db_connection_utilization", lambda *, utilization_ratio: calls.append(utilization_ratio)
+    )
+
+    health._record_db_pool_utilization(_DB())
+
+    assert calls == []
+
+
+def test_record_db_pool_utilization_skips_when_pool_api_missing(monkeypatch):
+    from app.api.routers import health
+
+    calls: list[float] = []
+
+    class _Pool:
+        pass
+
+    class _Bind:
+        pool = _Pool()
+
+    class _DB:
+        def get_bind(self):
+            return _Bind()
+
+    monkeypatch.setattr(
+        health, "set_db_connection_utilization", lambda *, utilization_ratio: calls.append(utilization_ratio)
+    )
+
+    health._record_db_pool_utilization(_DB())
+
+    assert calls == []

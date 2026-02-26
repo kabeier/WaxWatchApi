@@ -11,12 +11,16 @@
 - `waxwatch_provider_call_results_total` (counter)
   - Labels: `provider`, `outcome`, `status_code`
   - `outcome` is one of `success`, `error`, `unknown`.
+- `waxwatch_provider_failures_total` (counter)
+  - Labels: `provider`, `status_code`, `error_type` for explicit provider failure-rate breakdowns.
 
 ### Scheduler telemetry
 - `waxwatch_scheduler_rule_outcomes_total` (counter)
   - Labels: `outcome` (`success` or `failed`)
 - `waxwatch_scheduler_runs_total` (counter)
   - Labels: `outcome` (`success` if no failed rules in that polling run; else `failed`)
+- `waxwatch_scheduler_lag_seconds` (histogram)
+  - Track scheduler freshness as `execution_started_at - next_run_at` for due rules.
 
 ### Listing-match quality telemetry
 - `waxwatch_listing_match_decisions_total` (counter)
@@ -26,6 +30,8 @@
   - These are precision/recall proxy counters to monitor mapping quality drift without hand-labeled truth data.
 
 ### Notification policy telemetry
+- `waxwatch_notification_backlog_items` (gauge)
+  - Labels: `channel` (`email`, `realtime`), records pending notification backlog by channel.
 - Track deferral decisions to make delivery lag explainable when quiet hours/frequency are configured.
 - Recommended counters:
   - `waxwatch_notification_policy_deferrals_total` with labels `reason` (`quiet_hours`, `frequency`) and `channel`.
@@ -73,11 +79,10 @@
 
 ## Concrete SLO targets
 
-### API latency SLO (rolling 28d, per endpoint category)
-- **Read endpoints** (`GET` collection/detail): p95 `< 400ms`.
-- **Query/search endpoints** (watch/search fan-out): p95 `< 900ms`.
-- **Write endpoints** (`POST/PATCH/DELETE`): p95 `< 700ms`.
-- **Availability guardrail**: 5xx ratio `< 1%` per category.
+### API latency and error SLOs (rolling 28d, per endpoint category)
+- **Read endpoints** (`GET` collection/detail): p95 `< 400ms`, p99 `< 700ms`, 5xx ratio `< 1%`.
+- **Query/search endpoints** (watch/search fan-out): p95 `< 900ms`, p99 `< 1200ms`, 5xx ratio `< 1%`.
+- **Write endpoints** (`POST/PATCH/DELETE`): p95 `< 700ms`, p99 `< 1000ms`, 5xx ratio `< 1%`.
 
 If category labels are not available in metrics, maintain a static route map in dashboard config and aggregate by the mapped category.
 
@@ -85,33 +90,51 @@ If category labels are not available in metrics, maintain a static route map in 
 - Success ratio target: `>= 99.0%` for provider calls (`outcome="success"`).
 - Error budget: `<= 1.0%` failed calls per provider over 28d.
 - Fast-burn protection windows:
-  - 1h window should remain `< 3.0%` errors.
-  - 6h window should remain `< 2.0%` errors.
-  - 24h window should remain `< 1.5%` errors.
+  - 1h error ratio `< 3.0%`
+  - 6h error ratio `< 2.0%`
+  - 24h error ratio `< 1.5%`
 
-### Scheduler freshness SLO (rolling 7d)
-- Freshness lag target: p95 of `execution_started_at - next_run_at` `< 60s`.
-- Hard limit: max lag `< 180s`.
+### Saturation indicators (rolling 10m windows unless noted)
+- **Scheduler lag**: p95 `waxwatch_scheduler_lag_seconds < 60s`; max `< 180s`.
+- **Notification backlog**: `waxwatch_notification_backlog_items{channel="email"} < 500` and `{channel="realtime"} < 1000`.
+- **Queue lag** (Celery enqueue-to-start): p95 `< 30s`, p99 `< 90s` from worker events/dashboard.
+- **DB connection utilization** (`waxwatch_db_connection_utilization`): p95 `< 0.70`, max `< 0.85`.
 
-### Notification delivery lag SLO (rolling 7d)
-- Delivery lag target: p95 of `notification_sent_at - event_created_at` `< 45s`.
-- Hard limit: p99 `< 120s`.
+### Measurable, repeatable acceptance criteria
+A scaling change is accepted only when all checks pass in the same release window:
+1. Two consecutive `make perf-smoke` runs pass without threshold breaches.
+2. Last 24h dashboards satisfy all SLO and saturation thresholds above.
+3. No warning/critical alert fires for scheduler lag, provider fast-burn, or notification backlog during validation.
+4. Evidence is recorded in an ops log entry with links to k6 summary artifact and dashboard snapshots.
 
-For scheduler and notification lag SLOs, add/maintain explicit instrumentation if these timestamps are not yet exposed as metrics.
+### Baseline snapshot template (record for each release candidate)
+
+| Metric | Baseline value | Acceptance threshold |
+| --- | --- | --- |
+| auth_list p95 latency | _fill from k6 summary_ | `< 400ms` |
+| rule_poll p95 latency | _fill from k6 summary_ | `< 900ms` |
+| provider_log_write p95 latency | _fill from k6 summary_ | `< 700ms` |
+| flow error rate (all smoke flows) | _fill from k6 summary_ | `< 1%` |
+| scheduler lag p95 | _fill from dashboard_ | `< 60s` |
+| notification backlog (email/realtime) | _fill from dashboard_ | `< 500 / < 1000` |
+| db connection utilization p95 | _fill from dashboard_ | `< 0.70` |
 
 ## Performance smoke harness (SLO-gated)
 
 Run the lightweight k6 harness at `scripts/perf/core_flows_smoke.js` to continuously validate core flows against SLO-aligned thresholds:
 
 - **authenticated list endpoints** (`flow=auth_list`):
-  - p95 latency `< 400ms`
+  - p95 latency `< 400ms` and p99 `< 700ms`
   - error rate `< 1%`
+  - check success rate `> 99%`
 - **rule polling task path** (`flow=rule_poll`):
-  - p95 latency `< 900ms`
+  - p95 latency `< 900ms` and p99 `< 1200ms`
   - error rate `< 1%`
+  - check success rate `> 99%`
 - **provider request logging write path** (`flow=provider_log_write`):
-  - p95 latency `< 700ms`
+  - p95 latency `< 700ms` and p99 `< 1000ms`
   - error rate `< 1%`
+  - check success rate `> 99%`
 
 Use `make perf-smoke` for local or staging execution. The command supports either a local `k6` binary or a Docker fallback image and expects `PERF_BASE_URL`, `PERF_BEARER_TOKEN`, and (unless disabled) `PERF_RULE_ID`.
 

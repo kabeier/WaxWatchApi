@@ -9,7 +9,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.metrics import record_scheduler_rule_outcome, record_scheduler_run
+from app.core.metrics import record_scheduler_lag, record_scheduler_rule_outcome, record_scheduler_run
 from app.db import models
 from app.services.rule_runner import run_rule_once
 
@@ -47,6 +47,9 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
     for rule in due_rules:
         processed += 1
         current = datetime.now(timezone.utc)
+        if rule.next_run_at is not None:
+            lag_seconds = (current - rule.next_run_at).total_seconds()
+            record_scheduler_lag(lag_seconds=lag_seconds)
         try:
             run_rule_once(db, user_id=rule.user_id, rule_id=rule.id, limit=rule_limit)
             rule.last_run_at = current

@@ -160,6 +160,19 @@ def test_run_rule_once_records_provider_metrics(db_session, user, monkeypatch):
     )
 
 
+def test_run_rule_once_records_provider_failure_metrics(db_session, user, monkeypatch):
+    rule = _make_rule(db_session, user.id)
+    monkeypatch.setattr("app.services.rule_runner.get_provider_class", lambda _source: _FailProvider)
+
+    run_rule_once(db_session, user_id=user.id, rule_id=rule.id, limit=5)
+
+    payload = generate_latest().decode("utf-8")
+    assert (
+        'waxwatch_provider_failures_total{error_type="bad request",provider="ebay",status_code="429"}'
+        in payload
+    )
+
+
 def test_run_rule_once_records_multiple_provider_request_rows(db_session, user, monkeypatch):
     rule = _make_rule(db_session, user.id)
     monkeypatch.setattr("app.services.rule_runner.get_provider_class", lambda _source: _MultiLogProvider)

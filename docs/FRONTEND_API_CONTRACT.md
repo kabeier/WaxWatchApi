@@ -1,11 +1,13 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-26.1`
+**Contract version:** `2026-02-26.2`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-26.2`
+  - Documented observability endpoint behavior update: `/metrics` now emits `waxwatch_db_connection_utilization` at scrape time using live SQLAlchemy pool usage, while remaining non-frontend/non-schema API surface (`include_in_schema=false`).
 - `2026-02-26.1`
   - Added API throttling contract: high-risk endpoints can return `429` with `code: rate_limited`, `Retry-After` header, and `error.details.scope` + `retry_after_seconds` for client backoff handling.
 - `2026-02-26.0`
