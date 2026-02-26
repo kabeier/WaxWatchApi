@@ -25,6 +25,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Added deterministic `scopes` array construction (`to_jsonb(array_remove(string_to_array(...), ''))`) in migration CTE to avoid null scope regressions in migration runtime tests.
 - Stabilized token lifecycle scope-string backfill SQL using deterministic CTE normalization and expanded migration-coverage variants (whitespace, scope fallback, blank handling, idempotency).
 - Aligned `scripts/perf/core_flows_smoke.js` thresholds and perf README documentation to the same read/query/write SLO gates used for release decisions, including p95/p99 latency, error-rate, and check-rate constraints.
 - Expanded deployment documentation with scaling knobs for API workers, SQLAlchemy/ PgBouncer pool sizing, and Redis/Celery runtime tuning tied to release-gate reruns.

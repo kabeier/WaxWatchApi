@@ -53,6 +53,8 @@ The listing payload must satisfy shared ingest/search expectations:
 
 - [ ] Add/maintain migration tests that validate string scope normalization edge cases (tabs/newlines/blank values/fallback keys).
 
+- [ ] Confirm migration SQL tokenization path uses deterministic array construction that cannot silently evaluate to null in DB runtime tests.
+
 ## 6) Verification
 
 - [ ] Run relevant tests for search/rule-runner/provider logging.

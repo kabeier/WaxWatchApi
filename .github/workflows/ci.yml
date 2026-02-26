@@ -1,5 +1,6 @@
 name: CI
 
+# Policy sync marker: token lifecycle migration test-path edits must be synchronized with governance artifacts.
 # Policy sync reminder: migration test-path updates must keep governance files/docs/changelog aligned.
 # Governance note: keep this workflow synchronized with Makefile/.env.sample/docs/CHANGELOG
 # when integration surfaces (including token lifecycle schema/service changes) are updated.

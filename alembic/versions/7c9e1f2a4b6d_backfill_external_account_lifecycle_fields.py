@@ -85,13 +85,7 @@ def upgrade() -> None:
                 sc.raw_scope_text,
                 CASE
                     WHEN NULLIF(sc.raw_scope_text, '') IS NULL THEN NULL
-                    ELSE to_jsonb(
-                        ARRAY(
-                            SELECT token
-                            FROM unnest(string_to_array(sc.raw_scope_text, ' ')) AS token
-                            WHERE token <> ''
-                        )
-                    )
+                    ELSE to_jsonb(array_remove(string_to_array(sc.raw_scope_text, ' '), ''))
                 END AS normalized_scope_jsonb
             FROM scope_candidates AS sc
         )
