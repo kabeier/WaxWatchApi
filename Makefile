@@ -475,7 +475,7 @@ ci-celery-redis-smoke:
 	$(MAKE) wait-test-db; \
 	$(MAKE) wait-test-redis; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true $(TEST_APP_SERVICE) "celery -A app.core.celery_app.celery_app worker --loglevel=WARNING --pool=solo --concurrency=1 >/tmp/celery-worker.log 2>&1 & worker_pid=$$!; trap 'kill $$worker_pid' EXIT; sleep 5; pytest -q tests/test_celery_redis_integration.py -rA"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true -e RUN_CELERY_REDIS_INTEGRATION=1 $(TEST_APP_SERVICE) "celery -A app.core.celery_app.celery_app worker --loglevel=WARNING --pool=solo --concurrency=1 --queues=waxwatch >/tmp/celery-worker.log 2>&1 & worker_pid=$$!; trap 'kill $$worker_pid' EXIT; sleep 5; pytest -q tests/test_celery_redis_integration.py -rA"
 
 wait-test-db:
 	@set -euo pipefail; \
@@ -495,9 +495,9 @@ wait-test-db:
 
 # CI contract:
 # - ci-local is the canonical CI entrypoint for both local and GitHub Actions runs.
-# - Keep governance checks, Ruff lint/format-check, typecheck, and ci-db-tests in ci-local.
+# - Keep governance checks, Ruff lint/format-check, typecheck, ci-db-tests, and ci-celery-redis-smoke in ci-local.
 # - Keep migration upgrade + schema drift checks + default pytest discovery with coverage in ci-db-tests.
-# - Do not replace the default pytest discovery run with manually enumerated test modules.
+# - Worker-dependent integration tests must not rely on implicit worker presence in ci-db-tests.
 ci-db-tests:
 	@set -euo pipefail; \
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
@@ -505,7 +505,7 @@ ci-db-tests:
 	$(MAKE) wait-test-db; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "python -m scripts.schema_drift_check"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER)"
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e COVERAGE_FILE=/tmp/.coverage $(TEST_APP_SERVICE) "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$(COVERAGE_FAIL_UNDER) --ignore=tests/test_celery_redis_integration.py"
 
 # Mirrors the GitHub Actions CI job
 ci-local:
@@ -516,7 +516,8 @@ ci-local:
 	$(MAKE) lint; \
 	$(MAKE) fmt-check; \
 	$(MAKE) typecheck; \
-	$(MAKE) ci-db-tests
+	$(MAKE) ci-db-tests; \
+	$(MAKE) ci-celery-redis-smoke
 
 
 gh: ci-local
