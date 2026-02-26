@@ -65,7 +65,7 @@ PERF_RULE_ID='<uuid>' \
 make perf-smoke
 ```
 
-The harness validates core authenticated list, rule polling, and provider-request logging flows using SLO-aligned latency/error thresholds. See `scripts/perf/README.md` and `docs/OPERATIONS_OBSERVABILITY.md` for thresholds and ownership/cadence expectations.
+The harness validates core authenticated list, rule polling, and provider-request logging flows using SLO-aligned latency/error thresholds (p95+p99 latency per flow, `<1%` request failures, and `>99%` k6 check pass-rate). See `scripts/perf/README.md` and `docs/OPERATIONS_OBSERVABILITY.md` for thresholds and ownership/cadence expectations.
 
 GitHub Actions (`.github/workflows/smoke.yml`) also supports manual run-time overrides via `workflow_dispatch` inputs:
 - `perf_base_url`

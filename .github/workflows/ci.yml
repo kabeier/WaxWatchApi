@@ -40,7 +40,7 @@ jobs:
 
       - name: Run static/policy CI targets
         # Policy-sync guard: Settings/workflow surface changes (e.g., RATE_LIMIT_* knobs)
-        # must update governance docs/files in the same PR.
+        # must update governance docs/files in the same PR, including synced governance files.
         run: |
           make verify-test-deps
           make check-docker-config
