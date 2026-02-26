@@ -17,6 +17,10 @@ Use the same commands that CI uses before opening a pull request:
 
 `make ci-local` mirrors the CI gates and runs:
 
+- `make ci-static-checks` (non-DB checks)
+- `make ci-db-tests` (DB migration/drift + pytest coverage)
+- `make ci-celery-redis-smoke` (worker-backed integration smoke)
+
 - Docker compose render validation (`make check-docker-config`)
 - Environment/governance sync checks (`make check-policy-sync`, which includes `make check-change-surface`)
 - Frontend API contract sync check (`python scripts/check_frontend_contract_sync.py`)
@@ -30,7 +34,7 @@ Use the same commands that CI uses before opening a pull request:
 
 ### CI trigger intent and enforcement
 
-The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four events so contributors know when policy and quality gates run:
+The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four events and split into granular required-check jobs (`static-checks` and `db-tests`) so contributors get faster first-failure feedback:
 
 - `pull_request` targeting `main`: primary branch-protection gate for code review merges.
 - `push` to `main`: post-merge protection to ensure the default branch always satisfies the full CI suite.

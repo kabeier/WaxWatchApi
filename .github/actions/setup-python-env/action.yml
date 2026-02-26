@@ -1,0 +1,26 @@
+name: Setup Python CI environment
+description: Configure Python, verify lockfile version, and install project dependencies.
+inputs:
+  python-version:
+    description: Python version to install.
+    required: false
+    default: "3.12"
+runs:
+  using: composite
+  steps:
+    - name: Use Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: pip
+
+    - name: Verify lockfiles were generated with Python 3.12
+      shell: bash
+      run: make check-lock-python-version
+
+    - name: Install deps
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+        pip install -e .

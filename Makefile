@@ -32,7 +32,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version 
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version 
 
 help:
 	@echo ""
@@ -494,12 +494,22 @@ wait-test-db:
 
 # CI contract:
 # - ci-local is the canonical CI entrypoint for both local and GitHub Actions runs.
-# - Keep governance checks, Ruff lint/format-check, typecheck, ci-db-tests, and ci-celery-redis-smoke in ci-local.
+# - Keep static governance checks in ci-static-checks (used by both ci-local and CI static-checks job).
+# - Keep ci-local wired as ci-static-checks + ci-db-tests + ci-celery-redis-smoke.
 # - Keep migration upgrade + schema drift checks + default pytest discovery with coverage in ci-db-tests.
 # - Worker-dependent integration tests must not rely on implicit worker presence in ci-db-tests.
 # - ci-db-tests intentionally excludes integration-marked tests (-m "not integration") and also ignores
 #   tests/test_celery_redis_integration.py as a belt-and-suspenders guard against worker-dependent leakage.
 # - ci-celery-redis-smoke readiness is checked by scripts/ci_celery_redis_smoke.sh via worker PID + logs (no inspect ping).
+ci-static-checks:
+	$(MAKE) verify-test-deps; \
+	$(MAKE) check-docker-config; \
+	$(MAKE) check-policy-sync; \
+	$(MAKE) check-contract-sync; \
+	$(MAKE) lint; \
+	$(MAKE) fmt-check; \
+	$(MAKE) typecheck
+
 ci-db-tests:
 	@set -euo pipefail; \
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
@@ -511,13 +521,7 @@ ci-db-tests:
 
 # Mirrors the GitHub Actions CI job
 ci-local:
-	$(MAKE) verify-test-deps; \
-	$(MAKE) check-docker-config; \
-	$(MAKE) check-policy-sync; \
-	$(MAKE) check-contract-sync; \
-	$(MAKE) lint; \
-	$(MAKE) fmt-check; \
-	$(MAKE) typecheck; \
+	$(MAKE) ci-static-checks; \
 	$(MAKE) ci-db-tests; \
 	$(MAKE) ci-celery-redis-smoke
 
