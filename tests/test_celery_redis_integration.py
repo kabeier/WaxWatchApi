@@ -20,6 +20,9 @@ def test_celery_redis_roundtrip_and_readiness(monkeypatch):
     monkeypatch.setitem(celery_app.conf, "task_always_eager", False)
     monkeypatch.setitem(celery_app.conf, "task_eager_propagates", True)
 
+    celery_app.loader.import_default_modules()
+    celery_app.loader.import_task_module("celery.contrib.testing.tasks")
+
     probe_ok, probe_reason = _probe_redis(timeout_seconds=1.0)
     assert probe_ok, probe_reason
 
