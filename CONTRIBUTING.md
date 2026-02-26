@@ -40,6 +40,7 @@ The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four 
 - `push` to `main`: post-merge protection to ensure the default branch always satisfies the full CI suite.
 - `workflow_dispatch`: manual reruns/debugging for flaky infrastructure or one-off verification.
 - `schedule` (weekly): periodic maintenance execution for governance drift checks, dependency sanity, and smoke coverage even when no PRs are open.
+- Top-level workflow `concurrency` uses `${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`, so force-pushes and rapid commit sequences on the same PR ref cancel superseded runs and keep required checks pinned to the newest commit.
 
 If your change affects CI behavior or governance policy, update this section alongside `.github/workflows/ci.yml` in the same PR.
 
