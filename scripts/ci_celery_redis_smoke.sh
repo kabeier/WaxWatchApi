@@ -17,14 +17,22 @@ celery -A app.core.celery_app.celery_app worker \
   >/tmp/celery-worker.log 2>&1 &
 worker_pid=$!
 
+ready_pattern='celery@|\.> waxwatch\s+exchange=waxwatch\(direct\) key=waxwatch'
 for _ in $(seq 1 30); do
-  if celery -A app.core.celery_app.celery_app inspect ping --timeout=1 | grep -q pong; then
+  if ! kill -0 "$worker_pid" 2>/dev/null; then
+    echo "Celery worker exited before readiness"
+    tail -n 200 /tmp/celery-worker.log || true
+    exit 1
+  fi
+
+  if grep -Eq "$ready_pattern" /tmp/celery-worker.log; then
     break
   fi
+
   sleep 1
 done
 
-if ! celery -A app.core.celery_app.celery_app inspect ping --timeout=1 | grep -q pong; then
+if ! grep -Eq "$ready_pattern" /tmp/celery-worker.log; then
   echo "Celery worker did not become ready"
   tail -n 200 /tmp/celery-worker.log || true
   exit 1

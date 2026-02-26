@@ -497,6 +497,7 @@ wait-test-db:
 # - Keep governance checks, Ruff lint/format-check, typecheck, ci-db-tests, and ci-celery-redis-smoke in ci-local.
 # - Keep migration upgrade + schema drift checks + default pytest discovery with coverage in ci-db-tests.
 # - Worker-dependent integration tests must not rely on implicit worker presence in ci-db-tests.
+# - ci-celery-redis-smoke readiness is checked by scripts/ci_celery_redis_smoke.sh via worker PID + logs (no inspect ping).
 ci-db-tests:
 	@set -euo pipefail; \
 	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
