@@ -157,6 +157,10 @@ class ExternalAccountLink(Base):
     provider: Mapped[Provider] = mapped_column(PROVIDER_ENUM, nullable=False)
     external_user_id: Mapped[str] = mapped_column(String(120), nullable=False)
     access_token: Mapped[str | None] = mapped_column(Text)
+    refresh_token: Mapped[str | None] = mapped_column(Text)
+    access_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    token_type: Mapped[str | None] = mapped_column(String(50))
+    scopes: Mapped[list[str] | None] = mapped_column(JSONB)
     token_metadata: Mapped[dict | None] = mapped_column(JSONB)
 
     connected_at: Mapped[datetime] = mapped_column(

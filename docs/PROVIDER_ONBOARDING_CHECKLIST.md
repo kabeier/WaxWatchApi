@@ -43,6 +43,7 @@ In `app/providers/registry.py`:
 
 The listing payload must satisfy shared ingest/search expectations:
 
+- [ ] If storing linked external account tokens, persist lifecycle fields in normalized `external_account_links` columns (`refresh_token`, `access_token_expires_at`, `token_type`, `scopes`) and keep `access_token` encrypted at rest.
 - [ ] `provider`, `external_id`, `url`, `title`, `price`, and `currency` are set.
 - [ ] Optional fields map to canonical keys: `condition`, `seller`, `location`, `discogs_release_id`, `raw`.
 - [ ] IDs are stable and deterministic for the same remote listing.
