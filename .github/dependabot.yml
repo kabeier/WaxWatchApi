@@ -6,6 +6,7 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
 
+  # Keep GitHub Actions updates enabled for pinned action SHA rotation.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

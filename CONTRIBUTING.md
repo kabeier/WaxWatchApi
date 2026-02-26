@@ -153,6 +153,21 @@ make fmt-check
 For stronger local enforcement on every branch, run `make pre-commit-install` so pre-commit/pre-push hooks run `ruff check .` and `ruff format --check .` automatically.
 
 
+## GitHub Actions pinning policy
+
+To reduce CI supply-chain risk, all third-party GitHub Actions must be pinned to full commit SHAs (not mutable tags alone).
+
+When rotating pinned SHAs:
+
+1. Keep the semantic version in an inline comment for readability (for example `# v4`).
+2. Update the `uses:` reference to the new SHA in workflow/composite action files.
+3. Re-run local quality gates:
+   ```bash
+   make lint
+   make fmt-check
+   ```
+4. Keep Dependabot GitHub Actions updates enabled in `.github/dependabot.yml` so SHA bumps are proposed automatically.
+
 ## Product/API contract checklist
 
 When your PR changes API-facing code in `app/api/` or `app/schemas/`, complete this checklist:
