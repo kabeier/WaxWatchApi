@@ -42,10 +42,10 @@ def upgrade() -> None:
                         THEN token_metadata -> 'oauth_scopes'
                     WHEN jsonb_typeof(token_metadata -> 'scopes') = 'array'
                         THEN token_metadata -> 'scopes'
-                    WHEN token_metadata ->> 'scopes' IS NOT NULL
-                        THEN to_jsonb(regexp_split_to_array(token_metadata ->> 'scopes', E'\\s+'))
-                    WHEN token_metadata ->> 'scope' IS NOT NULL
-                        THEN to_jsonb(regexp_split_to_array(token_metadata ->> 'scope', E'\\s+'))
+                    WHEN NULLIF(BTRIM(token_metadata ->> 'scopes'), '') IS NOT NULL
+                        THEN to_jsonb(array_remove(regexp_split_to_array(BTRIM(token_metadata ->> 'scopes'), E'\\s+'), ''))
+                    WHEN NULLIF(BTRIM(token_metadata ->> 'scope'), '') IS NOT NULL
+                        THEN to_jsonb(array_remove(regexp_split_to_array(BTRIM(token_metadata ->> 'scope'), E'\\s+'), ''))
                     ELSE NULL
                 END
             )

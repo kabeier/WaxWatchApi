@@ -1,5 +1,8 @@
 name: CI
 
+# Governance note: keep this workflow synchronized with Makefile/.env.sample/docs/CHANGELOG
+# when integration surfaces (including token lifecycle schema/service changes) are updated.
+
 on:
   push:
     branches: ["main"]
