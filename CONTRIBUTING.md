@@ -59,6 +59,7 @@ The harness validates core authenticated list, rule polling, and provider-reques
   3. Run `make ci-local` on the base revision to generate `coverage.base.json`.
   4. Check out the PR revision again, restore `coverage.json`, then run `python scripts/check_coverage_regression.py`.
   5. Fail the job when total coverage or any listed high-risk module coverage is lower than base.
+- CI triggers run once per PR update (`pull_request`) and also on direct pushes to `main` (`push`), avoiding duplicate push+PR runs for feature branches.
 - `make ci-local` is the canonical CI contract target invoked by both local developers and GitHub Actions.
 - `make ci-db-tests` remains the database-backed test segment used by `ci-local` and must keep migration + drift + full pytest discovery with coverage.
 - Focused targets (for example `make test-matching`, `make test-token-security`) are local debugging helpers only and are non-authoritative for CI pass/fail.
