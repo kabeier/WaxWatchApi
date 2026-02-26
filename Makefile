@@ -32,7 +32,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh check-lock-python-version
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-change-surface check-contract-sync check-coverage-regression ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version 
 
 help:
 	@echo ""
@@ -78,6 +78,7 @@ help:
 	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests (local debugging only; non-authoritative)"
 	@echo "  make test-token-security   Run token crypto + redaction focused tests (local debugging only; non-authoritative)"
 	@echo "  make test-celery-tasks     Run celery task tests in eager mode (local debugging only; non-authoritative)"
+	@echo "  make ci-celery-redis-smoke Run Redis-backed non-eager Celery smoke integration test"
 	@echo "  make test-matching         Run Discogs listing-matching focused tests (local debugging only; non-authoritative)"
 	@echo "  make test-coverage-uplift  Run focused coverage-uplift test modules (local debugging only; non-authoritative)"
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
@@ -452,6 +453,29 @@ check-contract-sync:
 
 check-coverage-regression:
 	$(PYTHON) scripts/check_coverage_regression.py
+
+wait-test-redis:
+	@set -euo pipefail; \
+	echo "Waiting for Redis test service ..."; \
+	for i in $$(seq 1 60); do \
+		if $(COMPOSE) -f $(TEST_DB_COMPOSE) exec -T redis redis-cli ping >/dev/null 2>&1; then \
+			echo "Redis is ready."; \
+			exit 0; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "Redis did not become ready in time. Showing logs:"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) logs --no-color redis | tail -n 200; \
+	exit 1
+
+ci-celery-redis-smoke:
+	@set -euo pipefail; \
+	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE) redis; \
+	$(MAKE) wait-test-db; \
+	$(MAKE) wait-test-redis; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true $(TEST_APP_SERVICE) "celery -A app.core.celery_app.celery_app worker --loglevel=WARNING --pool=solo --concurrency=1 >/tmp/celery-worker.log 2>&1 & worker_pid=$$!; trap 'kill $$worker_pid' EXIT; sleep 5; pytest -q tests/test_celery_redis_integration.py -rA"
 
 wait-test-db:
 	@set -euo pipefail; \

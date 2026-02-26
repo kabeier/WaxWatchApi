@@ -1,4 +1,15 @@
 services:
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   postgres:
     image: postgres:16
     environment:
@@ -22,6 +33,8 @@ services:
         INSTALL_DEV_DEPS: "true"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     # Run test commands as root so coverage artifacts written to the bind-mounted
     # workspace (for CI regression checks) do not fail with host/container UID mismatch.
@@ -49,5 +62,7 @@ services:
       EBAY_CLIENT_SECRET: ci-ebay-client-secret
       EBAY_CAMPAIGN_ID: "1234567890"
       TOKEN_CRYPTO_LOCAL_KEY: ${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
     entrypoint: ["bash", "-lc"]
     command: "sleep infinity"
