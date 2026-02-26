@@ -78,6 +78,8 @@ Runtime fallback precedence in the workflow is fixed:
 2. `perf-smoke` environment variable,
 3. repository variable fallback.
 
+Deploy-blocking release validation uses `.github/workflows/release-gates.yml`, which runs `make perf-smoke` and then verifies scheduler/queue lag inputs provided at dispatch time (`scheduler_lag_p95_seconds`, `scheduler_lag_max_seconds`, `queue_lag_p95_seconds`, `queue_lag_p99_seconds`).
+
 ## Coverage policy
 
 - Coverage gating is aligned between `pytest.ini`, `Makefile`, and CI (`.github/workflows/ci.yml`) with a default floor of **85%** (`--cov-fail-under=85`).

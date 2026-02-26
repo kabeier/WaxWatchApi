@@ -95,6 +95,7 @@ help:
 	@echo "  make openapi-snapshot      Regenerate docs/openapi.snapshot.json from app/main.py"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
 	@echo "  make perf-smoke            Run k6 core-flow perf smoke harness (local/staging/GHA smoke workflow)"
+	@echo "                             Release gate workflow: .github/workflows/release-gates.yml"
 	@echo "  make security-deps-audit   Run local pip-audit against requirements*.in/txt"
 	@echo "  make security-secrets-scan Run local gitleaks repository scan (if installed)"
 	@echo ""
@@ -493,6 +494,8 @@ check-smoke-workflow-config:
 	grep -q "perf_base_url:" .github/workflows/smoke.yml; \
 	grep -q "perf_rule_id:" .github/workflows/smoke.yml; \
 	grep -q "PERF_BASE_URL source:" .github/workflows/smoke.yml; \
+	grep -q "scheduler_lag_p95_seconds:" .github/workflows/release-gates.yml; \
+	grep -q "queue_lag_p99_seconds:" .github/workflows/release-gates.yml; \
 	echo "ok: smoke workflow dispatch/fallback diagnostics are present"
 
 check-compose-secret-defaults:
