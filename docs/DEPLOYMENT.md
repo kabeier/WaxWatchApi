@@ -145,12 +145,48 @@ Required environment for `make perf-smoke`:
 - `PERF_BEARER_TOKEN` (JWT for an account with representative data)
 - `PERF_RULE_ID` (rule owned by that account; optional only when `PERF_ENABLE_RULE_RUN=0`)
 
-The harness enforces SLO-aligned thresholds for read/query/write-like flows and should be treated as a deploy-blocking check when thresholds are exceeded.
+The harness enforces SLO-aligned thresholds for read/query/write-like flows and should be treated as a deploy-blocking check when thresholds are exceeded. Record each release-candidate baseline in `docs/OPERATIONS_OBSERVABILITY.md` (baseline snapshot table) so results stay repeatable across releases.
 
 For GitHub Actions runs (`.github/workflows/smoke.yml`), `PERF_BASE_URL` and `PERF_RULE_ID` resolve in this order:
 1. `workflow_dispatch` input override (`perf_base_url`, `perf_rule_id`),
 2. `perf-smoke` environment variable,
 3. repository variable fallback.
+
+
+## Scale-up runbook triggers
+
+Use these triggers during incident response or release validation to apply predictable scaling changes.
+
+### API worker scale-up
+- Trigger when any of the following hold for 10 minutes:
+  - read p95 latency `> 400ms`, or
+  - query p95 latency `> 900ms`, or
+  - write p95 latency `> 700ms`, or
+  - API 5xx ratio `> 1%`.
+- Action:
+  1. Increase API worker count by 25-50% (or +2 workers minimum).
+  2. Re-run `make perf-smoke` and verify p95/p99 thresholds recover.
+  3. If no improvement, investigate DB saturation before additional horizontal scale.
+
+### Celery concurrency scale-up
+- Trigger when scheduler lag or queue lag breaches for 10 minutes:
+  - `waxwatch_scheduler_lag_seconds` p95 `> 60s`,
+  - queue lag p95 `> 30s`, or
+  - notification backlog exceeds 500 (email) / 1000 (realtime).
+- Action:
+  1. Increase Celery worker concurrency by 25-50%.
+  2. Keep `worker_prefetch_multiplier` conservative (typically `1`) to reduce queue starvation.
+  3. Validate backlog decay slope turns negative within 15 minutes.
+
+### DB pool / PgBouncer scale-up
+- Trigger when DB connection saturation persists for 10 minutes:
+  - `waxwatch_db_connection_utilization` p95 `> 0.70`, or
+  - utilization max `> 0.85`.
+- Action:
+  1. Increase API/Celery SQLAlchemy pool settings (`pool_size`, `max_overflow`) in controlled increments.
+  2. Raise PgBouncer `default_pool_size` and `max_client_conn` together to preserve headroom.
+  3. Ensure database `max_connections` remains above combined PgBouncer server pools plus admin margin.
+  4. Re-check readiness and query latency after each increment before further scaling.
 
 ## Discogs scheduled sync tuning
 

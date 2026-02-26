@@ -11,6 +11,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
+from app.core.metrics import set_notification_backlog
 from app.db import models
 from app.services.email_provider import EmailDeliveryRequest, get_email_provider
 from app.services.task_dispatcher import enqueue_notification_delivery
@@ -210,6 +211,16 @@ def get_or_create_preferences(db: Session, *, user_id: UUID) -> models.UserNotif
     return preference
 
 
+def _record_notification_backlog(db: Session, *, channel: models.NotificationChannel) -> None:
+    pending_count = (
+        db.query(func.count(models.Notification.id))
+        .filter(models.Notification.channel == channel)
+        .filter(models.Notification.status == models.NotificationStatus.pending)
+        .scalar()
+    )
+    set_notification_backlog(channel=channel.value, pending_count=int(pending_count or 0))
+
+
 def enqueue_from_event(
     db: Session,
     *,
@@ -252,6 +263,7 @@ def enqueue_from_event(
         if notification.status == models.NotificationStatus.pending:
             countdown = defer_delivery_seconds(db, notification=notification)
             enqueue_notification_delivery(str(notification.id), countdown=countdown)
+            _record_notification_backlog(db, channel=channel)
 
     return notifications
 
@@ -313,6 +325,7 @@ def send_email(db: Session, *, notification: models.Notification) -> models.Noti
             raise RuntimeError(delivery_result.error_message or "email provider temporary failure")
 
     db.flush()
+    _record_notification_backlog(db, channel=notification.channel)
     return notification
 
 
@@ -337,4 +350,5 @@ async def publish_realtime(db: Session, *, notification: models.Notification) ->
     notification.failed_at = None
     notification.updated_at = now
     db.flush()
+    _record_notification_backlog(db, channel=notification.channel)
     return notification

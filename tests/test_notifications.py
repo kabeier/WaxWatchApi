@@ -5,6 +5,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
+from prometheus_client import generate_latest
 
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
@@ -43,6 +44,9 @@ def test_enqueue_from_event_is_idempotent(db_session, user):
         db_session.query(models.Notification).filter(models.Notification.event_id == event.id).all()
     )
     assert len(notifications) == 2
+
+    payload = generate_latest().decode("utf-8")
+    assert "waxwatch_notification_backlog_items" in payload
 
 
 def test_notifications_endpoints(client, db_session, user, headers):

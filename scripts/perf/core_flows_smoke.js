@@ -48,13 +48,16 @@ export const options = {
   },
   thresholds: {
     'http_req_failed{flow:auth_list}': ['rate<0.01'],
-    'http_req_duration{flow:auth_list}': ['p(95)<400'],
+    'http_req_duration{flow:auth_list}': ['p(95)<400', 'p(99)<700'],
+    'checks{flow:auth_list}': ['rate>0.99'],
 
     'http_req_failed{flow:rule_poll}': ['rate<0.01'],
-    'http_req_duration{flow:rule_poll}': ['p(95)<900'],
+    'http_req_duration{flow:rule_poll}': ['p(95)<900', 'p(99)<1200'],
+    'checks{flow:rule_poll}': ['rate>0.99'],
 
     'http_req_failed{flow:provider_log_write}': ['rate<0.01'],
-    'http_req_duration{flow:provider_log_write}': ['p(95)<700'],
+    'http_req_duration{flow:provider_log_write}': ['p(95)<700', 'p(99)<1000'],
+    'checks{flow:provider_log_write}': ['rate>0.99'],
   },
 };
 

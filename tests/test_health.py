@@ -72,3 +72,5 @@ def test_metrics_endpoint_exposes_prometheus_payload(client):
     assert r.status_code == 200
     assert "text/plain" in r.headers["content-type"]
     assert "waxwatch_request_latency_seconds" in r.text
+    assert "waxwatch_scheduler_lag_seconds" in r.text
+    assert "waxwatch_provider_failures_total" in r.text
