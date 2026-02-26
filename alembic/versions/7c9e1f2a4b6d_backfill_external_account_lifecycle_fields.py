@@ -53,6 +53,41 @@ def upgrade() -> None:
         """
     )
 
+    op.execute(
+        """
+        UPDATE external_account_links
+        SET scopes = to_jsonb(
+            array_remove(
+                regexp_split_to_array(
+                    BTRIM(
+                        regexp_replace(
+                            COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope'),
+                            E'[[:space:]]+',
+                            ' ',
+                            'g'
+                        )
+                    ),
+                    ' '
+                ),
+                ''
+            )
+        )
+        WHERE scopes IS NULL
+          AND token_metadata IS NOT NULL
+          AND NULLIF(
+              BTRIM(
+                  regexp_replace(
+                      COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope'),
+                      E'[[:space:]]+',
+                      ' ',
+                      'g'
+                  )
+              ),
+              ''
+          ) IS NOT NULL
+        """
+    )
+
 
 def downgrade() -> None:
     pass
