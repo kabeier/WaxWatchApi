@@ -255,7 +255,7 @@ def test_backfill_migration_upgrade_is_idempotent_for_scopes(db_session, user) -
 
     _run_backfill_upgrade(db_session)
     db_session.refresh(link)
-    first_value = list(link.scopes or [])
+    first_value: list[str] = list(link.scopes or [])
 
     _run_backfill_upgrade(db_session)
     db_session.refresh(link)
