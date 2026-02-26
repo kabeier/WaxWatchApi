@@ -115,12 +115,27 @@ Run the lightweight k6 harness at `scripts/perf/core_flows_smoke.js` to continuo
 
 Use `make perf-smoke` for local or staging execution. The command supports either a local `k6` binary or a Docker fallback image and expects `PERF_BASE_URL`, `PERF_BEARER_TOKEN`, and (unless disabled) `PERF_RULE_ID`.
 
+A dedicated GitHub Actions workflow (`.github/workflows/smoke.yml`) runs this suite on demand and on a weekly schedule using environment-scoped configuration (`PERF_BASE_URL` variable, `PERF_BEARER_TOKEN` secret, optional `PERF_RULE_ID` variable). This workflow is intentionally separate from pull-request CI so flaky remote staging dependencies cannot block merges.
+
+Each run publishes `k6-summary.json` and the smoke log as artifacts; use these artifacts to compare p95/error-rate drift week-over-week.
+
 ### Results cadence and ownership
 
 - **Pre-release gate**: Release owner runs `make perf-smoke` before each production release candidate.
 - **Post-change validation**: DB/platform owner runs `make perf-smoke` after major schema/index changes.
 - **Ongoing operations cadence**: Primary on-call (or delegated service owner) runs the smoke suite weekly in staging and records results in the team ops log.
 - **Escalation policy**: Any threshold breach blocks release until triaged and either remediated or explicitly accepted with owner sign-off.
+
+### Expected response when smoke SLO thresholds fail
+
+- **Owner on point:** Primary on-call for the service in the week of the failure (or explicitly delegated service owner).
+- **Time to acknowledge:** within 1 business hour for weekday scheduled runs, or before next release cut for manually triggered pre-release runs.
+- **Initial response checklist:**
+  1. Download workflow artifacts (`k6-summary.json`, smoke log) and identify which flow breached thresholds.
+  2. Correlate to dashboards/alerts for read/query/write latency and provider health.
+  3. Re-run `make perf-smoke` once to rule out transient remote noise.
+  4. Open an ops log entry with owner, suspected cause, and remediation ETA.
+- **Escalation:** If a second consecutive run breaches the same threshold, start an incident channel and apply release hold until remediation or explicit owner sign-off.
 
 ## Suggested alert rules
 
