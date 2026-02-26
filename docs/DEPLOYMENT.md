@@ -16,6 +16,13 @@ Set `ENVIRONMENT` to one of the documented values so route gating and observabil
 
 Avoid custom aliases where possible. If you must use a non-standard value, treat it as production-like unless you explicitly intend to expose dev routes.
 
+## CI worker-dependent integration smoke
+
+The worker-dependent Celery/Redis roundtrip test is intentionally orchestrated outside default DB test discovery.
+
+- `make ci-db-tests` ignores `tests/test_celery_redis_integration.py` so the default coverage suite does not require a live worker.
+- `make ci-celery-redis-smoke` starts the dedicated worker process and sets `RUN_CELERY_REDIS_INTEGRATION=1` before running that test.
+
 ## Local development (Docker Compose)
 
 For local development only, use the dev override and optional `.env.dev` file:

@@ -470,13 +470,25 @@ wait-test-redis:
 
 ci-celery-redis-smoke:
 	@set -euo pipefail; \
-	trap '$(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
+	worker_container=""; \
+	trap 'if [ -n "$$worker_container" ]; then $(COMPOSE) -f $(TEST_DB_COMPOSE) rm -sf $$worker_container >/dev/null 2>&1 || true; fi; $(COMPOSE) -f $(TEST_DB_COMPOSE) down >/dev/null 2>&1 || true' EXIT; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) up -d $(TEST_DB_SERVICE) redis; \
 	$(MAKE) wait-test-db; \
 	$(MAKE) wait-test-redis; \
 	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "alembic upgrade heads"; \
-	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true -e RUN_CELERY_REDIS_INTEGRATION=1 $(TEST_APP_SERVICE) "worker_pid=\"\"; set +u; celery -A app.core.celery_app.celery_app worker --logfile=/tmp/celery-worker.log --loglevel=WARNING --pool=solo --concurrency=1 --queues=waxwatch >/tmp/celery-worker.log 2>&1 & worker_pid=$$!; set -u; trap 'if [ -n "$$worker_pid" ]; then kill $$worker_pid >/dev/null 2>&1 || true; fi' EXIT; for i in $$(seq 1 30); do if celery -A app.core.celery_app.celery_app inspect ping --timeout=1 | grep -q pong; then break; fi; sleep 1; done; if ! celery -A app.core.celery_app.celery_app inspect ping --timeout=1 | grep -q pong; then echo Celery worker did not become ready; tail -n 200 /tmp/celery-worker.log || true; exit 1; fi; pytest -q tests/test_celery_redis_integration.py -rA --no-cov"
-
+	worker_container="$$($(COMPOSE) -f $(TEST_DB_COMPOSE) run -d --name waxwatch-celery-smoke-worker -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true $(TEST_APP_SERVICE) celery -A app.core.celery_app.celery_app worker --loglevel=WARNING --pool=solo --concurrency=1 --queues=waxwatch)"; \
+	for i in $$(seq 1 30); do \
+		if $(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "celery -A app.core.celery_app.celery_app inspect ping --timeout=1 | grep -q pong"; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if ! $(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) $(TEST_APP_SERVICE) "celery -A app.core.celery_app.celery_app inspect ping --timeout=1 | grep -q pong"; then \
+		echo Celery worker did not become ready; \
+		$(COMPOSE) -f $(TEST_DB_COMPOSE) logs --no-color $$worker_container | tail -n 200 || true; \
+		exit 1; \
+	fi; \
+	$(COMPOSE) -f $(TEST_DB_COMPOSE) run --rm -e DATABASE_URL=$(TEST_DATABASE_URL_DOCKER) -e TOKEN_CRYPTO_LOCAL_KEY=$(TEST_TOKEN_CRYPTO_LOCAL_KEY) -e CELERY_TASK_ALWAYS_EAGER=false -e CELERY_TASK_EAGER_PROPAGATES=true -e RUN_CELERY_REDIS_INTEGRATION=1 $(TEST_APP_SERVICE) "pytest -q tests/test_celery_redis_integration.py -rA --no-cov"
 wait-test-db:
 	@set -euo pipefail; \
 	echo "Waiting for Postgres (container + host port) ..."; \
