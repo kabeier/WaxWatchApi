@@ -32,7 +32,7 @@ TAG ?= ci
 FIX ?=
 RUFF_ARGS ?=
 
-.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-smoke-workflow-config check-change-surface check-contract-sync check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version security-deps-audit security-secrets-scan
+.PHONY: help up down build logs ps sh test test-profile test-search test-discogs-ingestion test-notifications lint fmt fmt-check migrate revision revision-msg downgrade dbshell dbreset migrate-prod prod-up check-prod-env ci-check-migrations test-with-docker-db test-db-up test-db-down test-db-logs test-db-reset check-docker-config check-policy-sync check-compose-secret-defaults check-smoke-workflow-config check-change-surface check-contract-sync check-openapi-snapshot openapi-snapshot check-coverage-regression ci-static-checks ci-local ci-db-tests gh bootstrap-test-deps verify-test-deps test-watch-rules-hard-delete test-background-tasks test-token-security worker-up worker-down worker-logs beat-logs test-celery-tasks test-matching test-coverage-uplift typecheck pre-commit-install perf-smoke lock-refresh ci-celery-redis-smoke wait-test-redis check-lock-python-version security-deps-audit security-secrets-scan
 
 help:
 	@echo ""
@@ -88,6 +88,8 @@ help:
 	@echo "                             Includes Settings/.env governance sync for runtime knobs (for example RATE_LIMIT_* fields)."
 	@echo "  make check-change-surface  Validate integration hygiene change-surface policy"
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"
+	@echo "  make check-openapi-snapshot Fail if generated OpenAPI schema differs from docs/openapi.snapshot.json"
+	@echo "  make openapi-snapshot      Regenerate docs/openapi.snapshot.json from app/main.py"
 	@echo "  make ci-check-migrations   Fail if schema drift detected"
 	@echo "  make perf-smoke            Run k6 core-flow perf smoke harness (local/staging/GHA smoke workflow)"
 	@echo "  make security-deps-audit   Run local pip-audit against requirements*.in/txt"
@@ -454,6 +456,12 @@ check-change-surface:
 check-contract-sync:
 	$(PYTHON) scripts/check_frontend_contract_sync.py
 
+check-openapi-snapshot:
+	$(PYTHON) -m scripts.openapi_snapshot --check
+
+openapi-snapshot:
+	$(PYTHON) -m scripts.openapi_snapshot --update
+
 check-coverage-regression:
 	$(PYTHON) scripts/check_coverage_regression.py
 
@@ -509,6 +517,7 @@ ci-static-checks:
 	$(MAKE) check-docker-config; \
 	$(MAKE) check-policy-sync; \
 	$(MAKE) check-contract-sync; \
+	$(MAKE) check-openapi-snapshot; \
 	$(MAKE) lint; \
 	$(MAKE) fmt-check; \
 	$(MAKE) typecheck

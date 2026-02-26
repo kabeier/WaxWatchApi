@@ -511,7 +511,8 @@ Enforcement:
 
 - CI runs `python scripts/check_frontend_contract_sync.py`.
 - The check fails when API-facing files changed but `docs/FRONTEND_API_CONTRACT.md` was not updated in the same diff.
-- Local equivalent: `make check-contract-sync` or full `make ci-local`.
+- Local equivalents: `make check-contract-sync` and `make check-openapi-snapshot` (or full `make ci-local`).
+- Snapshot gate: CI runs `python -m scripts.openapi_snapshot --check` and compares `app/main.py` generated schema output to the committed `docs/openapi.snapshot.json` baseline. Update the baseline with `make openapi-snapshot` whenever intentional API schema changes are introduced.
 
 ---
 
