@@ -27,7 +27,13 @@ def test_discogs_oauth_connect_success(client, user, headers, db_session, monkey
 
             @staticmethod
             def json():
-                return {"access_token": "oauth-token", "scope": "identity wantlist", "token_type": "Bearer"}
+                return {
+                    "access_token": "oauth-token",
+                    "refresh_token": "refresh-token",
+                    "scope": "identity wantlist",
+                    "token_type": "Bearer",
+                    "expires_in": 3600,
+                }
 
         return _Resp()
 
@@ -63,6 +69,10 @@ def test_discogs_oauth_connect_success(client, user, headers, db_session, monkey
     assert link.access_token.startswith("enc:v1:")
     assert link.token_metadata["oauth_connected"] is True
     assert link.token_metadata["oauth_state"] is None
+    assert link.refresh_token == "refresh-token"
+    assert link.token_type == "Bearer"
+    assert link.scopes == ["identity", "wantlist"]
+    assert link.access_token_expires_at is not None
 
 
 def test_discogs_oauth_callback_invalid_state(client, user, headers):
@@ -178,7 +188,16 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
     h = headers(user.id)
     client.post(
         "/api/integrations/discogs/connect",
-        json={"external_user_id": "discogs-user", "access_token": "token"},
+        json={
+            "external_user_id": "discogs-user",
+            "access_token": "token",
+            "token_metadata": {
+                "refresh_token": "manual-refresh",
+                "token_type": "Bearer",
+                "scope": "identity collection",
+                "expires_at": "2030-01-01T00:00:00+00:00",
+            },
+        },
         headers=h,
     )
 
@@ -240,6 +259,12 @@ def test_discogs_import_and_job_status(client, user, headers, db_session, monkey
     assert job_status.status_code == 200, job_status.text
     assert job_status.json()["status"] == "completed"
 
+    link = db_session.query(models.ExternalAccountLink).filter_by(user_id=user.id).one()
+    assert link.refresh_token == "manual-refresh"
+    assert link.token_type == "Bearer"
+    assert link.scopes == ["identity", "collection"]
+    assert link.access_token_expires_at is not None
+
     releases = db_session.query(models.WatchRelease).filter_by(user_id=user.id).all()
     assert len(releases) == 2
     assert {release.discogs_master_id for release in releases} == {5001, 5002}
@@ -266,7 +291,16 @@ def test_discogs_import_failure_persists_job_and_event(client, user, headers, db
     h = headers(user.id)
     client.post(
         "/api/integrations/discogs/connect",
-        json={"external_user_id": "discogs-user", "access_token": "token"},
+        json={
+            "external_user_id": "discogs-user",
+            "access_token": "token",
+            "token_metadata": {
+                "refresh_token": "manual-refresh",
+                "token_type": "Bearer",
+                "scope": "identity collection",
+                "expires_at": "2030-01-01T00:00:00+00:00",
+            },
+        },
         headers=h,
     )
 

@@ -15,6 +15,7 @@ from app.core.logging import redact_sensitive_data
 from app.core.token_crypto import TokenCrypto
 from app.db import models
 from app.services.notifications import enqueue_from_event
+from app.services.token_lifecycle import is_token_expired
 from app.services.watch_rules import ensure_user_exists
 
 BASE_URL = "https://api.discogs.com"
@@ -36,9 +37,19 @@ class DiscogsImportService:
         external_user_id: str,
         access_token: str | None,
         token_metadata: dict[str, Any] | None,
+        refresh_token: str | None = None,
+        access_token_expires_at: datetime | None = None,
+        token_type: str | None = None,
+        scopes: list[str] | None = None,
     ) -> models.ExternalAccountLink:
         ensure_user_exists(db, user_id)
         now = datetime.now(timezone.utc)
+        normalized_refresh_token = refresh_token or self._metadata_string(token_metadata, "refresh_token")
+        normalized_token_type = token_type or self._metadata_string(token_metadata, "token_type")
+        normalized_scopes = scopes or self._metadata_scopes(token_metadata)
+        normalized_expiry = access_token_expires_at or self._metadata_datetime(
+            token_metadata, "access_token_expires_at", "expires_at"
+        )
 
         link = (
             db.query(models.ExternalAccountLink)
@@ -53,6 +64,10 @@ class DiscogsImportService:
                 external_user_id=external_user_id,
                 access_token=self._encrypt_access_token(access_token),
                 token_metadata=token_metadata,
+                refresh_token=normalized_refresh_token,
+                access_token_expires_at=normalized_expiry,
+                token_type=normalized_token_type,
+                scopes=normalized_scopes,
                 connected_at=now,
                 created_at=now,
                 updated_at=now,
@@ -61,6 +76,10 @@ class DiscogsImportService:
             link.external_user_id = external_user_id
             link.access_token = self._encrypt_access_token(access_token)
             link.token_metadata = token_metadata
+            link.refresh_token = normalized_refresh_token
+            link.access_token_expires_at = normalized_expiry
+            link.token_type = normalized_token_type
+            link.scopes = normalized_scopes
             link.connected_at = now
             link.updated_at = now
 
@@ -130,11 +149,10 @@ class DiscogsImportService:
 
         metadata = link.token_metadata or {}
         expected_state = metadata.get("oauth_state")
-        expires_raw = metadata.get("oauth_state_expires_at")
-        expires_at = datetime.fromisoformat(expires_raw) if expires_raw else None
+        expires_at = self._metadata_datetime(metadata, "oauth_state_expires_at")
         if not expected_state or expected_state != state:
             raise HTTPException(status_code=400, detail="Invalid OAuth state")
-        if expires_at and datetime.now(timezone.utc) > expires_at:
+        if is_token_expired(expires_at):
             raise HTTPException(status_code=400, detail="OAuth state expired")
 
         token_resp = httpx.post(
@@ -168,13 +186,18 @@ class DiscogsImportService:
         if not username:
             raise HTTPException(status_code=502, detail="Discogs identity missing username")
 
+        normalized_scopes = metadata.get("oauth_scopes") or self._split_scope_string(
+            token_payload.get("scope")
+        )
         completed_metadata = {
             **metadata,
             "oauth_state": None,
             "oauth_state_expires_at": None,
             "oauth_connected": True,
-            "oauth_scopes": metadata.get("oauth_scopes") or token_payload.get("scope", "").split(" "),
+            "oauth_scopes": normalized_scopes,
             "token_type": token_payload.get("token_type"),
+            "refresh_token": token_payload.get("refresh_token"),
+            "access_token_expires_at": token_payload.get("expires_at"),
         }
         return self.connect_account(
             db,
@@ -182,7 +205,71 @@ class DiscogsImportService:
             external_user_id=username,
             access_token=access_token,
             token_metadata=completed_metadata,
+            refresh_token=token_payload.get("refresh_token"),
+            token_type=token_payload.get("token_type"),
+            scopes=normalized_scopes,
+            access_token_expires_at=self._expires_at_from_token_payload(token_payload),
         )
+
+    @staticmethod
+    def _split_scope_string(scope: str | None) -> list[str]:
+        if not scope:
+            return []
+        return [value for value in scope.split(" ") if value]
+
+    @classmethod
+    def _metadata_scopes(cls, token_metadata: dict[str, Any] | None) -> list[str] | None:
+        if not token_metadata:
+            return None
+        scopes = token_metadata.get("oauth_scopes") or token_metadata.get("scopes")
+        if isinstance(scopes, list):
+            return [str(value) for value in scopes if str(value).strip()]
+        if isinstance(scopes, str):
+            return cls._split_scope_string(scopes)
+        scope = token_metadata.get("scope")
+        if isinstance(scope, str):
+            return cls._split_scope_string(scope)
+        return None
+
+    @staticmethod
+    def _metadata_string(token_metadata: dict[str, Any] | None, key: str) -> str | None:
+        if not token_metadata:
+            return None
+        value = token_metadata.get(key)
+        if value is None:
+            return None
+        normalized = str(value).strip()
+        return normalized or None
+
+    @staticmethod
+    def _metadata_datetime(token_metadata: dict[str, Any] | None, *keys: str) -> datetime | None:
+        if not token_metadata:
+            return None
+        for key in keys:
+            raw_value = token_metadata.get(key)
+            if not raw_value:
+                continue
+            if isinstance(raw_value, datetime):
+                return raw_value if raw_value.tzinfo else raw_value.replace(tzinfo=timezone.utc)
+            if isinstance(raw_value, (int, float)):
+                return datetime.fromtimestamp(raw_value, tz=timezone.utc)
+            if isinstance(raw_value, str):
+                candidate = raw_value.strip()
+                if not candidate:
+                    continue
+                try:
+                    parsed = datetime.fromisoformat(candidate)
+                except ValueError:
+                    continue
+                return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+        return None
+
+    @classmethod
+    def _expires_at_from_token_payload(cls, token_payload: dict[str, Any]) -> datetime | None:
+        expires_in = token_payload.get("expires_in")
+        if isinstance(expires_in, (int, float)):
+            return datetime.now(timezone.utc) + timedelta(seconds=float(expires_in))
+        return cls._metadata_datetime(token_payload, "access_token_expires_at", "expires_at")
 
     def disconnect_account(self, db: Session, *, user_id: UUID, revoke: bool) -> bool:
         link = self.get_status(db, user_id=user_id)
