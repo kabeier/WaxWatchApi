@@ -169,6 +169,7 @@ pre-commit-install:
 perf-smoke:
 	@# SLO gate: scripts/perf/core_flows_smoke.js fails on p95/p99/error/check-rate threshold breaches.
 	@# Observability note: metrics scrape includes DB pool utilization telemetry for saturation dashboards.
+	@# Test coverage note: keep health metrics branch coverage in sync with scrape-time pool utilization guards.
 	@if [ -z "$$PERF_BASE_URL" ] || [ -z "$$PERF_BEARER_TOKEN" ]; then 		echo "error: PERF_BASE_URL and PERF_BEARER_TOKEN are required"; 		echo "example: PERF_BASE_URL=http://127.0.0.1:8000 PERF_BEARER_TOKEN='<jwt>' PERF_RULE_ID='<uuid>' make perf-smoke"; 		exit 1; 	fi
 	@if command -v k6 >/dev/null 2>&1; then 		echo "Using local k6 binary"; 		k6 run scripts/perf/core_flows_smoke.js; 	else 		echo "k6 not found; using grafana/k6 Docker image"; 		docker run --rm -i 			-e PERF_BASE_URL -e PERF_BEARER_TOKEN -e PERF_RULE_ID -e PERF_ENABLE_RULE_RUN 			-e PERF_VUS -e PERF_DURATION -e PERF_LIST_PATH -e PERF_RELEASES_LIST_PATH -e PERF_SEARCH_PATH 			-e PERF_RULE_RUN_PATH -e PERF_SEARCH_KEYWORDS -e PERF_SEARCH_PROVIDERS -e PERF_SEARCH_PAGE 			-e PERF_SEARCH_PAGE_SIZE 			-v "$(PWD):/work" -w /work 			grafana/k6:0.52.0 run scripts/perf/core_flows_smoke.js; 	fi
 

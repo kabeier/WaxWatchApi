@@ -240,6 +240,7 @@ Enforcement notes:
 - Exception: change-surface-triggered PRs that are strictly test/governance-only (no API/runtime/migration-affecting behavior changes) may omit `CHANGELOG.md`.
 - CI also runs `python scripts/check_frontend_contract_sync.py`, which fails if changes under `app/api/` or `app/schemas/` do not include a same-PR update to `docs/FRONTEND_API_CONTRACT.md`.
 - This includes non-schema router changes (for example health/metrics behavior updates) because frontend contract changelog must track API-facing adjustments.
+- When health/metrics router behavior changes, keep targeted tests updated for scrape-time metric branches to avoid silent coverage regressions in CI.
 - CI also runs `python -m scripts.openapi_snapshot --check`, which fails when generated OpenAPI output from `app/main.py` differs from `docs/openapi.snapshot.json`.
 
 ### Change-surface remediation checklist
