@@ -28,6 +28,17 @@ Use the same commands that CI uses before opening a pull request:
 - Pytest with coverage collection and threshold enforcement (`--cov-fail-under=85` by default)
 - Dedicated orchestrated Celery/Redis smoke test (`make ci-celery-redis-smoke`, backed by `scripts/ci_celery_redis_smoke.sh`)
 
+### CI trigger intent and enforcement
+
+The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four events so contributors know when policy and quality gates run:
+
+- `pull_request` targeting `main`: primary branch-protection gate for code review merges.
+- `push` to `main`: post-merge protection to ensure the default branch always satisfies the full CI suite.
+- `workflow_dispatch`: manual reruns/debugging for flaky infrastructure or one-off verification.
+- `schedule` (weekly): periodic maintenance execution for governance drift checks, dependency sanity, and smoke coverage even when no PRs are open.
+
+If your change affects CI behavior or governance policy, update this section alongside `.github/workflows/ci.yml` in the same PR.
+
 
 ## Performance smoke workflow
 
