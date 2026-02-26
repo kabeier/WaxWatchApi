@@ -20,6 +20,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Added focused token lifecycle normalization unit coverage for Discogs metadata parsing/date coercion and migration extractor fallback paths to prevent coverage regression in DB CI gates.
 - Hardened `external_account_links` token lifecycle persistence with normalized refresh/expiry/type/scope columns, migration backfill from legacy `token_metadata`, and Discogs token handling updates plus provider-agnostic token lifecycle helpers/tests.
 - Expanded health router tests to cover `_record_db_pool_utilization` guard branches (missing pool API and non-positive pool size) to stabilize CI coverage/regression checks.
 - Corrected provider failure metrics test expectation to assert the actual `ProviderError` message label (`error_type="bad request"`) emitted by current provider logging behavior.
