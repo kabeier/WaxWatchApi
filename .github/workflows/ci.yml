@@ -41,9 +41,9 @@ jobs:
         run: |
           set -euo pipefail
           test_file="tests/test_celery_redis_integration.py"
-          if ! rg -q "RUN_CELERY_REDIS_INTEGRATION" "$test_file" \
-            || ! rg -q "@pytest.mark.integration|pytest\.mark\.integration" "$test_file" \
-            || ! rg -q "skipif|pytest\.skip" "$test_file"; then
+          if ! grep -q "RUN_CELERY_REDIS_INTEGRATION" "$test_file" \
+            || ! grep -Eq "@pytest.mark.integration|pytest\.mark\.integration" "$test_file" \
+            || ! grep -Eq "skipif|pytest\.skip" "$test_file"; then
             echo "Celery integration guardrails missing from $test_file"
             echo "Expected: RUN_CELERY_REDIS_INTEGRATION + integration marker + skipif/skip guard"
             sed -n '1,80p' "$test_file"
