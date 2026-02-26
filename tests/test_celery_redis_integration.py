@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from celery.contrib.testing.worker import start_worker
 
 from app.api.routers.health import _probe_redis
 from app.core.celery_app import celery_app
@@ -23,6 +24,7 @@ def test_celery_redis_roundtrip_and_readiness(monkeypatch):
     assert probe_ok, probe_reason
 
     payload = "redis-smoke"
-    async_result = redis_roundtrip_echo_task.delay(payload)
+    with start_worker(celery_app, perform_ping_check=False, loglevel="WARNING"):
+        async_result = redis_roundtrip_echo_task.delay(payload)
 
-    assert async_result.get(timeout=20) == payload
+        assert async_result.get(timeout=20) == payload
