@@ -43,9 +43,23 @@ def upgrade() -> None:
                     WHEN jsonb_typeof(token_metadata -> 'scopes') = 'array'
                         THEN token_metadata -> 'scopes'
                     WHEN NULLIF(BTRIM(token_metadata ->> 'scopes'), '') IS NOT NULL
-                        THEN to_jsonb(array_remove(regexp_split_to_array(BTRIM(token_metadata ->> 'scopes'), E'\\s+'), ''))
+                        THEN to_jsonb(
+                            ARRAY(
+                                SELECT scope_token
+                                FROM unnest(regexp_split_to_array(BTRIM(token_metadata ->> 'scopes'), E'\\s+'))
+                                    AS scope_token
+                                WHERE scope_token <> ''
+                            )
+                        )
                     WHEN NULLIF(BTRIM(token_metadata ->> 'scope'), '') IS NOT NULL
-                        THEN to_jsonb(array_remove(regexp_split_to_array(BTRIM(token_metadata ->> 'scope'), E'\\s+'), ''))
+                        THEN to_jsonb(
+                            ARRAY(
+                                SELECT scope_token
+                                FROM unnest(regexp_split_to_array(BTRIM(token_metadata ->> 'scope'), E'\\s+'))
+                                    AS scope_token
+                                WHERE scope_token <> ''
+                            )
+                        )
                     ELSE NULL
                 END
             )
@@ -57,19 +71,22 @@ def upgrade() -> None:
         """
         UPDATE external_account_links
         SET scopes = to_jsonb(
-            array_remove(
-                regexp_split_to_array(
-                    BTRIM(
-                        regexp_replace(
-                            COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope'),
-                            E'[[:space:]]+',
-                            ' ',
-                            'g'
-                        )
-                    ),
-                    ' '
-                ),
-                ''
+            ARRAY(
+                SELECT scope_token
+                FROM unnest(
+                    string_to_array(
+                        BTRIM(
+                            regexp_replace(
+                                COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope'),
+                                E'[[:space:]]+',
+                                ' ',
+                                'g'
+                            )
+                        ),
+                        ' '
+                    )
+                ) AS scope_token
+                WHERE scope_token <> ''
             )
         )
         WHERE scopes IS NULL
