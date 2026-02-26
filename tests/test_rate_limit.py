@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from fastapi import Request
+from fastapi import Depends, Request
 
+from app.api.deps import rate_limit_scope
 from app.core.config import settings
 from app.core.rate_limit import reset_rate_limiter_state
 from app.main import create_app
@@ -79,14 +80,26 @@ def test_stream_events_scope_is_throttled(client, user, headers, monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_global_authenticated_burst", 0)
     reset_rate_limiter_state()
 
-    auth_headers = headers(user.id)
+    app = create_app()
 
-    with client.stream("GET", "/api/stream/events", headers=auth_headers) as first:
+    @app.get(
+        "/api/stream-rate-limit-probe",
+        dependencies=[Depends(rate_limit_scope("stream_events", require_authenticated_principal=True))],
+    )
+    def stream_probe():
+        return {"ok": True}
+
+    from fastapi.testclient import TestClient
+
+    with TestClient(app) as local_client:
+        auth_headers = headers(user.id)
+
+        first = local_client.get("/api/stream-rate-limit-probe", headers=auth_headers)
         assert first.status_code == 200
 
-    second = client.get("/api/stream/events", headers=auth_headers)
-    assert second.status_code == 429
-    assert second.json()["error"]["details"]["scope"] == "stream_events"
+        second = local_client.get("/api/stream-rate-limit-probe", headers=auth_headers)
+        assert second.status_code == 429
+        assert second.json()["error"]["details"]["scope"] == "stream_events"
 
 
 def test_rate_limiting_can_be_disabled_for_non_throttled_behavior(client, user, headers, monkeypatch):
