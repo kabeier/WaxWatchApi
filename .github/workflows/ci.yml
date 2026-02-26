@@ -10,6 +10,11 @@ on:
     # Weekly Monday maintenance/governance/dependency-smoke run.
     - cron: "0 6 * * 1"
 
+# Note: security workflows are intentionally split into dedicated pipelines:
+# - .github/workflows/security.yml (CodeQL)
+# - .github/workflows/dependency-audit.yml (pip-audit)
+# - .github/workflows/secrets-scan.yml (Gitleaks)
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
