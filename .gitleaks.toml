@@ -1,0 +1,13 @@
+# Gitleaks configuration
+#
+# This allowlist entry suppresses a historical false positive in this repository's
+# PR commit range: an old snapshot-bootstrap default matched the generic-api-key
+# detector but was not a real credential.
+#
+# Scope is intentionally narrow to the single offending commit hash.
+
+[allowlist]
+description = "Allow historical OpenAPI snapshot bootstrap false-positive"
+commits = [
+  "f5b7a569477d56ba66b624ebfb860c907852342c",
+]
