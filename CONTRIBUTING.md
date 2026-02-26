@@ -88,6 +88,28 @@ pre-commit run --hook-stage pre-push --all-files
 
 Following this workflow ensures your branch meets the same lint, formatting, typing, migration, and coverage gates that run in CI.
 
+## Lockfile refresh workflow (Python 3.12)
+
+Lockfiles must be generated with **Python 3.12** so local output matches CI/deployment markers and headers.
+
+1. Ensure tooling is available for Python 3.12:
+   ```bash
+   python3.12 -m pip install pip-tools
+   ```
+2. Refresh both lockfiles from their `.in` sources:
+   ```bash
+   make lock-refresh
+   ```
+   This runs:
+   - `requirements.in -> requirements.txt`
+   - `requirements-dev.in -> requirements-dev.txt`
+3. Validate lockfile headers before commit:
+   ```bash
+   make check-lock-python-version
+   ```
+
+CI also runs `make check-lock-python-version`, so PRs fail if lockfiles were generated with the wrong Python major/minor version.
+
 
 ### Ruff remediation quick path
 
