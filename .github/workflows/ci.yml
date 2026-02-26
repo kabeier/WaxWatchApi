@@ -73,10 +73,23 @@ jobs:
           PR_SHA="${GITHUB_SHA}"
 
           git checkout --force "$BASE_SHA"
-          # Base branches may not include the orchestrated Celery smoke isolation yet,
-          # so force-ignore the worker-dependent integration test for coverage baseline.
-          PYTEST_ADDOPTS="--ignore=tests/test_celery_redis_integration.py"             make ci-db-tests COVERAGE_FAIL_UNDER=$COVERAGE_FAIL_UNDER
+          # Base branches may not include Celery smoke isolation yet. Run a minimal
+          # DB coverage pass here and explicitly ignore worker-dependent integration tests.
+          trap 'docker compose -f docker-compose.test.yml down >/dev/null 2>&1 || true' EXIT
+          docker compose -f docker-compose.test.yml up -d postgres redis
+          make wait-test-db
+          for _ in $(seq 1 60); do
+            if docker compose -f docker-compose.test.yml exec -T redis redis-cli ping >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "alembic upgrade heads"
+          docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "python -m scripts.schema_drift_check"
+          docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$COVERAGE_FAIL_UNDER --ignore=tests/test_celery_redis_integration.py"
           mv coverage.json coverage.base.json
+          docker compose -f docker-compose.test.yml down >/dev/null 2>&1 || true
+          trap - EXIT
 
           git checkout --force "$PR_SHA"
           mv coverage.pr.json coverage.json
