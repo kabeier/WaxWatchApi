@@ -130,14 +130,15 @@ def enforce_rate_limit(
         return
 
     authenticated_user_id = getattr(request.state, "user_id", None)
-    if isinstance(authenticated_user_id, str) and authenticated_user_id:
+    if authenticated_user_id:
         principal_key = f"auth:{authenticated_user_id}"
     else:
         identifier = _token_fingerprint(request)
+        client_key = f"anon:{_client_identifier(request)}"
         if identifier is None:
-            principal_key = f"anon:{_client_identifier(request)}"
+            principal_key = client_key
         elif require_authenticated_principal:
-            principal_key = f"anon:{_client_identifier(request)}:bearer"
+            principal_key = f"{client_key}:bearer"
         else:
             principal_key = f"auth:{identifier}"
 

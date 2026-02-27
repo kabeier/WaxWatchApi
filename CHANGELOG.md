@@ -12,6 +12,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Standardized provider retry telemetry metadata across Discogs/eBay to emit unambiguous `attempt` (current) and `attempts_total` (configured total) fields while retaining `max_attempts` as a compatibility alias, and updated provider retry assertions accordingly.
 - Restricted mock provider registration/default search-provider selection to explicit safe environments (`dev`, `test`, `local`) and added coverage to prevent production-like default inclusion.
 - Updated scoped rate-limiter behavior so routes using `require_authenticated_principal=True` no longer bypass unauthenticated callers; missing-token requests now consume scoped anonymous (`anon:<client>`) budget and are throttled with `429` once exhausted.
+- Refined scoped principal keying to prefer stable authenticated `request.state.user_id` when available, while pre-auth/invalid-bearer requests share anonymous-hybrid keys (`anon:<client>` / `anon:<client>:bearer`) so bogus token spray cannot bypass auth-required budgets.
 - Deferred notification task dispatch until SQL transaction commit via session post-commit hooks, and retained failed post-commit enqueue attempts for retry on the session's next commit boundary.
 - Improved notification task observability by logging structured context when delivery tasks cannot find their notification records (likely race indicator).
 

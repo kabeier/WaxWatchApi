@@ -278,7 +278,7 @@ When updating request throttling behavior, keep these surfaces synchronized in t
 - `CHANGELOG.md` under `Unreleased`.
 
 Always add/adjust tests under `tests/` for both limit-exceeded and exempt-path behavior.
-- For scoped dependencies that set `require_authenticated_principal=True`, verify unauthenticated calls still consume scoped budget (anonymous keying) and can return `429` before auth dependency rejection on subsequent attempts.
+- For scoped dependencies that set `require_authenticated_principal=True`, verify unresolved principals (missing/invalid bearer) still consume shared scoped budget (`anon:<client>` / `anon:<client>:bearer`) and can return `429` before auth dependency rejection on subsequent attempts.
 
 ## Integration hygiene reminder
 
