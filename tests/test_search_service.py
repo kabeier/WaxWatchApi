@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 
 from app.db import models
+from app.providers import registry as provider_registry
 from app.providers.base import ProviderError, ProviderListing
 from app.schemas.search import SearchQuery
 from app.services import search as search_service
@@ -35,13 +36,35 @@ class _FakeDB:
 
 
 def test_default_providers_filters_out_non_enum_values(monkeypatch):
-    monkeypatch.setattr(search_service, "list_available_providers", lambda: ["discogs", "mock", "bad"])
+    monkeypatch.setattr(search_service, "list_available_providers", lambda: ["discogs", "bad"])
 
     providers = search_service._default_providers()
 
     assert "discogs" in providers
-    assert "mock" in providers
+    assert "mock" not in providers
     assert "bad" not in providers
+
+
+def test_default_providers_excludes_mock_in_prod_environment(monkeypatch):
+    monkeypatch.setattr(provider_registry.settings, "environment", "prod")
+    monkeypatch.setattr(
+        search_service, "list_available_providers", provider_registry.list_available_providers
+    )
+
+    providers = search_service._default_providers()
+
+    assert "mock" not in providers
+
+
+def test_default_providers_includes_mock_in_test_environment(monkeypatch):
+    monkeypatch.setattr(provider_registry.settings, "environment", "test")
+    monkeypatch.setattr(
+        search_service, "list_available_providers", provider_registry.list_available_providers
+    )
+
+    providers = search_service._default_providers()
+
+    assert "mock" in providers
 
 
 def test_condition_meets_minimum_handles_unknown_values():
