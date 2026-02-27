@@ -129,11 +129,17 @@ def enforce_rate_limit(
     if not settings.rate_limit_enabled:
         return
 
-    identifier = _token_fingerprint(request)
-    if identifier is None:
-        principal_key = f"anon:{_client_identifier(request)}"
+    authenticated_user_id = getattr(request.state, "user_id", None)
+    if isinstance(authenticated_user_id, str) and authenticated_user_id:
+        principal_key = f"auth:{authenticated_user_id}"
     else:
-        principal_key = f"auth:{identifier}"
+        identifier = _token_fingerprint(request)
+        if identifier is None:
+            principal_key = f"anon:{_client_identifier(request)}"
+        elif require_authenticated_principal:
+            principal_key = f"anon:{_client_identifier(request)}:bearer"
+        else:
+            principal_key = f"auth:{identifier}"
 
     policy = _scope_policies()[scope]
     allowed, retry_after = _RATE_LIMITER.check(f"{scope}:{principal_key}", policy)

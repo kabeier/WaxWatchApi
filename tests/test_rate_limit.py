@@ -124,6 +124,36 @@ def test_search_scope_tracks_unauthenticated_requests_and_throttles(client, monk
     assert second.json()["error"]["details"]["scope"] == "search"
 
 
+def test_search_scope_bogus_bearer_tokens_share_budget_for_auth_required_scope(client, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "rate_limit_search_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_search_burst", 0)
+    monkeypatch.setattr(settings, "rate_limit_global_anonymous_rpm", 100)
+    monkeypatch.setattr(settings, "rate_limit_global_anonymous_burst", 0)
+    reset_rate_limiter_state()
+
+    payload = {
+        "name": "house alerts",
+        "query": {"keywords": ["house"], "providers": ["mock"]},
+        "poll_interval_seconds": 600,
+    }
+
+    first = client.post(
+        "/api/search/save-alert",
+        json=payload,
+        headers={"Authorization": "Bearer bogus-token-1"},
+    )
+    assert first.status_code == 401
+
+    second = client.post(
+        "/api/search/save-alert",
+        json=payload,
+        headers={"Authorization": "Bearer bogus-token-2"},
+    )
+    assert second.status_code == 429
+    assert second.json()["error"]["details"]["scope"] == "search"
+
+
 def test_watch_rules_scope_tracks_unauthenticated_requests_and_throttles(client, monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
     monkeypatch.setattr(settings, "rate_limit_watch_rules_rpm", 1)
