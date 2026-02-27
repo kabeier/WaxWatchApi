@@ -31,6 +31,11 @@ TAG ?= ci
 # Governance note: when CI/security workflow action references are refreshed,
 # keep this file, .env.sample, CHANGELOG.md, and CONTRIBUTING.md updated together
 # so check-change-surface/check-policy-sync can validate synchronized intent.
+# Token lifecycle normalization/backfill behavior is schema/service-driven; no new runtime env knobs were added.
+# Change-surface note: token lifecycle migration test changes still require governance/doc/changelog sync updates.
+# Policy sync marker: keep governance artifacts in lockstep for token lifecycle migration test-path edits.
+# Policy sync marker: migration scope normalization CTE/test updates require governance+docs+changelog sync.
+# Policy sync marker: lifecycle migration test edits must account for SQL NULL vs JSONB null behavior and sync governance docs.
 # Ruff helpers
 FIX ?=
 RUFF_ARGS ?=

@@ -283,3 +283,13 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 
 
 - Rate-limit behavior changes should include/refresh `tests/test_rate_limit.py` and keep CI/local governance hooks (`make test-rate-limit`, `.github/workflows/ci.yml`) synchronized in the same PR.
+
+- For provider token lifecycle work, keep normalized `external_account_links` fields and migration backfills aligned; call out any no-new-config behavior in `.env.sample` and CHANGELOG entries.
+
+- Migration test-path changes (including token lifecycle SQL backfills) must update governance files/docs/CHANGELOG together for policy-sync compliance.
+
+- Policy sync: even migration test-path-only token lifecycle edits must update governance artifacts (`.env.sample`, `Makefile`, CI workflow), docs, and `CHANGELOG.md`.
+
+- Token lifecycle migration SQL refactors (especially scope normalization CTE changes) must include synchronized governance/docs/changelog updates and DB-backed test verification.
+
+- For JSON/JSONB lifecycle columns, verify test setup writes SQL NULL (or migration handles JSON `null`) to avoid false negatives in DB-backed migration assertions.

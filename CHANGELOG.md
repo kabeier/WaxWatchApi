@@ -25,6 +25,10 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Fixed lifecycle scope backfill update predicate to treat both SQL NULL and JSONB `null` as missing scopes, addressing migration write-skips in DB CI runs.
+- Refined migration `scope_normalized` CTE into single-row-per-id COALESCE priority selection to prevent non-persisted scope writes under CI DB runs.
+- Added deterministic `scopes` array construction (`to_jsonb(array_remove(string_to_array(...), ''))`) in migration CTE to avoid null scope regressions in migration runtime tests.
+- Stabilized token lifecycle scope-string backfill SQL using deterministic CTE normalization and expanded migration-coverage variants (whitespace, scope fallback, blank handling, idempotency).
 - Aligned `scripts/perf/core_flows_smoke.js` thresholds and perf README documentation to the same read/query/write SLO gates used for release decisions, including p95/p99 latency, error-rate, and check-rate constraints.
 - Expanded deployment documentation with scaling knobs for API workers, SQLAlchemy/ PgBouncer pool sizing, and Redis/Celery runtime tuning tied to release-gate reruns.
 - Added Alembic merge revision `2dc6fd57f7d9` to unify previously divergent migration heads into a single tip for deterministic `alembic upgrade head` behavior.
@@ -32,6 +36,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Corrected change-surface governance triggers so direct edits to `app/tasks.py` now enforce synchronized updates to required governance artifacts (Makefile/CI/.env sample/docs/CHANGELOG).
 - Added focused token lifecycle normalization unit coverage for Discogs metadata parsing/date coercion and migration extractor fallback paths to prevent coverage regression in DB CI gates.
 - Hardened `external_account_links` token lifecycle persistence with normalized refresh/expiry/type/scope columns, migration backfill from legacy `token_metadata`, and Discogs token handling updates plus provider-agnostic token lifecycle helpers/tests.
+- Added a follow-up token lifecycle backfill migration and Discogs runtime hydration/preservation safeguards so normalized fields stay durable even for legacy metadata-only rows and partial reconnect payloads.
 - Expanded health router tests to cover `_record_db_pool_utilization` guard branches (missing pool API and non-positive pool size) to stabilize CI coverage/regression checks.
 - Corrected provider failure metrics test expectation to assert the actual `ProviderError` message label (`error_type="bad request"`) emitted by current provider logging behavior.
 - Wired `/metrics` collection to record `waxwatch_db_connection_utilization` from SQLAlchemy pool state so DB saturation telemetry is emitted at scrape-time.

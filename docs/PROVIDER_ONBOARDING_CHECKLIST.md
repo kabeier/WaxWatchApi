@@ -44,11 +44,20 @@ In `app/providers/registry.py`:
 The listing payload must satisfy shared ingest/search expectations:
 
 - [ ] If storing linked external account tokens, persist lifecycle fields in normalized `external_account_links` columns (`refresh_token`, `access_token_expires_at`, `token_type`, `scopes`) and keep `access_token` encrypted at rest.
+- [ ] Ensure migrations backfill normalized lifecycle columns from any legacy provider token metadata keys before rolling provider auth changes.
 - [ ] `provider`, `external_id`, `url`, `title`, `price`, and `currency` are set.
 - [ ] Optional fields map to canonical keys: `condition`, `seller`, `location`, `discogs_release_id`, `raw`.
 - [ ] IDs are stable and deterministic for the same remote listing.
 - [ ] Prices are numeric and currency is a 3-letter code when available.
 - [ ] Snapshot behavior expectation: ingest creates a `price_snapshots` row on listing create, and on updates whenever either `price` or `currency` changes (no new snapshot when both are unchanged).
+
+- [ ] Add/maintain migration tests that validate string scope normalization edge cases (tabs/newlines/blank values/fallback keys).
+
+- [ ] Confirm migration SQL tokenization path uses deterministic array construction that cannot silently evaluate to null in DB runtime tests.
+
+- [ ] Prefer single-row-per-id CTE selection for lifecycle scope backfills to reduce update-path ambiguity in DB runtime execution.
+
+- [ ] Validate migration predicates handle JSONB `null` and SQL NULL consistently for lifecycle columns when backfilling token fields.
 
 ## 6) Verification
 

@@ -76,10 +76,10 @@ class DiscogsImportService:
             link.external_user_id = external_user_id
             link.access_token = self._encrypt_access_token(access_token)
             link.token_metadata = token_metadata
-            link.refresh_token = normalized_refresh_token
-            link.access_token_expires_at = normalized_expiry
-            link.token_type = normalized_token_type
-            link.scopes = normalized_scopes
+            link.refresh_token = normalized_refresh_token or link.refresh_token
+            link.access_token_expires_at = normalized_expiry or link.access_token_expires_at
+            link.token_type = normalized_token_type or link.token_type
+            link.scopes = normalized_scopes or link.scopes
             link.connected_at = now
             link.updated_at = now
 
@@ -301,8 +301,38 @@ class DiscogsImportService:
         if not link:
             return None
 
+        self._ensure_normalized_lifecycle_fields(db, link=link)
         self._ensure_token_encrypted(db, link=link)
         return link
+
+    def _ensure_normalized_lifecycle_fields(self, db: Session, *, link: models.ExternalAccountLink) -> None:
+        metadata = link.token_metadata if isinstance(link.token_metadata, dict) else None
+        if not metadata:
+            return
+
+        normalized_refresh_token = self._metadata_string(metadata, "refresh_token")
+        normalized_token_type = self._metadata_string(metadata, "token_type")
+        normalized_scopes = self._metadata_scopes(metadata)
+        normalized_expiry = self._metadata_datetime(metadata, "access_token_expires_at", "expires_at")
+
+        changed = False
+        if link.refresh_token is None and normalized_refresh_token is not None:
+            link.refresh_token = normalized_refresh_token
+            changed = True
+        if link.token_type is None and normalized_token_type is not None:
+            link.token_type = normalized_token_type
+            changed = True
+        if link.scopes is None and normalized_scopes is not None:
+            link.scopes = normalized_scopes
+            changed = True
+        if link.access_token_expires_at is None and normalized_expiry is not None:
+            link.access_token_expires_at = normalized_expiry
+            changed = True
+
+        if changed:
+            link.updated_at = datetime.now(timezone.utc)
+            db.add(link)
+            db.flush()
 
     def list_sync_candidates(self, db: Session, *, limit: int) -> list[models.ExternalAccountLink]:
         normalized_limit = max(limit, 0)

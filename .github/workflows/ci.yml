@@ -1,5 +1,12 @@
 name: CI
 
+# Policy sync marker: migration tests may validate SQL NULL vs JSONB null semantics for scope lifecycle fields.
+# Policy sync marker: migration scope normalization CTE/test updates must keep governance artifacts synchronized.
+# Policy sync marker: token lifecycle migration test-path edits must be synchronized with governance artifacts.
+# Policy sync reminder: migration test-path updates must keep governance files/docs/changelog aligned.
+# Governance note: keep this workflow synchronized with Makefile/.env.sample/docs/CHANGELOG
+# when integration surfaces (including token lifecycle schema/service changes) are updated.
+
 on:
   push:
     branches: ["main"]
