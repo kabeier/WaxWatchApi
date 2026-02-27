@@ -7,7 +7,7 @@ from threading import Lock
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func
+from sqlalchemy import event, func
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -17,6 +17,8 @@ from app.services.email_provider import EmailDeliveryRequest, get_email_provider
 from app.services.task_dispatcher import enqueue_notification_delivery
 
 logger = get_logger(__name__)
+
+_POST_COMMIT_NOTIFICATION_QUEUE_KEY = "notifications.post_commit_delivery"
 
 DELIVERY_FREQUENCY_SECONDS = {
     "instant": 0,
@@ -221,6 +223,29 @@ def _record_notification_backlog(db: Session, *, channel: models.NotificationCha
     set_notification_backlog(channel=channel.value, pending_count=int(pending_count or 0))
 
 
+def _queue_notification_delivery(db: Session, *, notification_id: UUID, countdown: int | None) -> None:
+    pending_dispatches: dict[UUID, int | None] = db.info.setdefault(
+        _POST_COMMIT_NOTIFICATION_QUEUE_KEY,
+        {},
+    )
+    pending_dispatches[notification_id] = countdown
+
+
+@event.listens_for(Session, "after_commit")
+def _dispatch_notification_delivery_after_commit(session: Session) -> None:
+    pending_dispatches: dict[UUID, int | None] = session.info.pop(
+        _POST_COMMIT_NOTIFICATION_QUEUE_KEY,
+        {},
+    )
+    for notification_id, countdown in pending_dispatches.items():
+        enqueue_notification_delivery(str(notification_id), countdown=countdown)
+
+
+@event.listens_for(Session, "after_rollback")
+def _clear_notification_delivery_after_rollback(session: Session) -> None:
+    session.info.pop(_POST_COMMIT_NOTIFICATION_QUEUE_KEY, None)
+
+
 def enqueue_from_event(
     db: Session,
     *,
@@ -262,7 +287,7 @@ def enqueue_from_event(
         notifications.append(notification)
         if notification.status == models.NotificationStatus.pending:
             countdown = defer_delivery_seconds(db, notification=notification)
-            enqueue_notification_delivery(str(notification.id), countdown=countdown)
+            _queue_notification_delivery(db, notification_id=notification.id, countdown=countdown)
             _record_notification_backlog(db, channel=channel)
 
     return notifications

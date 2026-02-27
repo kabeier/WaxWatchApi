@@ -116,12 +116,25 @@ def test_deliver_notification_task_raises_for_unsupported_channel(monkeypatch):
     assert db.closed == 1
 
 
-def test_deliver_notification_task_returns_early_for_missing_notification(monkeypatch):
+def test_deliver_notification_task_logs_missing_notification_context(monkeypatch):
     db = _FakeDB(notification=None)
     monkeypatch.setattr("app.tasks.SessionLocal", lambda: db)
 
-    deliver_notification_task.run(str(uuid.uuid4()))
+    warned: dict[str, object] = {}
 
+    def _capture_warning(message, *, extra):
+        warned["message"] = message
+        warned["extra"] = extra
+
+    monkeypatch.setattr("app.tasks.logger.warning", _capture_warning)
+
+    notification_id = str(uuid.uuid4())
+    deliver_notification_task.run(notification_id)
+
+    assert warned == {
+        "message": "notifications.delivery.notification_not_found",
+        "extra": {"notification_id": notification_id, "likely_race": True},
+    }
     assert db.commits == 0
     assert db.rollbacks == 0
     assert db.closed == 1

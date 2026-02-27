@@ -49,6 +49,53 @@ def test_enqueue_from_event_is_idempotent(db_session, user):
     assert "waxwatch_notification_backlog_items" in payload
 
 
+def test_enqueue_from_event_defers_dispatch_until_commit_and_rolls_back_cleanly(
+    db_session, user, monkeypatch
+):
+    dispatched: list[tuple[str, int | None]] = []
+
+    monkeypatch.setattr(
+        "app.services.notifications.enqueue_notification_delivery",
+        lambda notification_id, *, countdown=None: dispatched.append((notification_id, countdown)),
+    )
+
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(
+        db_session,
+        event=event,
+        channels=(models.NotificationChannel.email,),
+    )
+
+    assert len(notifications) == 1
+    db_session.rollback()
+    db_session.commit()
+
+    assert dispatched == []
+
+
+def test_enqueue_from_event_dispatches_once_after_commit(db_session, user, monkeypatch):
+    dispatched: list[tuple[str, int | None]] = []
+
+    monkeypatch.setattr(
+        "app.services.notifications.enqueue_notification_delivery",
+        lambda notification_id, *, countdown=None: dispatched.append((notification_id, countdown)),
+    )
+
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(
+        db_session,
+        event=event,
+        channels=(models.NotificationChannel.email,),
+    )
+
+    assert len(notifications) == 1
+    notification = notifications[0]
+
+    db_session.commit()
+
+    assert dispatched == [(str(notification.id), None)]
+
+
 def test_notifications_endpoints(client, db_session, user, headers):
     event = _create_event(db_session, user.id)
     enqueue_from_event(db_session, event=event)
