@@ -100,6 +100,34 @@ def test_passes_filters_respects_price_bounds():
     assert search_service._passes_filters(above_max, query) is False
 
 
+def test_resolve_providers_uses_defaults_when_query_omits_providers(monkeypatch):
+    monkeypatch.setattr(search_service, "_default_providers", lambda: ["discogs", "ebay"])
+    query = SearchQuery(keywords=["primus"], page=1, page_size=10)
+
+    assert search_service._resolve_providers(query) == ["discogs", "ebay"]
+
+
+def test_passes_filters_accepts_listing_within_bounds_and_condition():
+    query = SearchQuery(
+        keywords=["primus"],
+        min_price=10,
+        max_price=50,
+        min_condition="vg",
+        page=1,
+        page_size=10,
+    )
+    listing = ProviderListing(
+        provider="discogs",
+        external_id="ok",
+        url="https://example.com/ok",
+        title="OK",
+        price=30,
+        condition="vg+",
+    )
+
+    assert search_service._passes_filters(listing, query) is True
+
+
 def test_condition_meets_minimum_handles_unknown_values():
     assert search_service._condition_meets_minimum("vg+", "vg") is True
     assert search_service._condition_meets_minimum("poor", "nm") is False

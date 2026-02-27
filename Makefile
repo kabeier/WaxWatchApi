@@ -37,6 +37,7 @@ TAG ?= ci
 # Policy sync marker: migration scope normalization CTE/test updates require governance+docs+changelog sync.
 # Policy sync marker: lifecycle migration test edits must account for SQL NULL vs JSONB null behavior and sync governance docs.
 # Provider policy marker: default provider resolution keeps mock fail-closed outside safe ENVIRONMENT values unless explicitly enabled.
+# Coverage policy marker: small search-service test additions may require governance/doc sync for change-surface checks.
 # Ruff helpers
 FIX ?=
 RUFF_ARGS ?=

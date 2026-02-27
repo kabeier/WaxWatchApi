@@ -54,6 +54,7 @@ Security checks are additionally split into dedicated workflows for least-privil
 - `.github/workflows/secrets-scan.yml` (Gitleaks on PRs)
 
 Action pin governance: keep marketplace actions SHA-pinned with version comments (for example `# v6.0.2`) when rotating versions, and update `.env.sample`, `Makefile`, and `CHANGELOG.md` in the same PR so policy-sync checks remain green.
+- When updating provider defaulting/search tests, keep governance sync files (`.env.sample`, `.github/workflows/ci.yml`, `Makefile`, `CHANGELOG.md`) updated in the same PR as needed by policy checks.
 
 For local parity, use `make security-deps-audit` and `make security-secrets-scan` before opening security-sensitive PRs.
 

@@ -25,6 +25,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Added focused search-service unit coverage for `_resolve_providers` default fallback and `_passes_filters` in-range acceptance to avoid coverage-regression gate failures.
 - Gated default `mock` provider availability to safe environments (`dev`, `test`, `local`) with explicit enablement checks, and aligned search default-provider resolution/tests accordingly.
 - Fixed lifecycle scope backfill update predicate to treat both SQL NULL and JSONB `null` as missing scopes, addressing migration write-skips in DB CI runs.
 - Refined migration `scope_normalized` CTE into single-row-per-id COALESCE priority selection to prevent non-persisted scope writes under CI DB runs.

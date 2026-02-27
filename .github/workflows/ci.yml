@@ -7,6 +7,7 @@ name: CI
 # Governance note: keep this workflow synchronized with Makefile/.env.sample/docs/CHANGELOG
 # when integration surfaces (including token lifecycle schema/service changes) are updated.
 # Provider defaults policy: mock provider is only expected in safe envs (dev/test/local) unless explicitly enabled.
+# Coverage-sync policy: provider-defaulting test updates should keep governance artifacts synchronized.
 
 on:
   push:
