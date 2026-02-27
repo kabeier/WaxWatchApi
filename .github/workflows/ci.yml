@@ -1,5 +1,7 @@
 name: CI
 
+# Governance note: notification delivery dispatch is post-commit; task orchestration changes require synced governance/docs/changelog updates.
+
 # Policy sync marker: migration tests may validate SQL NULL vs JSONB null semantics for scope lifecycle fields.
 # Policy sync marker: migration scope normalization CTE/test updates must keep governance artifacts synchronized.
 # Policy sync marker: token lifecycle migration test-path edits must be synchronized with governance artifacts.

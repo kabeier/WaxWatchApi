@@ -7,7 +7,7 @@ from threading import Lock
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func
+from sqlalchemy import event, func
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -17,6 +17,10 @@ from app.services.email_provider import EmailDeliveryRequest, get_email_provider
 from app.services.task_dispatcher import enqueue_notification_delivery
 
 logger = get_logger(__name__)
+
+_POST_COMMIT_NOTIFICATION_QUEUE_KEY = "notifications.post_commit_delivery"
+_POST_COMMIT_EPOCH_KEY = "notifications.post_commit_epoch"
+_POST_COMMIT_FAILED_EPOCH_KEY = "notifications.post_commit_failed_epoch"
 
 DELIVERY_FREQUENCY_SECONDS = {
     "instant": 0,
@@ -221,6 +225,62 @@ def _record_notification_backlog(db: Session, *, channel: models.NotificationCha
     set_notification_backlog(channel=channel.value, pending_count=int(pending_count or 0))
 
 
+def _queue_notification_delivery(db: Session, *, notification_id: UUID, countdown: int | None) -> None:
+    pending_dispatches: dict[UUID, int | None] = db.info.setdefault(
+        _POST_COMMIT_NOTIFICATION_QUEUE_KEY,
+        {},
+    )
+    pending_dispatches[notification_id] = countdown
+
+
+@event.listens_for(Session, "before_commit")
+def _bump_notification_delivery_commit_epoch(session: Session) -> None:
+    session.info[_POST_COMMIT_EPOCH_KEY] = int(session.info.get(_POST_COMMIT_EPOCH_KEY, 0)) + 1
+
+
+@event.listens_for(Session, "after_commit")
+def _dispatch_notification_delivery_after_commit(session: Session) -> None:
+    pending_dispatches: dict[UUID, int | None] = session.info.get(
+        _POST_COMMIT_NOTIFICATION_QUEUE_KEY,
+        {},
+    )
+    if not pending_dispatches:
+        return
+
+    commit_epoch = int(session.info.get(_POST_COMMIT_EPOCH_KEY, 0))
+    failed_epoch = session.info.get(_POST_COMMIT_FAILED_EPOCH_KEY)
+    if failed_epoch == commit_epoch:
+        return
+
+    failed_dispatches: dict[UUID, int | None] = {}
+    for notification_id, countdown in pending_dispatches.items():
+        try:
+            enqueue_notification_delivery(str(notification_id), countdown=countdown)
+        except Exception:
+            failed_dispatches[notification_id] = countdown
+            logger.exception(
+                "notifications.delivery.enqueue_failed",
+                extra={
+                    "notification_id": str(notification_id),
+                    "countdown": countdown,
+                },
+            )
+
+    if failed_dispatches:
+        session.info[_POST_COMMIT_NOTIFICATION_QUEUE_KEY] = failed_dispatches
+        session.info[_POST_COMMIT_FAILED_EPOCH_KEY] = commit_epoch
+        return
+
+    session.info.pop(_POST_COMMIT_NOTIFICATION_QUEUE_KEY, None)
+    session.info.pop(_POST_COMMIT_FAILED_EPOCH_KEY, None)
+
+
+@event.listens_for(Session, "after_rollback")
+def _clear_notification_delivery_after_rollback(session: Session) -> None:
+    session.info.pop(_POST_COMMIT_NOTIFICATION_QUEUE_KEY, None)
+    session.info.pop(_POST_COMMIT_FAILED_EPOCH_KEY, None)
+
+
 def enqueue_from_event(
     db: Session,
     *,
@@ -262,7 +322,7 @@ def enqueue_from_event(
         notifications.append(notification)
         if notification.status == models.NotificationStatus.pending:
             countdown = defer_delivery_seconds(db, notification=notification)
-            enqueue_notification_delivery(str(notification.id), countdown=countdown)
+            _queue_notification_delivery(db, notification_id=notification.id, countdown=countdown)
             _record_notification_backlog(db, channel=channel)
 
     return notifications

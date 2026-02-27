@@ -129,7 +129,17 @@ def deliver_notification_task(self, notification_id: str) -> None:
             .filter(models.Notification.id == UUID(notification_id))
             .one_or_none()
         )
-        if notification is None or notification.status == models.NotificationStatus.sent:
+        if notification is None:
+            logger.warning(
+                "notifications.delivery.notification_not_found",
+                extra={
+                    "notification_id": notification_id,
+                    "likely_race": True,
+                },
+            )
+            return
+
+        if notification.status == models.NotificationStatus.sent:
             return
 
         defer_seconds = defer_delivery_seconds(db, notification=notification)
