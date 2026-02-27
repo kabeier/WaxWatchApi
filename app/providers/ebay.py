@@ -198,7 +198,7 @@ class EbayClient(ProviderClient):
                     duration_ms = int((time.perf_counter() - attempt_start) * 1000)
                     request_meta = {
                         "attempt": attempt,
-                        "attempts": attempt,
+                        "attempts_total": attempts,
                         "max_attempts": attempts,
                         "retryable": True,
                         "retry_after_seconds": None,
@@ -224,13 +224,18 @@ class EbayClient(ProviderClient):
                         endpoint=endpoint,
                         method=method,
                         duration_ms=duration_ms,
-                        meta={"attempts": attempt, "max_attempts": attempts, "retryable": True},
+                        meta={
+                            "attempt": attempt,
+                            "attempts_total": attempts,
+                            "max_attempts": attempts,
+                            "retryable": True,
+                        },
                     ) from exc
 
                 retry_after_seconds = self._parse_retry_after_seconds(resp.headers.get("Retry-After"))
                 final_meta = {
                     "attempt": attempt,
-                    "attempts": attempt,
+                    "attempts_total": attempts,
                     "max_attempts": attempts,
                     "retry_after_seconds": retry_after_seconds,
                     "request_id": resp.headers.get("x-ebay-c-request-id"),

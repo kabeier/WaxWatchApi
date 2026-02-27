@@ -46,6 +46,7 @@ def test_discogs_retries_and_uses_retry_after(monkeypatch):
 
     monkeypatch.setattr("app.providers.discogs.time.sleep", fake_sleep)
     monkeypatch.setattr("app.providers.discogs.httpx.Client", lambda timeout: _FakeClient(responses))
+    monkeypatch.setattr("app.providers.discogs.settings.discogs_max_attempts", 2)
 
     client = DiscogsClient()
     listings = client.search(query={"keywords": ["primus"]}, limit=10)
@@ -53,7 +54,9 @@ def test_discogs_retries_and_uses_retry_after(monkeypatch):
     assert listings == []
     assert len(sleeps) == 1
     assert client.last_request_meta is not None
-    assert client.last_request_meta["attempts"] == 2
+    assert client.last_request_meta["attempt"] == 2
+    assert client.last_request_meta["attempts_total"] == 2
+    assert client.last_request_meta["max_attempts"] == 2
 
 
 def test_discogs_network_error_has_attempt_metadata(monkeypatch):
@@ -70,6 +73,8 @@ def test_discogs_network_error_has_attempt_metadata(monkeypatch):
         client.search(query={"keywords": ["primus"]}, limit=10)
     except ProviderError as exc:
         assert exc.meta is not None
-        assert exc.meta["attempts"] == 2
+        assert exc.meta["attempt"] == 2
+        assert exc.meta["attempts_total"] == 2
+        assert exc.meta["max_attempts"] == 2
     else:
         raise AssertionError("Expected ProviderError")
