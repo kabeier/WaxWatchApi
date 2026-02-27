@@ -30,7 +30,15 @@ def _ebay_enabled() -> tuple[bool, str | None]:
 
 
 def _mock_enabled() -> tuple[bool, str | None]:
-    return True, None
+    configured, reason = settings.provider_enabled("mock")
+    if not configured:
+        return False, reason
+
+    environment = (settings.environment or "").strip().lower()
+    if environment in {"dev", "test", "local"}:
+        return True, None
+
+    return False, "mock provider is only enabled in dev/test/local environments"
 
 
 def _build_registrations() -> dict[str, ProviderRegistration]:
@@ -80,8 +88,14 @@ def _build_registrations() -> dict[str, ProviderRegistration]:
 PROVIDERS: dict[str, ProviderRegistration] = _build_registrations()
 
 
+def _get_registrations() -> dict[str, ProviderRegistration]:
+    global PROVIDERS
+    PROVIDERS = _build_registrations()
+    return PROVIDERS
+
+
 def list_available_providers() -> list[str]:
-    return [name for name, registration in PROVIDERS.items() if registration.enabled]
+    return [name for name, registration in _get_registrations().items() if registration.enabled]
 
 
 def get_provider_registration(name: str) -> ProviderRegistration:
@@ -89,7 +103,7 @@ def get_provider_registration(name: str) -> ProviderRegistration:
     if not key:
         raise ValueError("Provider name is required")
 
-    registration = PROVIDERS.get(key)
+    registration = _get_registrations().get(key)
     if not registration:
         raise ValueError(f"Unknown provider: {key}")
 
@@ -111,7 +125,7 @@ def get_provider_class(name: str):
     if not key:
         raise ValueError("Provider name is required")
 
-    registration = PROVIDERS.get(key)
+    registration = _get_registrations().get(key)
     if not registration:
         raise ValueError(f"Unknown provider: {key}")
 
