@@ -264,6 +264,97 @@ def _select_scope_debug_row(db_session: sa.orm.Session, *, link_id) -> dict[str,
     )
 
 
+def _select_scope_update_predicate_state(db_session: sa.orm.Session, *, link_id) -> dict[str, object | None]:
+    return (
+        db_session.execute(
+            sa.text(
+                """
+                WITH scope_sources AS (
+                    SELECT
+                        eal.id,
+                        CASE
+                            WHEN jsonb_typeof(eal.token_metadata -> 'oauth_scopes') = 'array' THEN (
+                                SELECT to_jsonb(ARRAY_AGG(token))
+                                FROM (
+                                    SELECT BTRIM(value) AS token
+                                    FROM jsonb_array_elements_text(eal.token_metadata -> 'oauth_scopes')
+                                ) normalized
+                                WHERE token <> ''
+                            )
+                            ELSE NULL
+                        END AS oauth_scopes_jsonb,
+                        CASE
+                            WHEN jsonb_typeof(eal.token_metadata -> 'scopes') = 'array' THEN (
+                                SELECT to_jsonb(ARRAY_AGG(token))
+                                FROM (
+                                    SELECT BTRIM(value) AS token
+                                    FROM jsonb_array_elements_text(eal.token_metadata -> 'scopes')
+                                ) normalized
+                                WHERE token <> ''
+                            )
+                            ELSE NULL
+                        END AS scopes_array_jsonb,
+                        (
+                            SELECT
+                                CASE
+                                    WHEN NULLIF(normalized_scope_text, '') IS NULL THEN NULL
+                                    ELSE to_jsonb(array_remove(string_to_array(normalized_scope_text, ' '), ''))
+                                END
+                            FROM (
+                                SELECT BTRIM(
+                                    regexp_replace(
+                                        COALESCE(eal.token_metadata ->> 'scopes', eal.token_metadata ->> 'scope'),
+                                        E'[[:space:]]+',
+                                        ' ',
+                                        'g'
+                                    )
+                                ) AS normalized_scope_text
+                            ) text_scope
+                        ) AS scopes_text_jsonb,
+                        eal.scopes AS persisted_scopes
+                    FROM external_account_links AS eal
+                    WHERE eal.id = :id
+                ),
+                scope_normalized AS (
+                    SELECT
+                        ss.id,
+                        COALESCE(
+                            CASE
+                                WHEN ss.oauth_scopes_jsonb IS NOT NULL
+                                    AND jsonb_array_length(ss.oauth_scopes_jsonb) > 0 THEN ss.oauth_scopes_jsonb
+                                ELSE NULL
+                            END,
+                            CASE
+                                WHEN ss.scopes_array_jsonb IS NOT NULL
+                                    AND jsonb_array_length(ss.scopes_array_jsonb) > 0 THEN ss.scopes_array_jsonb
+                                ELSE NULL
+                            END,
+                            CASE
+                                WHEN ss.scopes_text_jsonb IS NOT NULL
+                                    AND jsonb_array_length(ss.scopes_text_jsonb) > 0 THEN ss.scopes_text_jsonb
+                                ELSE NULL
+                            END
+                        ) AS normalized_scope_jsonb
+                    FROM scope_sources AS ss
+                )
+                SELECT
+                    sn.id IS NOT NULL AS joined_to_scope_normalized,
+                    sn.normalized_scope_jsonb,
+                    jsonb_array_length(sn.normalized_scope_jsonb) AS normalized_scope_len,
+                    eal.scopes IS NULL AS scopes_is_null,
+                    eal.scopes AS persisted_scopes
+                FROM external_account_links AS eal
+                LEFT JOIN scope_normalized AS sn ON sn.id = eal.id
+                WHERE eal.id = :id
+                """
+            ),
+            {"id": link_id},
+        )
+        .mappings()
+        .one()
+    )
+
+
 def _run_backfill_upgrade(db_session: sa.orm.Session) -> None:
     module = _load_backfill_migration_module()
     module.op.execute = lambda sql: db_session.execute(sa.text(sql))
@@ -336,6 +427,7 @@ def test_backfill_migration_upgrade_normalizes_scope_variants(
     ).scalar_one()
 
     debug_row = _select_scope_debug_row(db_session, link_id=link.id)
+    predicate_row = _select_scope_update_predicate_state(db_session, link_id=link.id)
 
     assert link.refresh_token == "refresh-from-metadata"
     assert link.token_type == "Bearer"
@@ -346,7 +438,10 @@ def test_backfill_migration_upgrade_normalizes_scope_variants(
             f"refresh={link.refresh_token!r}, token_type={link.token_type!r}, "
             f"expires={link.access_token_expires_at!r}, "
             f"normalized_candidate={debug_row['normalized_scope_jsonb']!r}, "
-            f"persisted={debug_row['persisted_scopes']!r}"
+            f"persisted={debug_row['persisted_scopes']!r}, "
+            f"joined={predicate_row['joined_to_scope_normalized']!r}, "
+            f"len={predicate_row['normalized_scope_len']!r}, "
+            f"scopes_is_null={predicate_row['scopes_is_null']!r}"
         )
     assert link.scopes == expected_scopes, (
         "migration scope backfill mismatch: "
@@ -357,7 +452,10 @@ def test_backfill_migration_upgrade_normalizes_scope_variants(
         f"scopes_text={debug_row['scopes_text_jsonb']!r}, "
         f"normalized_jsonb={debug_row['normalized_scope_jsonb']!r}, "
         f"persisted_scopes={debug_row['persisted_scopes']!r}, "
-        f"db_scopes={after_scopes!r}"
+        f"db_scopes={after_scopes!r}, "
+        f"joined={predicate_row['joined_to_scope_normalized']!r}, "
+        f"len={predicate_row['normalized_scope_len']!r}, "
+        f"scopes_is_null={predicate_row['scopes_is_null']!r}"
     )
     assert after_scopes == expected_scopes
 
