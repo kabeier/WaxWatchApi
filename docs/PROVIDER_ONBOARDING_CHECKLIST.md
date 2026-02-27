@@ -55,6 +55,8 @@ The listing payload must satisfy shared ingest/search expectations:
 
 - [ ] Confirm migration SQL tokenization path uses deterministic array construction that cannot silently evaluate to null in DB runtime tests.
 
+- [ ] Prefer single-row-per-id CTE selection for lifecycle scope backfills to reduce update-path ambiguity in DB runtime execution.
+
 ## 6) Verification
 
 - [ ] Run relevant tests for search/rule-runner/provider logging.

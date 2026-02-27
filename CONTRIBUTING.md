@@ -289,3 +289,5 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 - Migration test-path changes (including token lifecycle SQL backfills) must update governance files/docs/CHANGELOG together for policy-sync compliance.
 
 - Policy sync: even migration test-path-only token lifecycle edits must update governance artifacts (`.env.sample`, `Makefile`, CI workflow), docs, and `CHANGELOG.md`.
+
+- Token lifecycle migration SQL refactors (especially scope normalization CTE changes) must include synchronized governance/docs/changelog updates and DB-backed test verification.

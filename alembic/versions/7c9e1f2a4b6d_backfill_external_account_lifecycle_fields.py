@@ -41,96 +41,81 @@ def upgrade() -> None:
 
     op.execute(
         """
-        WITH scope_candidates AS (
+        WITH scope_sources AS (
             SELECT
                 eal.id,
-                1 AS source_priority,
-                to_jsonb(
-                    ARRAY(
-                        SELECT token
-                        FROM jsonb_array_elements_text(eal.token_metadata -> 'oauth_scopes') AS token
-                        WHERE BTRIM(token) <> ''
-                    )
-                ) AS normalized_scope_jsonb
-            FROM external_account_links AS eal
-            WHERE eal.scopes IS NULL
-              AND eal.token_metadata IS NOT NULL
-              AND jsonb_typeof(eal.token_metadata -> 'oauth_scopes') = 'array'
-
-            UNION ALL
-
-            SELECT
-                eal.id,
-                2 AS source_priority,
-                to_jsonb(
-                    ARRAY(
-                        SELECT token
-                        FROM jsonb_array_elements_text(eal.token_metadata -> 'scopes') AS token
-                        WHERE BTRIM(token) <> ''
-                    )
-                ) AS normalized_scope_jsonb
-            FROM external_account_links AS eal
-            WHERE eal.scopes IS NULL
-              AND eal.token_metadata IS NOT NULL
-              AND jsonb_typeof(eal.token_metadata -> 'scopes') = 'array'
-
-            UNION ALL
-
-            SELECT
-                eal.id,
-                3 AS source_priority,
                 CASE
-                    WHEN NULLIF(
-                        BTRIM(
+                    WHEN jsonb_typeof(eal.token_metadata -> 'oauth_scopes') = 'array' THEN (
+                        SELECT to_jsonb(ARRAY_AGG(token))
+                        FROM (
+                            SELECT BTRIM(value) AS token
+                            FROM jsonb_array_elements_text(eal.token_metadata -> 'oauth_scopes')
+                        ) normalized
+                        WHERE token <> ''
+                    )
+                    ELSE NULL
+                END AS oauth_scopes_jsonb,
+                CASE
+                    WHEN jsonb_typeof(eal.token_metadata -> 'scopes') = 'array' THEN (
+                        SELECT to_jsonb(ARRAY_AGG(token))
+                        FROM (
+                            SELECT BTRIM(value) AS token
+                            FROM jsonb_array_elements_text(eal.token_metadata -> 'scopes')
+                        ) normalized
+                        WHERE token <> ''
+                    )
+                    ELSE NULL
+                END AS scopes_array_jsonb,
+                (
+                    SELECT
+                        CASE
+                            WHEN NULLIF(normalized_scope_text, '') IS NULL THEN NULL
+                            ELSE to_jsonb(array_remove(string_to_array(normalized_scope_text, ' '), ''))
+                        END
+                    FROM (
+                        SELECT BTRIM(
                             regexp_replace(
                                 COALESCE(eal.token_metadata ->> 'scopes', eal.token_metadata ->> 'scope'),
                                 E'[[:space:]]+',
                                 ' ',
                                 'g'
                             )
-                        ),
-                        ''
-                    ) IS NULL THEN NULL
-                    ELSE to_jsonb(
-                        array_remove(
-                            string_to_array(
-                                BTRIM(
-                                    regexp_replace(
-                                        COALESCE(
-                                            eal.token_metadata ->> 'scopes',
-                                            eal.token_metadata ->> 'scope'
-                                        ),
-                                        E'[[:space:]]+',
-                                        ' ',
-                                        'g'
-                                    )
-                                ),
-                                ' '
-                            ),
-                            ''
-                        )
-                    )
-                END AS normalized_scope_jsonb
+                        ) AS normalized_scope_text
+                    ) text_scope
+                ) AS scopes_text_jsonb
             FROM external_account_links AS eal
             WHERE eal.scopes IS NULL
               AND eal.token_metadata IS NOT NULL
         ),
-        ranked_scope_candidates AS (
+        scope_normalized AS (
             SELECT
-                sc.id,
-                sc.source_priority,
-                sc.normalized_scope_jsonb,
-                ROW_NUMBER() OVER (PARTITION BY sc.id ORDER BY sc.source_priority ASC) AS priority_rank
-            FROM scope_candidates AS sc
-            WHERE sc.normalized_scope_jsonb IS NOT NULL
-              AND jsonb_array_length(sc.normalized_scope_jsonb) > 0
+                ss.id,
+                COALESCE(
+                    CASE
+                        WHEN ss.oauth_scopes_jsonb IS NOT NULL
+                            AND jsonb_array_length(ss.oauth_scopes_jsonb) > 0 THEN ss.oauth_scopes_jsonb
+                        ELSE NULL
+                    END,
+                    CASE
+                        WHEN ss.scopes_array_jsonb IS NOT NULL
+                            AND jsonb_array_length(ss.scopes_array_jsonb) > 0 THEN ss.scopes_array_jsonb
+                        ELSE NULL
+                    END,
+                    CASE
+                        WHEN ss.scopes_text_jsonb IS NOT NULL
+                            AND jsonb_array_length(ss.scopes_text_jsonb) > 0 THEN ss.scopes_text_jsonb
+                        ELSE NULL
+                    END
+                ) AS normalized_scope_jsonb
+            FROM scope_sources AS ss
         )
         UPDATE external_account_links AS eal
-        SET scopes = rsc.normalized_scope_jsonb
-        FROM ranked_scope_candidates AS rsc
-        WHERE eal.id = rsc.id
-          AND rsc.priority_rank = 1
+        SET scopes = sn.normalized_scope_jsonb
+        FROM scope_normalized AS sn
+        WHERE eal.id = sn.id
           AND eal.scopes IS NULL
+          AND sn.normalized_scope_jsonb IS NOT NULL
+          AND jsonb_array_length(sn.normalized_scope_jsonb) > 0
         """
     )
 
