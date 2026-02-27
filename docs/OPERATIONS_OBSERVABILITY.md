@@ -52,7 +52,25 @@
   - In eager-mode environments (typical unit/integration test setup), Redis is reported as `skipped`.
 - `/readyz` returns:
   - `200` with `{"status":"ready","checks":...}` when all required dependencies are healthy.
-  - `503` with `{"status":"not_ready", ...}` when any required dependency fails.
+  - `503` with the standard API `error` envelope when any required dependency fails. Readiness details are nested under `error.details`, for example:
+
+```json
+{
+  "error": {
+    "message": "request failed",
+    "code": "http_error",
+    "status": 503,
+    "details": {
+      "status": "not_ready",
+      "reason": "required dependency checks failed",
+      "checks": {
+        "db": {"status": "failed", "reason": "db readiness probe failed: SQLAlchemyError"},
+        "redis": {"status": "ok"}
+      }
+    }
+  }
+}
+```
 
 ## Suggested dashboards
 
