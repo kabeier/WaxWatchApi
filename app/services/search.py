@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import models
 from app.providers.base import ProviderError, ProviderListing, ProviderRequestLog
-from app.providers.registry import get_provider_class, list_available_providers
+from app.providers.registry import get_provider_class, list_available_providers, mock_provider_enabled
 from app.schemas.search import SearchListingOut, SearchPagination, SearchQuery, SearchResponse
 from app.services.provider_requests import log_provider_request
 from app.services.watch_rules import create_watch_rule
@@ -27,6 +27,8 @@ _CONDITION_RANK: dict[str, int] = {
 def _default_providers() -> list[str]:
     supported: list[str] = []
     for key in list_available_providers():
+        if key == "mock" and not mock_provider_enabled():
+            continue
         try:
             models.Provider(key)
         except ValueError:

@@ -30,7 +30,19 @@ def _ebay_enabled() -> tuple[bool, str | None]:
 
 
 def _mock_enabled() -> tuple[bool, str | None]:
-    return True, None
+    configured, reason = settings.provider_enabled("mock")
+    if not configured:
+        return False, reason
+
+    environment = (os.getenv("ENVIRONMENT") or settings.environment or "dev").strip().lower()
+    if environment in {"dev", "test", "local"}:
+        return True, None
+
+    return False, f"mock provider disabled in environment '{environment}'"
+
+
+def mock_provider_enabled() -> bool:
+    return _mock_enabled()[0]
 
 
 def _build_registrations() -> dict[str, ProviderRegistration]:
