@@ -9,6 +9,7 @@ name: CI
 # Governance note: provider registry safety gate keeps mock default provider usage to dev/test/local; sync docs/governance when changing this behavior.
 # Governance note: keep this workflow synchronized with Makefile/.env.sample/docs/CHANGELOG
 # when integration surfaces (including token lifecycle schema/service changes) are updated.
+# Provider telemetry note: retry/request metadata should use explicit attempt fields (`attempt`, `attempts_total`) with `max_attempts` alias compatibility.
 # Rate-limit contract note: scoped dependencies with require_authenticated_principal=true must still
 # apply scoped throttling to anonymous callers (anon:<client>) and remain covered by tests/test_rate_limit.py.
 

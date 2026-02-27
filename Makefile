@@ -40,6 +40,7 @@ TAG ?= ci
 # Policy sync marker: lifecycle migration test edits must account for SQL NULL vs JSONB null behavior and sync governance docs.
 # Provider registry governance note: default search provider resolution excludes mock outside dev/test/local safe environments.
 # Rate-limit governance note: scoped require_authenticated_principal routes throttle unauthenticated requests via anon:<client> keys.
+# Provider retry telemetry note: prefer `attempt` + `attempts_total` (with `max_attempts` alias) to avoid ambiguous attempt counters.
 # Ruff helpers
 FIX ?=
 RUFF_ARGS ?=
