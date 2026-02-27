@@ -10,6 +10,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 
 ### Changed
 - Restricted mock provider registration/default search-provider selection to explicit safe environments (`dev`, `test`, `local`) and added coverage to prevent production-like default inclusion.
+- Updated scoped rate-limiter behavior so routes using `require_authenticated_principal=True` no longer bypass unauthenticated callers; missing-token requests now consume scoped anonymous (`anon:<client>`) budget and are throttled with `429` once exhausted.
 - Deferred notification task dispatch until SQL transaction commit via session post-commit hooks, and retained failed post-commit enqueue attempts for retry on the session's next commit boundary.
 - Improved notification task observability by logging structured context when delivery tasks cannot find their notification records (likely race indicator).
 

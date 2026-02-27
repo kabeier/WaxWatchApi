@@ -131,8 +131,6 @@ def enforce_rate_limit(
 
     identifier = _token_fingerprint(request)
     if identifier is None:
-        if require_authenticated_principal:
-            return
         principal_key = f"anon:{_client_identifier(request)}"
     else:
         principal_key = f"auth:{identifier}"
