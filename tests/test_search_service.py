@@ -66,6 +66,40 @@ def test_default_providers_includes_mock_only_when_enabled_in_test_environment(m
     assert providers_when_enabled == ["discogs", "mock"]
 
 
+def test_resolve_providers_uses_query_values_when_present():
+    query = SearchQuery(keywords=["primus"], providers=["discogs"], page=1, page_size=10)
+
+    assert search_service._resolve_providers(query) == ["discogs"]
+
+
+def test_passes_filters_respects_price_bounds():
+    query = SearchQuery(
+        keywords=["primus"],
+        min_price=10,
+        max_price=50,
+        page=1,
+        page_size=10,
+    )
+
+    below_min = ProviderListing(
+        provider="discogs",
+        external_id="below",
+        url="https://example.com/below",
+        title="Below",
+        price=9,
+    )
+    above_max = ProviderListing(
+        provider="discogs",
+        external_id="above",
+        url="https://example.com/above",
+        title="Above",
+        price=51,
+    )
+
+    assert search_service._passes_filters(below_min, query) is False
+    assert search_service._passes_filters(above_max, query) is False
+
+
 def test_condition_meets_minimum_handles_unknown_values():
     assert search_service._condition_meets_minimum("vg+", "vg") is True
     assert search_service._condition_meets_minimum("poor", "nm") is False
