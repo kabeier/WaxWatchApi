@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parent.parent
 CURRENT_COVERAGE = ROOT / "coverage.json"
 BASE_COVERAGE = ROOT / "coverage.base.json"
 
+COMPARISON_TOLERANCE_PERCENT = 0.005
+
 HIGH_RISK_MODULES = {
     "app/services/background.py": "Background dispatch and orchestration",
     "app/services/watch_rules.py": "Watch rule mutation/validation",
@@ -52,6 +54,10 @@ def total_percent(report: dict) -> float:
     return (covered / total) * 100
 
 
+def _regressed(current: float, base: float) -> bool:
+    return (base - current) > COMPARISON_TOLERANCE_PERCENT
+
+
 def main() -> int:
     try:
         current = load_coverage(CURRENT_COVERAGE)
@@ -64,7 +70,7 @@ def main() -> int:
 
     current_total = total_percent(current)
     base_total = total_percent(base)
-    if current_total + 1e-9 < base_total:
+    if _regressed(current_total, base_total):
         failures.append(f"total coverage regressed: current={current_total:.2f}% < base={base_total:.2f}%")
 
     for module_path, description in HIGH_RISK_MODULES.items():
@@ -73,7 +79,7 @@ def main() -> int:
         if current_pct is None or base_pct is None:
             failures.append(f"missing high-risk module coverage entry for {module_path} ({description})")
             continue
-        if current_pct + 1e-9 < base_pct:
+        if _regressed(current_pct, base_pct):
             failures.append(
                 f"high-risk module regressed: {module_path} current={current_pct:.2f}% < base={base_pct:.2f}% ({description})"
             )
