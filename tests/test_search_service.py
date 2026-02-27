@@ -3,7 +3,6 @@ from __future__ import annotations
 import uuid
 
 from app.db import models
-from app.providers import registry as provider_registry
 from app.providers.base import ProviderError, ProviderListing
 from app.schemas.search import SearchQuery
 from app.services import search as search_service
@@ -36,8 +35,7 @@ class _FakeDB:
 
 
 def test_default_providers_filters_out_non_enum_values(monkeypatch):
-    monkeypatch.setenv("ENVIRONMENT", "dev")
-    monkeypatch.setattr(provider_registry.settings, "provider_enabled", lambda _name: (True, None))
+    monkeypatch.setattr(search_service, "mock_provider_enabled", lambda: True)
     monkeypatch.setattr(search_service, "list_available_providers", lambda: ["discogs", "mock", "bad"])
 
     providers = search_service._default_providers()
@@ -48,8 +46,7 @@ def test_default_providers_filters_out_non_enum_values(monkeypatch):
 
 
 def test_default_providers_excludes_mock_in_production_environment(monkeypatch):
-    monkeypatch.setenv("ENVIRONMENT", "prod")
-    monkeypatch.setattr(provider_registry.settings, "provider_enabled", lambda _name: (True, None))
+    monkeypatch.setattr(search_service, "mock_provider_enabled", lambda: False)
     monkeypatch.setattr(search_service, "list_available_providers", lambda: ["discogs", "mock"])
 
     providers = search_service._default_providers()
@@ -58,14 +55,13 @@ def test_default_providers_excludes_mock_in_production_environment(monkeypatch):
 
 
 def test_default_providers_includes_mock_only_when_enabled_in_test_environment(monkeypatch):
-    monkeypatch.setenv("ENVIRONMENT", "test")
     monkeypatch.setattr(search_service, "list_available_providers", lambda: ["discogs", "mock"])
 
-    monkeypatch.setattr(provider_registry.settings, "provider_enabled", lambda _name: (False, "disabled"))
+    monkeypatch.setattr(search_service, "mock_provider_enabled", lambda: False)
     providers_when_disabled = search_service._default_providers()
     assert providers_when_disabled == ["discogs"]
 
-    monkeypatch.setattr(provider_registry.settings, "provider_enabled", lambda _name: (True, None))
+    monkeypatch.setattr(search_service, "mock_provider_enabled", lambda: True)
     providers_when_enabled = search_service._default_providers()
     assert providers_when_enabled == ["discogs", "mock"]
 
