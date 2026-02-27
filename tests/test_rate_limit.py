@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from fastapi import Depends, Request
+from starlette.datastructures import Address
 
 from app.api.deps import rate_limit_scope
+from app.core import rate_limit
 from app.core.config import settings
-from app.core.rate_limit import reset_rate_limiter_state
+from app.core.rate_limit import enforce_global_rate_limit, reset_rate_limiter_state
 from app.main import create_app
 
 
@@ -205,6 +207,35 @@ def test_rate_limiting_can_be_disabled_for_non_throttled_behavior(client, user, 
     second = client.get("/api/watch-rules", headers=auth_headers)
     assert first.status_code == 200
     assert second.status_code == 200
+
+
+def test_enforce_global_rate_limit_uses_anonymous_scope_without_bearer(monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+
+    captured: list[tuple[str, bool]] = []
+
+    def _capture(request: Request, *, scope, require_authenticated_principal=False):
+        captured.append((scope, require_authenticated_principal))
+
+    monkeypatch.setattr(rate_limit, "enforce_rate_limit", _capture)
+
+    request = Request(
+        scope={
+            "type": "http",
+            "method": "GET",
+            "path": "/api/probe",
+            "headers": [],
+            "query_string": b"",
+            "client": Address("127.0.0.1", 50000),
+            "server": ("testserver", 80),
+            "scheme": "http",
+            "http_version": "1.1",
+        }
+    )
+
+    enforce_global_rate_limit(request)
+
+    assert captured == [("global_anonymous", False)]
 
 
 def test_global_anonymous_limit_applies_but_healthz_is_exempt(monkeypatch):
