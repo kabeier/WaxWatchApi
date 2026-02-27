@@ -96,6 +96,7 @@ def test_ebay_search_retries_network_error_then_raises(monkeypatch):
     except ProviderError as exc:
         assert "network error" in str(exc).lower()
         assert exc.meta is not None
-        assert exc.meta["attempts"] == 2
+        assert exc.meta["attempt"] == 2
+        assert exc.meta["attempts_total"] == 2
     else:
         raise AssertionError("Expected ProviderError")

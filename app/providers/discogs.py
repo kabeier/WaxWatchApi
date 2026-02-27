@@ -92,7 +92,7 @@ class DiscogsClient(ProviderClient):
     ) -> dict[str, Any]:
         return {
             "attempt": attempt,
-            "attempts": attempt,
+            "attempts_total": attempts,
             "max_attempts": attempts,
             "retry_after_seconds": retry_after_seconds,
             "headers": headers,
