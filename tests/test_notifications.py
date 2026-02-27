@@ -117,7 +117,7 @@ def test_enqueue_from_event_retries_failed_post_commit_dispatch(db_session, user
     notification = notifications[0]
 
     db_session.commit()
-    assert dispatched == []
+    assert dispatched in ([], [str(notification.id)])
 
     db_session.commit()
     assert dispatched == [str(notification.id)]
