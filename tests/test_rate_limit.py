@@ -54,6 +54,28 @@ def test_high_risk_search_scope_is_throttled(client, user, headers, monkeypatch)
     assert second.json()["error"]["details"]["scope"] == "search"
 
 
+def test_unauthenticated_search_scope_still_consumes_budget(client, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "rate_limit_search_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_search_burst", 0)
+    monkeypatch.setattr(settings, "rate_limit_global_anonymous_rpm", 100)
+    monkeypatch.setattr(settings, "rate_limit_global_anonymous_burst", 0)
+    reset_rate_limiter_state()
+
+    payload = {
+        "name": "house alerts",
+        "query": {"keywords": ["house"], "providers": ["mock"]},
+        "poll_interval_seconds": 600,
+    }
+
+    first = client.post("/api/search/save-alert", json=payload)
+    assert first.status_code == 401
+
+    second = client.post("/api/search/save-alert", json=payload)
+    assert second.status_code == 429
+    assert second.json()["error"]["details"]["scope"] == "search"
+
+
 def test_high_risk_discogs_scope_is_throttled(client, user, headers, monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_enabled", True)
     monkeypatch.setattr(settings, "rate_limit_discogs_rpm", 1)
@@ -100,6 +122,22 @@ def test_stream_events_scope_is_throttled(client, user, headers, monkeypatch):
         second = local_client.get("/api/stream-rate-limit-probe", headers=auth_headers)
         assert second.status_code == 429
         assert second.json()["error"]["details"]["scope"] == "stream_events"
+
+
+def test_unauthenticated_watch_rules_scope_still_consumes_budget(client, monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_enabled", True)
+    monkeypatch.setattr(settings, "rate_limit_watch_rules_rpm", 1)
+    monkeypatch.setattr(settings, "rate_limit_watch_rules_burst", 0)
+    monkeypatch.setattr(settings, "rate_limit_global_anonymous_rpm", 100)
+    monkeypatch.setattr(settings, "rate_limit_global_anonymous_burst", 0)
+    reset_rate_limiter_state()
+
+    first = client.get("/api/watch-rules")
+    assert first.status_code == 401
+
+    second = client.get("/api/watch-rules")
+    assert second.status_code == 429
+    assert second.json()["error"]["details"]["scope"] == "watch_rules"
 
 
 def test_rate_limiting_can_be_disabled_for_non_throttled_behavior(client, user, headers, monkeypatch):
