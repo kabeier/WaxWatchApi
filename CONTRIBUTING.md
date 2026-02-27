@@ -218,6 +218,7 @@ Provider/source contract note:
 
 - Treat provider-facing API fields (for example `watch_search_rules.query.sources` and `/api/me` integration summaries) as **registry-backed**. They represent only providers registered and enabled by runtime configuration, not every value in `models.Provider` / DB enum.
 - When changing provider enablement rules or registration behavior, update tests and contract docs in the same PR so frontend choices stay aligned with backend-accepted sources.
+- Mock provider safety: default provider resolution must exclude `mock` in production-like environments; only dev/test/local contexts should auto-enable it unless explicit provider config gates say otherwise.
 
 ## Environment configuration policy
 

@@ -9,6 +9,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 ## [Unreleased]
 
 ### Changed
+- Restricted mock provider registration/default search-provider selection to explicit safe environments (`dev`, `test`, `local`) and added coverage to prevent production-like default inclusion.
 - Deferred notification task dispatch until SQL transaction commit via session post-commit hooks, and retained failed post-commit enqueue attempts for retry on the session's next commit boundary.
 - Improved notification task observability by logging structured context when delivery tasks cannot find their notification records (likely race indicator).
 
