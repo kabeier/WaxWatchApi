@@ -46,6 +46,7 @@ def test_discogs_retries_and_uses_retry_after(monkeypatch):
 
     monkeypatch.setattr("app.providers.discogs.time.sleep", fake_sleep)
     monkeypatch.setattr("app.providers.discogs.httpx.Client", lambda timeout: _FakeClient(responses))
+    monkeypatch.setattr("app.providers.discogs.settings.discogs_max_attempts", 2)
 
     client = DiscogsClient()
     listings = client.search(query={"keywords": ["primus"]}, limit=10)
