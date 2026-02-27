@@ -233,12 +233,32 @@ def _queue_notification_delivery(db: Session, *, notification_id: UUID, countdow
 
 @event.listens_for(Session, "after_commit")
 def _dispatch_notification_delivery_after_commit(session: Session) -> None:
-    pending_dispatches: dict[UUID, int | None] = session.info.pop(
+    pending_dispatches: dict[UUID, int | None] = session.info.get(
         _POST_COMMIT_NOTIFICATION_QUEUE_KEY,
         {},
     )
+    if not pending_dispatches:
+        return
+
+    failed_dispatches: dict[UUID, int | None] = {}
     for notification_id, countdown in pending_dispatches.items():
-        enqueue_notification_delivery(str(notification_id), countdown=countdown)
+        try:
+            enqueue_notification_delivery(str(notification_id), countdown=countdown)
+        except Exception:
+            failed_dispatches[notification_id] = countdown
+            logger.exception(
+                "notifications.delivery.enqueue_failed",
+                extra={
+                    "notification_id": str(notification_id),
+                    "countdown": countdown,
+                },
+            )
+
+    if failed_dispatches:
+        session.info[_POST_COMMIT_NOTIFICATION_QUEUE_KEY] = failed_dispatches
+        return
+
+    session.info.pop(_POST_COMMIT_NOTIFICATION_QUEUE_KEY, None)
 
 
 @event.listens_for(Session, "after_rollback")

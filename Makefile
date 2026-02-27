@@ -1,5 +1,7 @@
 SHELL := /bin/bash
 
+# Governance note: notification enqueue semantics are post-commit; keep CI/.env.sample/docs/CHANGELOG synchronized when task orchestration changes.
+
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev
 PROD_REQUIRED_ENV_VARS ?= DATABASE_URL AUTH_ISSUER AUTH_JWKS_URL TOKEN_CRYPTO_KMS_KEY_ID DISCOGS_USER_AGENT DISCOGS_TOKEN EBAY_CLIENT_ID EBAY_CLIENT_SECRET

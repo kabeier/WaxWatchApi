@@ -293,3 +293,5 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 - Token lifecycle migration SQL refactors (especially scope normalization CTE changes) must include synchronized governance/docs/changelog updates and DB-backed test verification.
 
 - For JSON/JSONB lifecycle columns, verify test setup writes SQL NULL (or migration handles JSON `null`) to avoid false negatives in DB-backed migration assertions.
+
+- Notification delivery enqueueing is commit-boundary aware; when changing notification/task orchestration, validate post-commit dispatch and missing-notification logging behavior.

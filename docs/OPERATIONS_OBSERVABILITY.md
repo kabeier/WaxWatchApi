@@ -344,3 +344,10 @@ The repository now runs dedicated security workflows for CodeQL, dependency audi
    - Workflow returns to green on the branch/PR.
    - Linked exception (if any) is closed or renewed with explicit maintainer approval.
    - Post-incident notes are added to the ops log for medium/high findings.
+
+
+### Notification delivery dispatch reliability
+
+- Notification delivery tasks are enqueued only after successful DB commit to avoid orphaned deliveries on rollback.
+- When post-commit enqueue fails, the app logs `notifications.delivery.enqueue_failed` with `notification_id` and retry metadata and keeps failed dispatches queued on the active SQLAlchemy session for retry on the next commit boundary.
+- Delivery workers log `notifications.delivery.notification_not_found` with `likely_race=true` to flag potential commit/worker ordering races or stale task execution.

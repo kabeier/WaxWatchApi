@@ -96,6 +96,33 @@ def test_enqueue_from_event_dispatches_once_after_commit(db_session, user, monke
     assert dispatched == [(str(notification.id), None)]
 
 
+def test_enqueue_from_event_retries_failed_post_commit_dispatch(db_session, user, monkeypatch):
+    call_count = {"n": 0}
+    dispatched: list[str] = []
+
+    def _enqueue(notification_id, *, countdown=None):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("broker unavailable")
+        dispatched.append(notification_id)
+
+    monkeypatch.setattr("app.services.notifications.enqueue_notification_delivery", _enqueue)
+
+    event = _create_event(db_session, user.id)
+    notifications = enqueue_from_event(
+        db_session,
+        event=event,
+        channels=(models.NotificationChannel.email,),
+    )
+    notification = notifications[0]
+
+    db_session.commit()
+    assert dispatched == []
+
+    db_session.commit()
+    assert dispatched == [str(notification.id)]
+
+
 def test_notifications_endpoints(client, db_session, user, headers):
     event = _create_event(db_session, user.id)
     enqueue_from_event(db_session, event=event)

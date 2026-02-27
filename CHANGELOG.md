@@ -8,6 +8,13 @@ with release dates in ISO format (`YYYY-MM-DD`).
 
 ## [Unreleased]
 
+### Changed
+- Deferred notification task dispatch until SQL transaction commit via session post-commit hooks, and retained failed post-commit enqueue attempts for retry on the session's next commit boundary.
+- Improved notification task observability by logging structured context when delivery tasks cannot find their notification records (likely race indicator).
+
+### Added
+- Notification service tests covering rollback-after-flush (no dispatch), successful commit (single dispatch), and failed post-commit enqueue retry behavior.
+
 ### Added
 - Added a deploy-blocking `Release Gates` GitHub Actions workflow that runs perf smoke and validates scheduler/queue lag thresholds via `scripts/perf/verify_release_gates.py`.
 - Added explicit release-gate threshold tables and baseline expectation guidance (including scheduler lag max and queue lag p95/p99 capture) in observability docs.
