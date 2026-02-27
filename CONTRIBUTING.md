@@ -291,3 +291,5 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 - Policy sync: even migration test-path-only token lifecycle edits must update governance artifacts (`.env.sample`, `Makefile`, CI workflow), docs, and `CHANGELOG.md`.
 
 - Token lifecycle migration SQL refactors (especially scope normalization CTE changes) must include synchronized governance/docs/changelog updates and DB-backed test verification.
+
+- For JSON/JSONB lifecycle columns, verify test setup writes SQL NULL (or migration handles JSON `null`) to avoid false negatives in DB-backed migration assertions.

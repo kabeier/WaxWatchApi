@@ -84,7 +84,7 @@ def upgrade() -> None:
                     ) text_scope
                 ) AS scopes_text_jsonb
             FROM external_account_links AS eal
-            WHERE eal.scopes IS NULL
+            WHERE (eal.scopes IS NULL OR eal.scopes = 'null'::jsonb)
               AND eal.token_metadata IS NOT NULL
         ),
         scope_normalized AS (
@@ -113,7 +113,7 @@ def upgrade() -> None:
         SET scopes = sn.normalized_scope_jsonb
         FROM scope_normalized AS sn
         WHERE eal.id = sn.id
-          AND eal.scopes IS NULL
+          AND (eal.scopes IS NULL OR eal.scopes = 'null'::jsonb)
           AND sn.normalized_scope_jsonb IS NOT NULL
           AND jsonb_array_length(sn.normalized_scope_jsonb) > 0
         """

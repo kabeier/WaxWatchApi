@@ -341,7 +341,7 @@ def _select_scope_update_predicate_state(db_session: sa.orm.Session, *, link_id)
                     sn.id IS NOT NULL AS joined_to_scope_normalized,
                     sn.normalized_scope_jsonb,
                     jsonb_array_length(sn.normalized_scope_jsonb) AS normalized_scope_len,
-                    eal.scopes IS NULL AS scopes_is_null,
+                    (eal.scopes IS NULL OR eal.scopes = 'null'::jsonb) AS scopes_is_missing,
                     eal.scopes AS persisted_scopes
                 FROM external_account_links AS eal
                 LEFT JOIN scope_normalized AS sn ON sn.id = eal.id
@@ -441,7 +441,7 @@ def test_backfill_migration_upgrade_normalizes_scope_variants(
             f"persisted={debug_row['persisted_scopes']!r}, "
             f"joined={predicate_row['joined_to_scope_normalized']!r}, "
             f"len={predicate_row['normalized_scope_len']!r}, "
-            f"scopes_is_null={predicate_row['scopes_is_null']!r}"
+            f"scopes_is_missing={predicate_row['scopes_is_missing']!r}"
         )
     assert link.scopes == expected_scopes, (
         "migration scope backfill mismatch: "
@@ -455,7 +455,7 @@ def test_backfill_migration_upgrade_normalizes_scope_variants(
         f"db_scopes={after_scopes!r}, "
         f"joined={predicate_row['joined_to_scope_normalized']!r}, "
         f"len={predicate_row['normalized_scope_len']!r}, "
-        f"scopes_is_null={predicate_row['scopes_is_null']!r}"
+        f"scopes_is_missing={predicate_row['scopes_is_missing']!r}"
     )
     assert after_scopes == expected_scopes
 

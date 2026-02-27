@@ -57,6 +57,8 @@ The listing payload must satisfy shared ingest/search expectations:
 
 - [ ] Prefer single-row-per-id CTE selection for lifecycle scope backfills to reduce update-path ambiguity in DB runtime execution.
 
+- [ ] Validate migration predicates handle JSONB `null` and SQL NULL consistently for lifecycle columns when backfilling token fields.
+
 ## 6) Verification
 
 - [ ] Run relevant tests for search/rule-runner/provider logging.
