@@ -215,11 +215,23 @@ def test_backfill_migration_upgrade_normalizes_scope_variants(
     db_session.add(link)
     db_session.flush()
 
+    raw_scope_text = db_session.execute(
+        sa.text(
+            """
+            SELECT COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope')
+            FROM external_account_links
+            WHERE id = :id
+            """
+        ),
+        {"id": link.id},
+    ).scalar_one()
     before_scopes = db_session.execute(
         sa.text("SELECT scopes FROM external_account_links WHERE id = :id"),
         {"id": link.id},
     ).scalar_one()
     assert before_scopes is None
+    if isinstance(metadata.get("scopes"), str):
+        assert raw_scope_text == metadata["scopes"]
 
     _run_backfill_upgrade(db_session)
     db_session.refresh(link)
@@ -229,10 +241,56 @@ def test_backfill_migration_upgrade_normalizes_scope_variants(
         {"id": link.id},
     ).scalar_one()
 
+    debug_row = (
+        db_session.execute(
+            sa.text(
+                """
+            SELECT
+                COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope') AS raw_scope_text,
+                BTRIM(
+                    regexp_replace(
+                        COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope'),
+                        E'[[:space:]]+',
+                        ' ',
+                        'g'
+                    )
+                ) AS normalized_scope_text,
+                to_jsonb(
+                    array_remove(
+                        string_to_array(
+                            BTRIM(
+                                regexp_replace(
+                                    COALESCE(token_metadata ->> 'scopes', token_metadata ->> 'scope'),
+                                    E'[[:space:]]+',
+                                    ' ',
+                                    'g'
+                                )
+                            ),
+                            ' '
+                        ),
+                        ''
+                    )
+                ) AS normalized_scope_jsonb
+            FROM external_account_links
+            WHERE id = :id
+            """
+            ),
+            {"id": link.id},
+        )
+        .mappings()
+        .one()
+    )
+
     assert link.refresh_token == "refresh-from-metadata"
     assert link.token_type == "Bearer"
     assert link.access_token_expires_at == datetime(2030, 1, 1, 0, 0, tzinfo=timezone.utc)
-    assert link.scopes == expected_scopes
+    assert link.scopes == expected_scopes, (
+        "migration scope backfill mismatch: "
+        f"raw={debug_row['raw_scope_text']!r}, "
+        f"normalized_text={debug_row['normalized_scope_text']!r}, "
+        f"normalized_jsonb={debug_row['normalized_scope_jsonb']!r}, "
+        f"db_scopes={after_scopes!r}"
+    )
     assert after_scopes == expected_scopes
 
 
@@ -256,11 +314,20 @@ def test_backfill_migration_upgrade_is_idempotent_for_scopes(db_session, user) -
     _run_backfill_upgrade(db_session)
     db_session.refresh(link)
     first_value: list[str] = list(link.scopes or [])
+    first_value_sql = db_session.execute(
+        sa.text("SELECT scopes FROM external_account_links WHERE id = :id"),
+        {"id": link.id},
+    ).scalar_one()
 
     _run_backfill_upgrade(db_session)
     db_session.refresh(link)
+    second_value_sql = db_session.execute(
+        sa.text("SELECT scopes FROM external_account_links WHERE id = :id"),
+        {"id": link.id},
+    ).scalar_one()
 
     assert link.scopes == first_value
+    assert second_value_sql == first_value_sql == ["identity", "wantlist"]
 
 
 def test_discogs_status_backfills_missing_normalized_fields_from_metadata(db_session, user) -> None:
