@@ -47,9 +47,14 @@ def test_remediation_message_lists_required_sync_artifacts(monkeypatch, capsys):
 
     assert rc == 1
     output = capsys.readouterr().out
-    assert "Remediation:" in output
-    assert "Makefile" in output
-    assert ".github/workflows/ci.yml" in output
-    assert ".env.sample" in output
-    assert "CHANGELOG.md" in output
-    assert "documentation" in output
+    assert module.remediation_message() in output
+
+
+def test_remediation_message_is_derived_from_required_files():
+    module = _load_module()
+
+    assert (
+        module.remediation_message()
+        == "Remediation: update .env.sample, .github/workflows/ci.yml, Makefile, "
+        "CHANGELOG.md, and relevant documentation in the same PR."
+    )
