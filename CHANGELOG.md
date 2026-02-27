@@ -33,7 +33,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Expanded deployment documentation with scaling knobs for API workers, SQLAlchemy/ PgBouncer pool sizing, and Redis/Celery runtime tuning tied to release-gate reruns.
 - Added Alembic merge revision `2dc6fd57f7d9` to unify previously divergent migration heads into a single tip for deterministic `alembic upgrade head` behavior.
 - Updated CI/composite workflow action references to the requested major versions (checkout 6.0.2, setup-python 6.2.0, upload-artifact 6.0.0, CodeQL v4) and synchronized governance notes in `.env.sample`, `Makefile`, and `CONTRIBUTING.md` for change-surface policy compliance.
-- Corrected change-surface governance triggers so direct edits to `app/tasks.py` now enforce synchronized updates to required governance artifacts (Makefile/CI/.env sample/docs/CHANGELOG).
+- Closed the change-surface policy gap for task orchestration updates by ensuring direct edits to `app/tasks.py` trigger governance enforcement, adding regression coverage for that trigger path, and deriving remediation messaging from the required synchronized file list.
 - Added focused token lifecycle normalization unit coverage for Discogs metadata parsing/date coercion and migration extractor fallback paths to prevent coverage regression in DB CI gates.
 - Hardened `external_account_links` token lifecycle persistence with normalized refresh/expiry/type/scope columns, migration backfill from legacy `token_metadata`, and Discogs token handling updates plus provider-agnostic token lifecycle helpers/tests.
 - Added a follow-up token lifecycle backfill migration and Discogs runtime hydration/preservation safeguards so normalized fields stay durable even for legacy metadata-only rows and partial reconnect payloads.

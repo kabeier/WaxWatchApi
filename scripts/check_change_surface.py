@@ -66,6 +66,13 @@ CHANGELOG_EXCEPTION_ONLY_GLOBS = (
 )
 
 
+def remediation_message() -> str:
+    required_files = ", ".join(sorted(REQUIRED_FILES))
+    return (
+        f"Remediation: update {required_files}, {CHANGELOG_FILE}, and relevant documentation in the same PR."
+    )
+
+
 def git(*args: str, check: bool = True) -> str:
     completed = subprocess.run(
         ["git", *args],
@@ -165,9 +172,7 @@ def main() -> int:
         for category in matched_categories:
             print(f" - {category}")
         print("\n".join(errors))
-        print(
-            "Remediation: update Makefile, .github/workflows/ci.yml, .env.sample, CHANGELOG.md, and relevant documentation in the same PR."
-        )
+        print(remediation_message())
         return 1
 
     print("Triggered categories:")
