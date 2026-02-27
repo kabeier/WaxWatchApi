@@ -6,6 +6,7 @@ name: CI
 # Policy sync reminder: migration test-path updates must keep governance files/docs/changelog aligned.
 # Governance note: keep this workflow synchronized with Makefile/.env.sample/docs/CHANGELOG
 # when integration surfaces (including token lifecycle schema/service changes) are updated.
+# Provider defaults policy: mock provider is only expected in safe envs (dev/test/local) unless explicitly enabled.
 
 on:
   push:

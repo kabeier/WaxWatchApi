@@ -25,6 +25,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Gated default `mock` provider availability to safe environments (`dev`, `test`, `local`) with explicit enablement checks, and aligned search default-provider resolution/tests accordingly.
 - Fixed lifecycle scope backfill update predicate to treat both SQL NULL and JSONB `null` as missing scopes, addressing migration write-skips in DB CI runs.
 - Refined migration `scope_normalized` CTE into single-row-per-id COALESCE priority selection to prevent non-persisted scope writes under CI DB runs.
 - Added deterministic `scopes` array construction (`to_jsonb(array_remove(string_to_array(...), ''))`) in migration CTE to avoid null scope regressions in migration runtime tests.

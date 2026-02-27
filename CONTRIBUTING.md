@@ -45,6 +45,8 @@ The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four 
 
 If your change affects CI behavior or governance policy, update this section alongside `.github/workflows/ci.yml` in the same PR.
 
+If your change affects provider defaulting behavior (for example mock-provider gating), also sync `.env.sample`, `Makefile`, and `CHANGELOG.md` in the same PR so policy checks remain green.
+
 Security checks are additionally split into dedicated workflows for least-privilege operation:
 
 - `.github/workflows/security.yml` (CodeQL for Python on PR + weekly cadence)
