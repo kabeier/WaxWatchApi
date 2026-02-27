@@ -86,14 +86,14 @@ class DiscogsClient(ProviderClient):
         self,
         *,
         attempt: int,
-        attempts: int,
+        attempts_total: int,
         retry_after_seconds: float | None,
         headers: dict[str, str | None],
     ) -> dict[str, Any]:
         return {
             "attempt": attempt,
-            "attempts": attempt,
-            "max_attempts": attempts,
+            "attempts_total": attempts_total,
+            "max_attempts": attempts_total,
             "retry_after_seconds": retry_after_seconds,
             "headers": headers,
             "rate_limit": headers.get("X-Discogs-Ratelimit"),
@@ -130,7 +130,7 @@ class DiscogsClient(ProviderClient):
                         duration_ms = int((time.perf_counter() - attempt_start) * 1000)
                         final_meta = self._response_meta(
                             attempt=attempt,
-                            attempts=attempts,
+                            attempts_total=attempts,
                             retry_after_seconds=None,
                             headers={},
                         )
@@ -166,7 +166,7 @@ class DiscogsClient(ProviderClient):
                     }
                     final_meta = self._response_meta(
                         attempt=attempt,
-                        attempts=attempts,
+                        attempts_total=attempts,
                         retry_after_seconds=retry_after_seconds,
                         headers=header_meta,
                     )
