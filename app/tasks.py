@@ -5,10 +5,9 @@ import random
 from datetime import datetime, timezone
 from uuid import UUID
 
-from celery.utils.log import get_task_logger
-
 from app.core.celery_app import celery_app
 from app.core.config import settings
+from app.core.logging import get_logger
 from app.db import models
 from app.db.base import SessionLocal
 from app.services.backfill import backfill_matches_for_rule
@@ -16,7 +15,7 @@ from app.services.discogs_import import discogs_import_service
 from app.services.notifications import defer_delivery_seconds, publish_realtime, send_email
 from app.services.scheduler import run_due_rules_once
 
-logger = get_task_logger(__name__)
+logger = get_logger(__name__)
 
 
 @celery_app.task(name="app.tasks.redis_roundtrip_echo")
@@ -31,6 +30,14 @@ def backfill_rule_matches_task(user_id: str, rule_id: str) -> None:
         backfill_matches_for_rule(db, user_id=UUID(user_id), rule_id=UUID(rule_id))
         db.commit()
     except Exception:
+        logger.exception(
+            "tasks.backfill_rule_matches.failed",
+            extra={
+                "task_name": "backfill_rule_matches_task",
+                "user_id": user_id,
+                "rule_id": rule_id,
+            },
+        )
         db.rollback()
         raise
     finally:
@@ -49,6 +56,14 @@ def poll_due_rules_task() -> dict[str, int]:
         db.commit()
         return {"processed_rules": result.processed_rules, "failed_rules": result.failed_rules}
     except Exception:
+        logger.exception(
+            "tasks.poll_due_rules.failed",
+            extra={
+                "task_name": "poll_due_rules_task",
+                "scheduler_batch_size": settings.scheduler_batch_size,
+                "scheduler_rule_limit": settings.scheduler_rule_limit,
+            },
+        )
         db.rollback()
         raise
     finally:
@@ -95,6 +110,15 @@ def sync_discogs_lists_task() -> dict[str, int]:
             "disabled": 0,
         }
     except Exception:
+        logger.exception(
+            "tasks.sync_discogs_lists.failed",
+            extra={
+                "task_name": "sync_discogs_lists_task",
+                "discovered_users": len(links) if "links" in locals() else 0,
+                "enqueued_jobs": enqueued_jobs if "enqueued_jobs" in locals() else 0,
+                "reused_jobs": reused_jobs if "reused_jobs" in locals() else 0,
+            },
+        )
         db.rollback()
         raise
     finally:
@@ -108,6 +132,13 @@ def run_discogs_import_task(job_id: str) -> None:
         discogs_import_service.execute_import_job(db, job_id=UUID(job_id))
         db.commit()
     except Exception:
+        logger.exception(
+            "tasks.run_discogs_import.failed",
+            extra={
+                "task_name": "run_discogs_import_task",
+                "job_id": job_id,
+            },
+        )
         db.rollback()
         raise
     finally:
@@ -162,14 +193,26 @@ def deliver_notification_task(self, notification_id: str) -> None:
         logger.warning(
             "notifications.delivery.retry",
             extra={
+                "task_name": "deliver_notification_task",
                 "notification_id": notification_id,
                 "at": datetime.now(timezone.utc).isoformat(),
+                "retry_count": self.request.retries,
                 "retry_backoff_seconds": settings.celery_task_retry_backoff_seconds,
                 "max_retries": settings.celery_task_max_retries,
             },
         )
         raise
     except Exception:
+        logger.exception(
+            "tasks.deliver_notification.failed",
+            extra={
+                "task_name": "deliver_notification_task",
+                "notification_id": notification_id,
+                "retry_count": self.request.retries,
+                "retry_backoff_seconds": settings.celery_task_retry_backoff_seconds,
+                "max_retries": settings.celery_task_max_retries,
+            },
+        )
         db.rollback()
         raise
     finally:

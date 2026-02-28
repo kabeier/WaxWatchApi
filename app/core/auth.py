@@ -75,7 +75,9 @@ class SupabaseJWTVerifier:
         alg = header.get("alg")
 
         if alg not in self.algorithms:
-            logger.info("auth.token.invalid_algorithm", extra={"alg": alg, "allowed": list(self.algorithms)})
+            logger.warning(
+                "auth.token.invalid_algorithm", extra={"alg": alg, "allowed": list(self.algorithms)}
+            )
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token algorithm")
 
         jwks = self._fetch_jwks()
@@ -85,6 +87,7 @@ class SupabaseJWTVerifier:
                 return PyJWK.from_dict(key).key
 
         self._jwks = None
+        logger.warning("auth.jwks.kid_unknown", extra={"kid": kid})
         logger.info("auth.jwks.kid_miss.refresh", extra={"kid": kid})
         jwks = self._fetch_jwks()
         for key in jwks["keys"]:
@@ -114,7 +117,7 @@ class SupabaseJWTVerifier:
                 detail="unable to fetch jwks",
             ) from exc
         except InvalidTokenError as exc:
-            logger.info("auth.token.invalid", extra={"error": exc.__class__.__name__})
+            logger.warning("auth.token.invalid", extra={"error": exc.__class__.__name__})
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid bearer token"
             ) from exc
@@ -123,7 +126,7 @@ class SupabaseJWTVerifier:
         try:
             user_id = UUID(str(subject))
         except (TypeError, ValueError) as exc:
-            logger.info("auth.token.invalid_subject")
+            logger.warning("auth.token.invalid_subject")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid token subject"
             ) from exc

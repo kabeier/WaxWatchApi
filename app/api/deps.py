@@ -60,6 +60,15 @@ def _resolve_current_user(
 
     user = db.query(models.User).filter(models.User.id == verified.user_id).first()
     if require_active and user is not None and not user.is_active:
+        logger.warning(
+            "auth.account.inactive_denied",
+            extra={
+                "request_id": getattr(request.state, "request_id", "-"),
+                "path": str(request.url.path),
+                "method": request.method,
+                "user_id": str(verified.user_id),
+            },
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
 
     request.state.user_id = str(verified.user_id)
@@ -122,6 +131,15 @@ def get_current_admin_user_id(
     user_id: Annotated[UUID, Depends(get_current_user_id)],
 ) -> UUID:
     if not _has_admin_claims(getattr(request.state, "token_claims", None)):
+        logger.warning(
+            "auth.admin.denied",
+            extra={
+                "request_id": getattr(request.state, "request_id", "-"),
+                "path": str(request.url.path),
+                "method": request.method,
+                "user_id": str(user_id),
+            },
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user_id
 

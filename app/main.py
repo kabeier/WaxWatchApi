@@ -53,8 +53,15 @@ def _error_response_payload(
     return payload
 
 
-def create_app() -> FastAPI:
-    configure_logging(level=settings.log_level, json_logs=settings.json_logs)
+def create_app(*, logging_replace_handlers: bool | None = None) -> FastAPI:
+    if logging_replace_handlers is None:
+        logging_replace_handlers = settings.environment.lower() != "test"
+
+    configure_logging(
+        level=settings.log_level,
+        json_logs=settings.json_logs,
+        replace_handlers=logging_replace_handlers,
+    )
     configure_error_reporting()
 
     logger.info(
@@ -85,8 +92,22 @@ def create_app() -> FastAPI:
         detail = exc.detail
         message = detail if isinstance(detail, str) else "request failed"
         details = None if isinstance(detail, str) else jsonable_encoder(detail)
+        request_context = {
+            "request_id": request_id,
+            "method": request.method,
+            "path": str(request.url.path),
+            "status_code": exc.status_code,
+            "internal_error_code": "http_error",
+        }
+
         if exc.status_code >= 500:
-            logger.error("http_exception", extra={"request_id": request_id, "status_code": exc.status_code})
+            logger.error(
+                "http.exception.server", extra={**request_context, "event_name": "http.exception.server"}
+            )
+        elif exc.status_code in {401, 403}:
+            logger.warning(
+                "http.exception.auth", extra={**request_context, "event_name": "http.exception.auth"}
+            )
 
         return JSONResponse(
             status_code=exc.status_code,
@@ -114,7 +135,17 @@ def create_app() -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
         request_id = getattr(request.state, "request_id", "-")
-        logger.info("request.validation_error", extra={"request_id": request_id})
+        logger.info(
+            "request.validation_error",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": str(request.url.path),
+                "status_code": 422,
+                "internal_error_code": "validation_error",
+                "event_name": "request.validation_error",
+            },
+        )
         return JSONResponse(
             status_code=422,
             content=_error_response_payload(
