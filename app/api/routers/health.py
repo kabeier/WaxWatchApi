@@ -98,7 +98,11 @@ def _probe_db(db: Session, *, timeout_seconds: float) -> tuple[bool, str | None]
             if is_in_transaction:
                 _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
             else:
-                with connection.begin():
+                begin = getattr(connection, "begin", None)
+                if callable(begin):
+                    with begin():
+                        _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
+                else:
                     _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
     except SQLAlchemyError as exc:
         return False, f"db readiness probe failed: {exc.__class__.__name__}"

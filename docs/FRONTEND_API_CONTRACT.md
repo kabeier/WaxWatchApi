@@ -1,11 +1,14 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-28.2`
+**Contract version:** `2026-02-28.3`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-28.3`
+  - Documented additional `/readyz` DB probe compatibility hardening: when a connection does not expose `begin()`, the probe now executes directly instead of raising attribute errors in lightweight doubles.
+  - Confirmed no frontend request/response schema changes (operational-readiness behavior only).
 - `2026-02-28.2`
   - Synced contract governance for `/readyz` probe hardening: DB dialect detection now supports bind-owned dialect metadata and defensive transaction-state checks for compatibility with SQLAlchemy test doubles.
   - Confirmed no frontend request/response schema changes (operational behavior only).
