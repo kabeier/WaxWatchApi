@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from types import MethodType
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -33,6 +34,33 @@ def test_create_rule_success(client, user, headers):
     assert body["user_id"] == str(user.id)
     assert body["query"]["max_price"] == 70
     assert body["query"]["sources"] == ["discogs"]
+
+
+def test_create_rule_commits_before_enqueue(client, db_session, user, headers, monkeypatch):
+    from app.api.routers import watch_rules as watch_rules_router
+
+    h = headers(user.id)
+    call_order: list[str] = []
+
+    original_commit = db_session.commit
+
+    def _tracked_commit(self):
+        call_order.append("commit")
+        return original_commit()
+
+    monkeypatch.setattr(db_session, "commit", MethodType(_tracked_commit, db_session))
+
+    def _tracked_enqueue(_user_id, _rule_id):
+        call_order.append("enqueue")
+
+    monkeypatch.setattr(watch_rules_router, "enqueue_backfill_rule_matches_task", _tracked_enqueue)
+
+    response = _create_rule(client, h)
+
+    assert response.status_code == 201, response.text
+    assert "enqueue" in call_order
+    assert "commit" in call_order
+    assert call_order.index("commit") < call_order.index("enqueue")
 
 
 def test_list_rules_pagination(client, user, headers):

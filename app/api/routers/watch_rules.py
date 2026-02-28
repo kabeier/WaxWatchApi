@@ -70,8 +70,13 @@ def create_rule(
         )
         raise HTTPException(status_code=500, detail="db error") from None
 
-    # DEV: backfill recent listings so user sees matches immediately
+    # Ensure the queued task can read the newly-created rule row.
+    # This mirrors the explicit commit-before-enqueue pattern used by Discogs import.
+    db.commit()
+
+    # DEV: backfill recent listings so user sees matches immediately.
     enqueue_backfill_rule_matches_task(user_id, rule.id)
+    db.refresh(rule)
 
     logger.info(
         "watch_rules.create.success",
