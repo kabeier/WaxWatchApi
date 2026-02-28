@@ -9,6 +9,9 @@ with release dates in ISO format (`YYYY-MM-DD`).
 ## [Unreleased]
 
 ### Changed
+- Hardened CI coverage-regression fallback logic so base-vs-PR comparison is skipped with an explicit warning when base-revision DB pytest baseline generation fails, avoiding false-negative PR failures from unrelated red base commits.
+- Added regression coverage for `/readyz` Postgres probing when dialect metadata is bind-owned and the connection omits transaction helpers, ensuring `SET LOCAL statement_timeout` still precedes `SELECT 1`.
+- Hardened `/readyz` DB probe compatibility for lightweight/test doubles by safely handling bind-owned dialect metadata and connections that omit `in_transaction()` and/or `begin()`, while preserving Postgres `SET LOCAL statement_timeout` behavior.
 - Refined `/readyz` database probing to use an in-thread short-lived bind connection and Postgres `SET LOCAL statement_timeout` before `SELECT 1`, avoiding request-scoped session handoff to worker threads while preserving readiness response compatibility.
 - Pinned `pip-audit` installation for CI and local `make security-deps-audit` runs via shared `PIP_AUDIT_VERSION` settings, and documented synchronized bump/maintenance expectations across governance files.
 - Standardized provider retry telemetry metadata across Discogs/eBay to emit unambiguous `attempt` (current) and `attempts_total` (configured total) fields while retaining `max_attempts` as a compatibility alias, and updated provider retry assertions accordingly.
