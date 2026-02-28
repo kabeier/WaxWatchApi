@@ -28,6 +28,7 @@ on:
 # Note: security workflows are intentionally split into dedicated pipelines:
 # - .github/workflows/security.yml (CodeQL)
 # - .github/workflows/dependency-audit.yml (pip-audit)
+#   Keep pip-audit pin governance aligned with Makefile PIP_AUDIT_VERSION and changelog/docs updates.
 # - .github/workflows/secrets-scan.yml (Gitleaks)
 #   Runs on pull requests and every direct push to main (no path allowlist) for full secret coverage.
 # - .github/workflows/smoke.yml (environment-scoped remote perf smoke, non-blocking for PR merges)
