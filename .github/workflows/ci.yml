@@ -53,7 +53,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Run static/policy CI targets
+      - name: Run required static/policy CI targets
+        # Required policy: every branch must pass this static/policy gate before review and PR merge.
         # Policy-sync guard: Settings/workflow surface changes (e.g., RATE_LIMIT_* knobs)
         # must update governance docs/files in the same PR, including synced governance files and health/metrics contract docs + tests.
         # Structured logging contract changes are included in this policy-sync requirement.
