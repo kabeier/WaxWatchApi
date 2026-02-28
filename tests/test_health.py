@@ -128,6 +128,39 @@ def test_probe_db_handles_connection_without_begin_method():
     assert calls == ["SELECT 1"]
 
 
+def test_probe_db_postgres_bind_dialect_without_transaction_helpers():
+    from app.api.routers import health
+
+    calls: list[str] = []
+
+    class _Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, stmt, params=None):
+            calls.append(str(stmt))
+
+    class _Bind:
+        class dialect:  # noqa: D106
+            name = "postgresql"
+
+        def connect(self):
+            return _Connection()
+
+    class _DB:
+        def get_bind(self):
+            return _Bind()
+
+    ok, reason = health._probe_db(_DB(), timeout_seconds=0.25)
+
+    assert ok is True
+    assert reason is None
+    assert calls == ["SET LOCAL statement_timeout = 250", "SELECT 1"]
+
+
 def test_probe_db_uses_local_statement_timeout_for_postgres():
     from app.api.routers import health
 

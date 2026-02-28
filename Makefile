@@ -4,6 +4,7 @@ SHELL := /bin/bash
 # Policy: run `make ci-static-checks` (static/policy CI parity) before commit/PR/review handoff.
 # Security scan policy: `.github/workflows/secrets-scan.yml` must run on every push to `main` (without push path filters).
 # Readiness governance note: DB probe compatibility changes (dialect fallback and missing begin()/in_transaction() guards) must be mirrored in CI/.env.sample/docs/CHANGELOG sync updates.
+# Readiness test-governance note: `/readyz` DB probe regression test-path changes must keep policy-sync artifacts updated together.
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev

@@ -13,6 +13,7 @@ name: CI
 # when integration surfaces (including token lifecycle schema/service changes) are updated.
 # Provider telemetry note: retry/request metadata should use explicit attempt fields (`attempt`, `attempts_total`) with `max_attempts` alias compatibility.
 # Readiness governance note: DB probe compatibility hardening (dialect fallback and missing begin()/in_transaction() guards) requires synced updates across Makefile/.env.sample/docs/CHANGELOG.
+# Readiness test-governance note: `/readyz` DB probe regression-test updates require synchronized policy files/docs/changelog changes.
 # Rate-limit contract note: scoped dependencies with require_authenticated_principal=true must still
 # apply scoped throttling to anonymous callers (anon:<client>) and remain covered by tests/test_rate_limit.py.
 
