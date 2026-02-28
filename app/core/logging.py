@@ -1,3 +1,14 @@
+"""Repository-wide structured logging contract.
+
+- Event names: use stable dotted identifiers as the message (e.g. ``auth.token.invalid``).
+- Severity: DEBUG diagnostics, INFO expected operations, WARNING security/retry denials,
+  ERROR failed operations (especially 5xx/task aborts), CRITICAL process-threatening failures.
+- Required ``extra`` fields: include stable request/task context and identifiers when available
+  (``request_id``, ``method``, ``path``, ``status_code``, ``task_name``, ``user_id``,
+  ``rule_id``, ``job_id``, ``notification_id``, and retry metadata).
+- Sensitive data: never emit raw token/secret/password values; redaction is mandatory.
+"""
+
 from __future__ import annotations
 
 import json

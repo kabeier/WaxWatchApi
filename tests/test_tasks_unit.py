@@ -140,6 +140,55 @@ def test_deliver_notification_task_logs_missing_notification_context(monkeypatch
     assert db.closed == 1
 
 
+def test_poll_due_rules_task_logs_structured_event_on_failure(monkeypatch):
+    db = _FakeDB()
+    monkeypatch.setattr("app.tasks.SessionLocal", lambda: db)
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("scheduler crashed")
+
+    captured: dict[str, object] = {}
+
+    def _capture_exception(message, *, extra):
+        captured["message"] = message
+        captured["extra"] = extra
+
+    monkeypatch.setattr("app.tasks.run_due_rules_once", _raise)
+    monkeypatch.setattr("app.tasks.logger.exception", _capture_exception)
+
+    with pytest.raises(RuntimeError, match="scheduler crashed"):
+        poll_due_rules_task.run()
+
+    assert captured["message"] == "tasks.poll_due_rules.failed"
+    assert captured["extra"]["task_name"] == "poll_due_rules_task"
+
+
+def test_run_discogs_import_task_logs_structured_event_on_failure(monkeypatch):
+    db = _FakeDB()
+    monkeypatch.setattr("app.tasks.SessionLocal", lambda: db)
+
+    def _raise(*_args, **_kwargs):
+        raise RuntimeError("discogs import failed")
+
+    captured: dict[str, object] = {}
+
+    def _capture_exception(message, *, extra):
+        captured["message"] = message
+        captured["extra"] = extra
+
+    monkeypatch.setattr("app.tasks.discogs_import_service.execute_import_job", _raise)
+    monkeypatch.setattr("app.tasks.logger.exception", _capture_exception)
+
+    job_id = str(uuid.uuid4())
+    with pytest.raises(RuntimeError, match="discogs import failed"):
+        run_discogs_import_task.run(job_id)
+
+    assert captured == {
+        "message": "tasks.run_discogs_import.failed",
+        "extra": {"task_name": "run_discogs_import_task", "job_id": job_id},
+    }
+
+
 def test_celery_beat_schedule_includes_discogs_sync_task():
     schedule = celery_app.conf.beat_schedule
 
