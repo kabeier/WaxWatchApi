@@ -9,7 +9,7 @@ runs:
   using: composite
   steps:
     - name: Use Python
-      uses: actions/setup-python@v6.2.0 # v6.2.0
+      uses: actions/setup-python@<full_commit_sha> # v6.2.0
       with:
         python-version: ${{ inputs.python-version }}
         cache: pip

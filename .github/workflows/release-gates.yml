@@ -47,7 +47,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6.0.2 # v6.0.2
+        uses: actions/checkout@<full_commit_sha> # v6.0.2
 
       - name: Validate required perf inputs
         run: |
@@ -56,7 +56,7 @@ jobs:
           test -n "${PERF_BEARER_TOKEN}" || (echo "PERF_BEARER_TOKEN is required" && exit 1)
 
       - name: Install k6
-        uses: grafana/setup-k6-action@v1
+        uses: grafana/setup-k6-action@<full_commit_sha> # v1
 
       - name: Run k6 smoke suite
         run: |
@@ -70,7 +70,7 @@ jobs:
 
       - name: Upload release-gate artifacts
         if: always()
-        uses: actions/upload-artifact@v6.0.0 # v6.0.0
+        uses: actions/upload-artifact@<full_commit_sha> # v6.0.0
         with:
           name: release-gates-${{ github.run_id }}
           retention-days: 30
