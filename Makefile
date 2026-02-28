@@ -569,6 +569,7 @@ wait-test-db:
 # - ci-local is the canonical CI entrypoint for both local and GitHub Actions runs.
 # - Keep static governance checks in ci-static-checks (used by both ci-local and CI static-checks job).
 # - Keep ci-local wired as ci-static-checks + ci-db-tests + ci-celery-redis-smoke.
+# - Structured logging contract changes (app/core/logging.py, app/tasks.py, app/api/deps.py, app/core/auth.py, app/main.py) require policy-sync file updates in the same PR.
 # - Keep migration upgrade + schema drift checks + default pytest discovery with coverage in ci-db-tests.
 # - Worker-dependent integration tests must not rely on implicit worker presence in ci-db-tests.
 # - ci-db-tests intentionally excludes integration-marked tests (-m "not integration") and also ignores
