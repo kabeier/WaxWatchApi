@@ -2,6 +2,7 @@ SHELL := /bin/bash
 
 # Governance note: notification enqueue semantics are post-commit; keep CI/.env.sample/docs/CHANGELOG synchronized when task orchestration changes.
 # Policy: run `make ci-static-checks` (static/policy CI parity) before commit/PR/review handoff.
+# Security scan policy: `.github/workflows/secrets-scan.yml` must run on every push to `main` (without push path filters).
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev

@@ -16,6 +16,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Refined scoped principal keying to prefer stable authenticated `request.state.user_id` when available, while pre-auth/invalid-bearer requests share anonymous-hybrid keys (`anon:<client>` / `anon:<client>:bearer`) so bogus token spray cannot bypass auth-required budgets.
 - Deferred notification task dispatch until SQL transaction commit via session post-commit hooks, and retained failed post-commit enqueue attempts for retry on the session's next commit boundary.
 - Improved notification task observability by logging structured context when delivery tasks cannot find their notification records (likely race indicator).
+- Broadened `.github/workflows/secrets-scan.yml` push coverage by removing push path filters so every direct push to `main` runs Gitleaks regardless of file type.
 
 ### Added
 - Notification service tests covering rollback-after-flush (no dispatch), successful commit (single dispatch), and failed post-commit enqueue retry behavior.

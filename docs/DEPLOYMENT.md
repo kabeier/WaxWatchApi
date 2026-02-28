@@ -22,7 +22,7 @@ Security checks are intentionally separated from the main CI job graph to keep p
 
 - `.github/workflows/security.yml`: CodeQL (Python) on pull requests and a weekly schedule.
 - `.github/workflows/dependency-audit.yml`: `pip-audit` on dependency-file PR changes and weekly schedule.
-- `.github/workflows/secrets-scan.yml`: Gitleaks pull-request secret scanning.
+- `.github/workflows/secrets-scan.yml`: Gitleaks secret scanning on pull requests and every direct push to `main` (no push path allowlist).
 
 Security triage and exception handling process is documented in `docs/OPERATIONS_OBSERVABILITY.md` and should be followed for any failing security scan.
 
