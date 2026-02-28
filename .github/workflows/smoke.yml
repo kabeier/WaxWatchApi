@@ -132,7 +132,7 @@ jobs:
           test -n "${PERF_BEARER_TOKEN}" || (echo "PERF_BEARER_TOKEN environment secret is required" && exit 1)
 
       - name: Install k6
-        uses: grafana/setup-k6-action@8d6d05d7b3b88a3ebebf6a40e0f2775217acb2bb # v1
+        uses: grafana/setup-k6-action@v1 # v1
 
       - name: Run k6 smoke suite
         run: |
