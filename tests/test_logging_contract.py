@@ -50,13 +50,21 @@ def test_http_exception_and_validation_logs_include_request_context(caplog):
     assert boom_response.status_code == 500
     assert invalid_response.status_code == 401
 
-    server_error = next(record for record in caplog.records if record.message == "http.exception.server")
+    server_error = next(
+        record
+        for record in caplog.records
+        if record.name == "app.main" and record.getMessage() == "http.exception.server"
+    )
     assert server_error.request_id
     assert server_error.method == "GET"
     assert server_error.path == "/boom"
     assert server_error.status_code == 500
     assert server_error.internal_error_code == "http_error"
 
-    auth_error = next(record for record in caplog.records if record.message == "http.exception.auth")
+    auth_error = next(
+        record
+        for record in caplog.records
+        if record.name == "app.main" and record.getMessage() == "http.exception.auth"
+    )
     assert auth_error.path == "/api/watch-rules"
     assert auth_error.status_code == 401
