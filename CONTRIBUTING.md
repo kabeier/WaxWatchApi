@@ -48,7 +48,7 @@ If your change affects CI behavior or governance policy, update this section alo
 Security checks are additionally split into dedicated workflows for least-privilege operation:
 
 - `.github/workflows/security.yml` (CodeQL for Python on PR + weekly cadence + push to `main` for meaningful code/config changes)
-- `.github/workflows/dependency-audit.yml` (`pip-audit` on `requirements*.in/txt` changes + weekly cadence)
+- `.github/workflows/dependency-audit.yml` (`pip-audit` on `requirements*.in/txt` changes + weekly cadence, with pinned `pip-audit` version and periodic bump maintenance)
 - `.github/workflows/secrets-scan.yml` (Gitleaks on PRs + push to `main` for meaningful code/config changes)
 
 Action pin governance: keep marketplace actions SHA-pinned with version comments (for example `# v6.0.2`) when rotating versions, and update `.env.sample`, `Makefile`, and `CHANGELOG.md` in the same PR so policy-sync checks remain green.
