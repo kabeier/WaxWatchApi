@@ -33,7 +33,6 @@ def test_main_enforces_governance_for_app_tasks_py(monkeypatch, capsys):
     assert " - task orchestration" in output
     assert " - missing required file update: Makefile" in output
     assert " - missing required file update: .github/workflows/ci.yml" in output
-    assert " - missing required file update: .env.sample" in output
     assert "Integration hygiene violation: missing CHANGELOG.md update" in output
 
 
@@ -47,14 +46,27 @@ def test_remediation_message_lists_required_sync_artifacts(monkeypatch, capsys):
 
     assert rc == 1
     output = capsys.readouterr().out
-    assert module.remediation_message() in output
+    assert module.remediation_message(require_env_sample=False) in output
 
 
 def test_remediation_message_is_derived_from_required_files():
     module = _load_module()
 
     assert (
-        module.remediation_message()
-        == "Remediation: update .env.sample, .github/workflows/ci.yml, Makefile, "
-        "CHANGELOG.md, and relevant documentation in the same PR."
+        module.remediation_message(require_env_sample=False)
+        == "Remediation: update .github/workflows/ci.yml, Makefile, CHANGELOG.md, and relevant documentation in the same PR."
+        " (update `.env.sample` only for env var additions/removals/default changes)"
     )
+
+
+def test_env_sample_required_when_settings_surface_changes(monkeypatch, capsys):
+    module = _load_module()
+
+    monkeypatch.setattr(module, "detect_base_ref", lambda: "main")
+    monkeypatch.setattr(module, "changed_files", lambda _base_ref: {"app/core/config.py"})
+
+    rc = module.main()
+
+    assert rc == 1
+    output = capsys.readouterr().out
+    assert " - missing required file update: .env.sample" in output
