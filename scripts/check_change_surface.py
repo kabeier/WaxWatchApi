@@ -37,7 +37,6 @@ TRIGGER_GLOBS: dict[str, tuple[str, ...]] = {
 REQUIRED_FILES = {
     "Makefile",
     ".github/workflows/ci.yml",
-    ".env.sample",
 }
 CHANGELOG_FILE = "CHANGELOG.md"
 DOC_GLOBS = (
@@ -66,10 +65,30 @@ CHANGELOG_EXCEPTION_ONLY_GLOBS = (
 )
 
 
-def remediation_message() -> str:
-    required_files = ", ".join(sorted(REQUIRED_FILES))
+def env_contract_change_detected(diff_files: set[str]) -> bool:
+    """Return True when env sample synchronization is expected.
+
+    Policy: `.env.sample` updates are only required when env variables are
+    added/removed or defaults change. In practice, that means env/config
+    contract files are part of the same PR change surface.
+    """
+
+    return any(path in diff_files for path in {"app/core/config.py", ".env.sample"})
+
+
+def remediation_message(*, require_env_sample: bool) -> str:
+    required_files = set(REQUIRED_FILES)
+    if require_env_sample:
+        required_files.add(".env.sample")
+    required_files_text = ", ".join(sorted(required_files))
+    env_sample_note = (
+        ""
+        if require_env_sample
+        else " (update `.env.sample` only for env var additions/removals/default changes)"
+    )
     return (
-        f"Remediation: update {required_files}, {CHANGELOG_FILE}, and relevant documentation in the same PR."
+        f"Remediation: update {required_files_text}, {CHANGELOG_FILE}, and relevant documentation in the same PR."
+        f"{env_sample_note}"
     )
 
 
@@ -149,7 +168,11 @@ def main() -> int:
         return 0
 
     errors: list[str] = []
-    missing_required = sorted(REQUIRED_FILES - diff_files)
+    require_env_sample = env_contract_change_detected(diff_files)
+    required_files = set(REQUIRED_FILES)
+    if require_env_sample:
+        required_files.add(".env.sample")
+    missing_required = sorted(required_files - diff_files)
     if missing_required:
         errors.append(
             "Integration hygiene violation: triggered change surface requires synchronized updates to all required governance files."
@@ -172,7 +195,7 @@ def main() -> int:
         for category in matched_categories:
             print(f" - {category}")
         print("\n".join(errors))
-        print(remediation_message())
+        print(remediation_message(require_env_sample=require_env_sample))
         return 1
 
     print("Triggered categories:")

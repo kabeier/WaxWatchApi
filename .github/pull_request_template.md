@@ -10,7 +10,7 @@
 
 ## Governance sync checklist (required when tests/CI/Make/env vars are affected)
 
-- [ ] `.env.sample` updated with non-secret defaults and environment notes.
+- [ ] `.env.sample` updated with non-secret defaults and environment notes (required only when env vars are added/removed or defaults change).
 - [ ] `Makefile` updated to reflect command/test workflow changes.
 - [ ] `.github/workflows/ci.yml` updated to reflect CI workflow changes.
 - [ ] `CONTRIBUTING.md` updated with policy/process changes.

@@ -44,7 +44,7 @@ The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four 
 - Top-level workflow `concurrency` uses `${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`, so force-pushes and rapid commit sequences on the same PR ref cancel superseded runs and keep required checks pinned to the newest commit.
 
 If your change affects CI behavior or governance policy, update this section alongside `.github/workflows/ci.yml` in the same PR.
-If your change touches `/readyz` DB probe compatibility behavior (for example dialect fallback or missing `in_transaction()`/`begin()` guards), also synchronize `.env.sample`, `Makefile`, docs, and `CHANGELOG.md` in the same PR to satisfy policy-sync checks.
+If your change touches `/readyz` DB probe compatibility behavior (for example dialect fallback or missing `in_transaction()`/`begin()` guards), also synchronize `Makefile`, docs, and `CHANGELOG.md` in the same PR, and update `.env.sample` only when env vars are added/removed or defaults change, to satisfy policy-sync checks.
 Coverage-regression comparison (`scripts/check_coverage_regression.py`) requires a successful base-branch DB pytest baseline; CI now skips only the comparison step (with a warning) when that baseline generation fails, while preserving the PR coverage gate.
 When adding/changing readiness DB probe regression tests (`tests/test_health.py`), include synchronized governance file and changelog updates so `make check-change-surface` remains green.
 
@@ -56,7 +56,7 @@ Security checks are additionally split into dedicated workflows for least-privil
   - `pip-audit` is pinned; bump `.github/workflows/dependency-audit.yml` `PIP_AUDIT_VERSION` and `Makefile` `PIP_AUDIT_VERSION` together, then record the bump in `CHANGELOG.md`.
 - `.github/workflows/secrets-scan.yml` (Gitleaks on PRs + push to `main` for meaningful code/config changes)
 
-Action pin governance: keep marketplace actions SHA-pinned with version comments (for example `# v6.0.2`) when rotating versions, and update `.env.sample`, `Makefile`, and `CHANGELOG.md` in the same PR so policy-sync checks remain green.
+Action pin governance: keep marketplace actions SHA-pinned with version comments (for example `# v6.0.2`) when rotating versions, and update `Makefile` and `CHANGELOG.md` in the same PR (plus `.env.sample` only when env vars are added/removed or defaults change) so policy-sync checks remain green.
 
 For local parity, use `make security-deps-audit` and `make security-secrets-scan` before opening security-sensitive PRs.
 
@@ -236,17 +236,17 @@ Provider/source contract note:
 
 Any upstream change that affects tests, CI workflow behavior, Make targets, or environment variables **must** update the governance files in the same PR:
 
-- `.env.sample` (with non-secret defaults and env notes)
 - `Makefile`
 - `.github/workflows/ci.yml`
 - `CONTRIBUTING.md`
 - any affected operational/API docs (`docs/DEPLOYMENT.md`, `docs/FRONTEND_API_CONTRACT.md`)
+- `.env.sample` only when environment variables are added/removed or defaults change (with non-secret defaults and env notes)
 
 Enforcement notes:
 
 - CI runs `python scripts/check_env_sample.py` to verify `.env.sample` still covers all `Settings` fields.
 - CI runs `python scripts/check_change_surface.py` to enforce integration hygiene when a PR touches testing workflow, CI config, task orchestration, or settings surfaces.
-- The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`).
+- The change-surface check requires same-PR updates to `Makefile`, `.github/workflows/ci.yml`, `CHANGELOG.md`, and relevant docs (`CONTRIBUTING.md` or `docs/*.md`); `.env.sample` is only required when env vars are added/removed or defaults change.
 - Example: readiness probe behavior updates (threading/timeout semantics) should carry the same governance/doc/changelog sync updates when tests or CI surfaces are touched.
 - Structured logging contract updates (`app/core/logging.py`, auth/dependency severity changes, task exception event shapes) are considered integration-surface changes and require synchronized governance/doc updates in the same PR.
 - Provider retry telemetry emitted by integrations should use explicit attempt fields (`attempt` for current attempt and `attempts_total` for configured tries); keep `max_attempts` only as a backward-compatible alias.
@@ -264,8 +264,8 @@ If `scripts/check_change_surface.py` fails:
 2. Add/update the synchronized governance files in the same PR:
    - `Makefile`
    - `.github/workflows/ci.yml`
-   - `.env.sample`
    - `CHANGELOG.md` (unless the test/governance-only exception applies)
+   - `.env.sample` only when env vars are added/removed or defaults change
    - `CONTRIBUTING.md` and/or relevant `docs/*.md`
 3. Re-run locally:
    ```bash
@@ -289,16 +289,16 @@ Always add/adjust tests under `tests/` for both limit-exceeded and exempt-path b
 
 ## Integration hygiene reminder
 
-When a change touches integration surfaces (tests, CI workflow, task orchestration, or settings), update governance files together in the same PR: `Makefile`, `.github/workflows/ci.yml`, `.env.sample`, `CHANGELOG.md`, and relevant contributor/operator documentation.
+When a change touches integration surfaces (tests, CI workflow, task orchestration, or settings), update governance files together in the same PR: `Makefile`, `.github/workflows/ci.yml`, `CHANGELOG.md`, and relevant contributor/operator documentation (`.env.sample` only when env vars are added/removed or defaults change).
 
 
 - Rate-limit behavior changes should include/refresh `tests/test_rate_limit.py` and keep CI/local governance hooks (`make test-rate-limit`, `.github/workflows/ci.yml`) synchronized in the same PR.
 
-- For provider token lifecycle work, keep normalized `external_account_links` fields and migration backfills aligned; call out any no-new-config behavior in `.env.sample` and CHANGELOG entries.
+- For provider token lifecycle work, keep normalized `external_account_links` fields and migration backfills aligned; update `.env.sample` only for env var additions/removals/default changes, and document behavior changes in CHANGELOG entries.
 
 - Migration test-path changes (including token lifecycle SQL backfills) must update governance files/docs/CHANGELOG together for policy-sync compliance.
 
-- Policy sync: even migration test-path-only token lifecycle edits must update governance artifacts (`.env.sample`, `Makefile`, CI workflow), docs, and `CHANGELOG.md`.
+- Policy sync: even migration test-path-only token lifecycle edits must update governance artifacts (`Makefile`, CI workflow), docs, and `CHANGELOG.md`; update `.env.sample` only for env var additions/removals/default changes.
 
 - Token lifecycle migration SQL refactors (especially scope normalization CTE changes) must include synchronized governance/docs/changelog updates and DB-backed test verification.
 

@@ -1,9 +1,9 @@
 SHELL := /bin/bash
 
-# Governance note: notification enqueue semantics are post-commit; keep CI/.env.sample/docs/CHANGELOG synchronized when task orchestration changes.
+# Governance note: notification enqueue semantics are post-commit; keep CI/docs/CHANGELOG synchronized when task orchestration changes (and update .env.sample only for env var additions/removals/default changes).
 # Policy: run `make ci-static-checks` (static/policy CI parity) before commit/PR/review handoff.
 # Security scan policy: `.github/workflows/secrets-scan.yml` must run on every push to `main` (without push path filters).
-# Readiness governance note: DB probe compatibility changes (dialect fallback and missing begin()/in_transaction() guards) must be mirrored in CI/.env.sample/docs/CHANGELOG sync updates.
+# Readiness governance note: DB probe compatibility changes (dialect fallback and missing begin()/in_transaction() guards) must be mirrored in CI/docs/CHANGELOG sync updates (plus .env.sample only when env vars/defaults change).
 # Readiness test-governance note: `/readyz` DB probe regression test-path changes must keep policy-sync artifacts updated together.
 # Coverage regression note: CI may bypass base coverage comparison when base-revision DB pytest baseline generation fails, while keeping PR coverage gating active.
 
@@ -37,7 +37,7 @@ GIT_BRANCH ?= main
 TAG ?= ci
 
 # Governance note: when CI/security workflow action references are refreshed,
-# keep this file, .env.sample, CHANGELOG.md, and CONTRIBUTING.md updated together
+# keep this file, CHANGELOG.md, and CONTRIBUTING.md updated together (plus .env.sample only for env var additions/removals/default changes)
 # so check-change-surface/check-policy-sync can validate synchronized intent.
 # Action pinning policy marker: external GitHub Action `uses:` refs must remain
 # pinned to full commit SHAs with trailing release-tag comments for readability.
@@ -105,7 +105,7 @@ help:
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make check-compose-secret-defaults Validate fail-closed secret default policy in compose"
-	@echo "  make check-policy-sync     Validate .env.sample + governance sync policy (change-surface/changelog + CI concurrency/docs + action pinning sync)"
+	@echo "  make check-policy-sync     Validate governance sync policy (change-surface/changelog + CI concurrency/docs + action pinning sync; .env.sample only for env var/default changes)"
 	@echo "                             Includes Settings/.env governance sync for runtime knobs (for example RATE_LIMIT_* fields)."
 	@echo "  make check-change-surface  Validate integration hygiene change-surface policy"
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"

@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from prometheus_client import generate_latest
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
@@ -396,3 +397,56 @@ def test_notification_delivery_frequency_defers_after_recent_delivery(db_session
     )
 
     assert next_at == sent_at + timedelta(hours=1)
+
+
+def test_notifications_list_returns_500_on_database_error(client, user, headers, monkeypatch):
+    class _FailingPagination:
+        def all(self):
+            raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr(
+        "app.api.routers.notifications.apply_created_id_pagination",
+        lambda *_args, **_kwargs: _FailingPagination(),
+    )
+
+    response = client.get("/api/notifications", headers=headers(user.id))
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500
+
+
+def test_mark_notification_read_returns_500_on_flush_error(client, db_session, user, headers, monkeypatch):
+    event = _create_event(db_session, user.id)
+    notification = enqueue_from_event(db_session, event=event)[0]
+    db_session.flush()
+
+    def _raise_db_error(*_args, **_kwargs):
+        raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr("app.api.routers.notifications.Session.flush", _raise_db_error)
+
+    response = client.post(f"/api/notifications/{notification.id}/read", headers=headers(user.id))
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500
+
+
+def test_notifications_unread_count_returns_500_on_database_error(client, user, headers, monkeypatch):
+    def _raise_db_error(*_args, **_kwargs):
+        raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr("sqlalchemy.orm.Query.count", _raise_db_error)
+
+    response = client.get("/api/notifications/unread-count", headers=headers(user.id))
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500

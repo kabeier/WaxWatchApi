@@ -5,6 +5,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import case, func
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Query as SAQuery
 from sqlalchemy.orm import Session
 
@@ -61,12 +62,15 @@ def list_provider_requests(
     user_id: UUID = Depends(get_current_user_id),
     pagination: PaginationParams = Depends(get_pagination_params),
 ):
-    rows = apply_created_id_pagination(
-        db.query(models.ProviderRequest).filter(models.ProviderRequest.user_id == user_id),
-        models.ProviderRequest,
-        pagination,
-    ).all()
-    return rows
+    try:
+        rows = apply_created_id_pagination(
+            db.query(models.ProviderRequest).filter(models.ProviderRequest.user_id == user_id),
+            models.ProviderRequest,
+            pagination,
+        ).all()
+        return rows
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="db error") from exc
 
 
 @router.get("/summary", response_model=list[ProviderRequestSummaryOut])
@@ -74,18 +78,23 @@ def provider_request_summary(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    rows = (
-        db.query(
-            models.ProviderRequest.provider.label("provider"),
-            func.count(models.ProviderRequest.id).label("total_requests"),
-            func.sum(case((models.ProviderRequest.status_code >= 400, 1), else_=0)).label("error_requests"),
-            func.avg(models.ProviderRequest.duration_ms).label("avg_duration_ms"),
+    try:
+        rows = (
+            db.query(
+                models.ProviderRequest.provider.label("provider"),
+                func.count(models.ProviderRequest.id).label("total_requests"),
+                func.sum(case((models.ProviderRequest.status_code >= 400, 1), else_=0)).label(
+                    "error_requests"
+                ),
+                func.avg(models.ProviderRequest.duration_ms).label("avg_duration_ms"),
+            )
+            .filter(models.ProviderRequest.user_id == user_id)
+            .group_by(models.ProviderRequest.provider)
+            .order_by(models.ProviderRequest.provider.asc())
+            .all()
         )
-        .filter(models.ProviderRequest.user_id == user_id)
-        .group_by(models.ProviderRequest.provider)
-        .order_by(models.ProviderRequest.provider.asc())
-        .all()
-    )
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="db error") from exc
 
     return [
         ProviderRequestSummaryOut(
@@ -110,16 +119,19 @@ def list_provider_requests_admin(
     created_to: datetime | None = Query(default=None),
     user_id: UUID | None = Query(default=None),
 ):
-    base_query = _apply_admin_filters(
-        db.query(models.ProviderRequest),
-        provider=provider,
-        status_code_gte=status_code_gte,
-        status_code_lte=status_code_lte,
-        created_from=created_from,
-        created_to=created_to,
-        user_id=user_id,
-    )
-    return apply_created_id_pagination(base_query, models.ProviderRequest, pagination).all()
+    try:
+        base_query = _apply_admin_filters(
+            db.query(models.ProviderRequest),
+            provider=provider,
+            status_code_gte=status_code_gte,
+            status_code_lte=status_code_lte,
+            created_from=created_from,
+            created_to=created_to,
+            user_id=user_id,
+        )
+        return apply_created_id_pagination(base_query, models.ProviderRequest, pagination).all()
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="db error") from exc
 
 
 @router.get("/admin/summary", response_model=list[ProviderRequestSummaryOut])
@@ -133,26 +145,31 @@ def provider_request_summary_admin(
     created_to: datetime | None = Query(default=None),
     user_id: UUID | None = Query(default=None),
 ):
-    base_query = _apply_admin_filters(
-        db.query(
-            models.ProviderRequest.provider.label("provider"),
-            func.count(models.ProviderRequest.id).label("total_requests"),
-            func.sum(case((models.ProviderRequest.status_code >= 400, 1), else_=0)).label("error_requests"),
-            func.avg(models.ProviderRequest.duration_ms).label("avg_duration_ms"),
-        ),
-        provider=provider,
-        status_code_gte=status_code_gte,
-        status_code_lte=status_code_lte,
-        created_from=created_from,
-        created_to=created_to,
-        user_id=user_id,
-    )
+    try:
+        base_query = _apply_admin_filters(
+            db.query(
+                models.ProviderRequest.provider.label("provider"),
+                func.count(models.ProviderRequest.id).label("total_requests"),
+                func.sum(case((models.ProviderRequest.status_code >= 400, 1), else_=0)).label(
+                    "error_requests"
+                ),
+                func.avg(models.ProviderRequest.duration_ms).label("avg_duration_ms"),
+            ),
+            provider=provider,
+            status_code_gte=status_code_gte,
+            status_code_lte=status_code_lte,
+            created_from=created_from,
+            created_to=created_to,
+            user_id=user_id,
+        )
 
-    rows = (
-        base_query.group_by(models.ProviderRequest.provider)
-        .order_by(models.ProviderRequest.provider.asc())
-        .all()
-    )
+        rows = (
+            base_query.group_by(models.ProviderRequest.provider)
+            .order_by(models.ProviderRequest.provider.asc())
+            .all()
+        )
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="db error") from exc
 
     return [
         ProviderRequestSummaryOut(

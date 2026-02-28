@@ -66,6 +66,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added top-level CI workflow concurrency cancellation (`${{ github.workflow }}-${{ github.ref }}` + `cancel-in-progress: true`) so force-pushes and rapid PR commit bursts only keep the newest run active.
 - Enhanced the non-blocking perf smoke workflow with manual dispatch overrides (`perf_base_url`, `perf_rule_id`), explicit runtime fallback resolution (dispatch input → environment variable → repository variable), and safe source diagnostics while preserving required-value hard-fail behavior.
 - Documented and codified a static/policy CI pre-review expectation by clarifying `make ci-static-checks` usage across CI workflow, Makefile help, contributor guidance, and env governance notes.
+- Refined static/policy governance so `.env.sample` synchronization is enforced only for environment-variable additions/removals/default changes, while other integration-surface edits continue to require Makefile/CI/docs/changelog sync.
 
 ## [0.1.0] - 2026-02-25
 
