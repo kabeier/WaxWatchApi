@@ -29,6 +29,7 @@ on:
 # - .github/workflows/security.yml (CodeQL)
 # - .github/workflows/dependency-audit.yml (pip-audit)
 # - .github/workflows/secrets-scan.yml (Gitleaks)
+#   Runs on pull requests and every direct push to main (no path allowlist) for full secret coverage.
 # - .github/workflows/smoke.yml (environment-scoped remote perf smoke, non-blocking for PR merges)
 
 permissions:
