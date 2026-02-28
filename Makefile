@@ -11,6 +11,7 @@ PROD_REQUIRED_ENV_VARS ?= DATABASE_URL AUTH_ISSUER AUTH_JWKS_URL TOKEN_CRYPTO_KM
 COMPOSE := docker compose
 PYTHON ?= python
 LOCK_PYTHON ?= python3.12
+PIP_AUDIT_VERSION ?= 2.9.0
 LOCK_HEADER_PYTHON ?= 3.12
 
 TEST_DB_COMPOSE ?= docker-compose.test.yml
@@ -190,7 +191,7 @@ perf-smoke:
 	@if command -v k6 >/dev/null 2>&1; then 		echo "Using local k6 binary"; 		k6 run scripts/perf/core_flows_smoke.js; 	else 		echo "k6 not found; using grafana/k6 Docker image"; 		docker run --rm -i 			-e PERF_BASE_URL -e PERF_BEARER_TOKEN -e PERF_RULE_ID -e PERF_ENABLE_RULE_RUN 			-e PERF_VUS -e PERF_DURATION -e PERF_LIST_PATH -e PERF_RELEASES_LIST_PATH -e PERF_SEARCH_PATH 			-e PERF_RULE_RUN_PATH -e PERF_SEARCH_KEYWORDS -e PERF_SEARCH_PROVIDERS -e PERF_SEARCH_PAGE 			-e PERF_SEARCH_PAGE_SIZE 			-v "$(PWD):/work" -w /work 			grafana/k6:0.52.0 run scripts/perf/core_flows_smoke.js; 	fi
 
 security-deps-audit:
-	@set -euo pipefail; 	mapfile -t dep_files < <(find . -type f \( -name 'requirements*.txt' -o -name 'requirements*.in' \) | sort); 	if [ "$${#dep_files[@]}" -eq 0 ]; then 		echo "No requirements*.txt or requirements*.in files found; skipping audit."; 		exit 0; 	fi; 	$(PYTHON) -m pip install --upgrade pip pip-audit >/dev/null; 	for dep_file in "$${dep_files[@]}"; do 		echo "Auditing $${dep_file}"; 		$(PYTHON) -m pip_audit -r "$${dep_file}"; 	done
+	@set -euo pipefail; 	mapfile -t dep_files < <(find . -type f \( -name 'requirements*.txt' -o -name 'requirements*.in' \) | sort); 	if [ "$${#dep_files[@]}" -eq 0 ]; then 		echo "No requirements*.txt or requirements*.in files found; skipping audit."; 		exit 0; 	fi; 	$(PYTHON) -m pip install --upgrade pip >/dev/null; 	$(PYTHON) -m pip install "pip-audit==$(PIP_AUDIT_VERSION)" >/dev/null; 	for dep_file in "$${dep_files[@]}"; do 		echo "Auditing $${dep_file}"; 		$(PYTHON) -m pip_audit -r "$${dep_file}"; 	done
 
 security-secrets-scan:
 	@if ! command -v gitleaks >/dev/null 2>&1; then 		echo "error: gitleaks is not installed. Install from https://github.com/gitleaks/gitleaks/releases"; 		exit 1; 	fi
