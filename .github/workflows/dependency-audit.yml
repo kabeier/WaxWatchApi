@@ -19,6 +19,12 @@ jobs:
   pip-audit:
     name: pip-audit
     runs-on: ubuntu-latest
+    env:
+      # Maintenance process:
+      # - Review/bump this pin at least monthly (or when Dependabot opens tooling/security updates).
+      # - If we want lockfile-driven updates instead, add pip-audit to requirements-dev.in and
+      #   regenerate requirements-dev.txt via `make lock-refresh`.
+      PIP_AUDIT_VERSION: "2.9.0"
 
     steps:
       - name: Checkout
@@ -30,7 +36,9 @@ jobs:
           python-version: "3.12"
 
       - name: Install pip-audit
-        run: python -m pip install --upgrade pip pip-audit
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "pip-audit==${PIP_AUDIT_VERSION}"
 
       - name: Run pip-audit against dependency inputs
         run: |
