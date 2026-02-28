@@ -495,6 +495,7 @@ check-docker-config:
 	$(COMPOSE) -f docker-compose.test.yml config >/dev/null
 
 check-policy-sync:
+	# Readiness probes that change DB timeout/threading behavior must keep governance files/docs in sync.
 	$(PYTHON) scripts/check_env_sample.py
 	$(MAKE) check-compose-secret-defaults
 	$(MAKE) check-smoke-workflow-config
