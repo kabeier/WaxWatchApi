@@ -90,7 +90,7 @@ def _probe_db(db: Session, *, timeout_seconds: float) -> tuple[bool, str | None]
 
         with connection_context as connection:
             dialect = getattr(connection, "dialect", None) or getattr(bind, "dialect", None)
-            dialect_name = getattr(dialect, "name", "")
+            dialect_name = str(getattr(dialect, "name", "") or "")
 
             in_transaction = getattr(connection, "in_transaction", None)
             is_in_transaction = in_transaction() if callable(in_transaction) else False
