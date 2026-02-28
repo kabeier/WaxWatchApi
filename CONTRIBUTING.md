@@ -2,7 +2,7 @@
 
 ## Local developer workflow
 
-Use the same commands that CI uses before opening a pull request:
+Use the same commands that CI uses before opening a pull request (and before requesting review or handing off a commit):
 
 1. Install dependencies:
    ```bash
@@ -17,7 +17,7 @@ Use the same commands that CI uses before opening a pull request:
 
 `make ci-local` mirrors the CI gates and runs:
 
-- `make ci-static-checks` (non-DB checks)
+- `make ci-static-checks` (non-DB static/policy gate; required before commit/PR/review handoff)
 - `make ci-db-tests` (DB migration/drift + pytest coverage)
 - `make ci-celery-redis-smoke` (worker-backed integration smoke)
 
@@ -47,9 +47,9 @@ If your change affects CI behavior or governance policy, update this section alo
 
 Security checks are additionally split into dedicated workflows for least-privilege operation:
 
-- `.github/workflows/security.yml` (CodeQL for Python on PR + weekly cadence)
+- `.github/workflows/security.yml` (CodeQL for Python on PR + weekly cadence + push to `main` for meaningful code/config changes)
 - `.github/workflows/dependency-audit.yml` (`pip-audit` on `requirements*.in/txt` changes + weekly cadence)
-- `.github/workflows/secrets-scan.yml` (Gitleaks on PRs)
+- `.github/workflows/secrets-scan.yml` (Gitleaks on PRs + push to `main` for meaningful code/config changes)
 
 Action pin governance: keep marketplace actions SHA-pinned with version comments (for example `# v6.0.2`) when rotating versions, and update `.env.sample`, `Makefile`, and `CHANGELOG.md` in the same PR so policy-sync checks remain green.
 

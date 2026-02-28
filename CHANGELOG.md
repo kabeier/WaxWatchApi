@@ -31,6 +31,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added CI hardening for throttling governance by introducing a dedicated DB-backed `tests/test_rate_limit.py` workflow step and a matching local `make test-rate-limit` helper target.
 - Adjusted targeted throttling regression execution to run `alembic upgrade heads` first and execute `tests/test_rate_limit.py` with `--no-cov` plus a 240s timeout/progress flags so schema/bootstrap issues, global coverage gates, and silent hangs do not mask rate-limit contract failures.
 - Added dedicated security workflows for Python CodeQL (`.github/workflows/security.yml`), dependency auditing via `pip-audit` (`.github/workflows/dependency-audit.yml`), and optional PR secret scanning via Gitleaks (`.github/workflows/secrets-scan.yml`).
+- Added `push` triggers on `main` for CodeQL and Gitleaks workflows with path filters so post-merge security scans run for meaningful code/config changes while controlling CI cost.
 - Added a dedicated non-blocking GitHub Actions perf smoke workflow (`.github/workflows/smoke.yml`) with environment-scoped secrets/vars and uploaded k6 summary/log artifacts for trend visibility.
 - Changelog governance across contribution guidance, CI policy checks, and PR template requirements.
 - Added a k6-based perf smoke harness (`make perf-smoke`) with SLO-aligned thresholds and deployment/operations run requirements.
@@ -58,6 +59,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Kept `make ci-local` as the canonical local parity command by composing `ci-static-checks`, `ci-db-tests`, and `ci-celery-redis-smoke`.
 - Added top-level CI workflow concurrency cancellation (`${{ github.workflow }}-${{ github.ref }}` + `cancel-in-progress: true`) so force-pushes and rapid PR commit bursts only keep the newest run active.
 - Enhanced the non-blocking perf smoke workflow with manual dispatch overrides (`perf_base_url`, `perf_rule_id`), explicit runtime fallback resolution (dispatch input → environment variable → repository variable), and safe source diagnostics while preserving required-value hard-fail behavior.
+- Documented and codified a static/policy CI pre-review expectation by clarifying `make ci-static-checks` usage across CI workflow, Makefile help, contributor guidance, and env governance notes.
 
 ## [0.1.0] - 2026-02-25
 
