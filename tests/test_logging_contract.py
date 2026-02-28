@@ -25,7 +25,7 @@ def test_auth_invalid_algorithm_logs_warning(client, caplog):
 
 def test_admin_denial_logs_warning(client, user, headers, caplog):
     with caplog.at_level(logging.WARNING, logger="app.auth"):
-        response = client.get("/api/provider-requests", headers=headers(user.id))
+        response = client.get("/api/provider-requests/admin", headers=headers(user.id))
 
     assert response.status_code == 403
     warning = next(record for record in caplog.records if record.message == "auth.admin.denied")
