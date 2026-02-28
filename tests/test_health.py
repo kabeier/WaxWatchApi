@@ -65,19 +65,44 @@ def test_readyz_db_probe_does_not_use_worker_thread(client, monkeypatch):
     assert r.json()["checks"]["db"]["status"] == "ok"
 
 
-def test_probe_db_returns_clear_failure_reason_on_sql_error(db_session, monkeypatch):
+def test_probe_db_returns_clear_failure_reason_on_sql_error():
     from sqlalchemy.exc import SQLAlchemyError
 
     from app.api.routers import health
 
-    def _raise_sqlalchemy_error(*_args, **_kwargs):
-        raise SQLAlchemyError("boom")
+    class _DB:
+        def get_bind(self):
+            raise SQLAlchemyError("boom")
 
-    monkeypatch.setattr(db_session, "get_bind", _raise_sqlalchemy_error)
-
-    ok, reason = health._probe_db(db_session, timeout_seconds=0.1)
+    ok, reason = health._probe_db(_DB(), timeout_seconds=0.1)
     assert ok is False
     assert reason == "db readiness probe failed: SQLAlchemyError"
+
+
+def test_probe_db_handles_connection_bound_bind_without_connect():
+    from app.api.routers import health
+
+    calls: list[str] = []
+
+    class _Connection:
+        class dialect:  # noqa: D106
+            name = "sqlite"
+
+        def in_transaction(self):
+            return True
+
+        def execute(self, stmt, params=None):
+            calls.append(str(stmt))
+
+    class _DB:
+        def get_bind(self):
+            return _Connection()
+
+    ok, reason = health._probe_db(_DB(), timeout_seconds=0.25)
+
+    assert ok is True
+    assert reason is None
+    assert calls == ["SELECT 1"]
 
 
 def test_probe_db_uses_local_statement_timeout_for_postgres():

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from contextlib import nullcontext
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from redis import Redis
@@ -81,22 +82,32 @@ def _run_with_timeout(func, timeout_seconds: float):
 
 
 def _probe_db(db: Session, *, timeout_seconds: float) -> tuple[bool, str | None]:
-    bind = db.get_bind()
     timeout_ms = max(1, int(timeout_seconds * 1000))
 
     try:
-        with bind.connect() as connection:
-            with connection.begin():
-                if bind.dialect.name.startswith("postgres"):
-                    connection.execute(
-                        text("SET LOCAL statement_timeout = :timeout"),
-                        {"timeout": f"{timeout_ms}ms"},
-                    )
-                connection.execute(text("SELECT 1"))
+        bind = db.get_bind()
+        connection_context = bind.connect() if hasattr(bind, "connect") else nullcontext(bind)
+
+        with connection_context as connection:
+            dialect_name = connection.dialect.name
+            if connection.in_transaction():
+                _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
+            else:
+                with connection.begin():
+                    _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
     except SQLAlchemyError as exc:
         return False, f"db readiness probe failed: {exc.__class__.__name__}"
 
     return True, None
+
+
+def _execute_db_probe(connection, *, dialect_name: str, timeout_ms: int) -> None:
+    if dialect_name.startswith("postgres"):
+        connection.execute(
+            text("SET LOCAL statement_timeout = :timeout"),
+            {"timeout": f"{timeout_ms}ms"},
+        )
+    connection.execute(text("SELECT 1"))
 
 
 def _probe_redis(*, timeout_seconds: float) -> tuple[bool, str | None]:
