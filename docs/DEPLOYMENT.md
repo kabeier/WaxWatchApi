@@ -32,6 +32,7 @@ GitHub Actions CI is split into two primary jobs to improve required-check granu
 
 - `static-checks`: `make ci-static-checks` (Ruff lint/format, mypy, policy/contract checks, and other non-DB gates).
 - `db-tests`: `make ci-db-tests` (test DB migrations + schema drift + pytest coverage), configured to run after `static-checks`.
+- Coverage regression comparison (`scripts/check_coverage_regression.py`) runs after generating base + PR coverage artifacts; if the fetched base revision cannot produce a DB pytest baseline, CI emits a warning and skips only the comparison step while preserving PR coverage gating.
 
 `make ci-local` remains the canonical local command and composes both jobs plus `make ci-celery-redis-smoke`.
 

@@ -5,6 +5,7 @@ SHELL := /bin/bash
 # Security scan policy: `.github/workflows/secrets-scan.yml` must run on every push to `main` (without push path filters).
 # Readiness governance note: DB probe compatibility changes (dialect fallback and missing begin()/in_transaction() guards) must be mirrored in CI/.env.sample/docs/CHANGELOG sync updates.
 # Readiness test-governance note: `/readyz` DB probe regression test-path changes must keep policy-sync artifacts updated together.
+# Coverage regression note: CI may bypass base coverage comparison when base-revision DB pytest baseline generation fails, while keeping PR coverage gating active.
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev

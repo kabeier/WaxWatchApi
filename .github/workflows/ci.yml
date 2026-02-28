@@ -150,15 +150,26 @@ jobs:
           done
           docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "alembic upgrade heads"
           docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "python -m scripts.schema_drift_check"
-          docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$COVERAGE_FAIL_UNDER --ignore=tests/test_celery_redis_integration.py"
-          mv coverage.json coverage.base.json
+          BASE_COVERAGE_READY=1
+          if ! docker compose -f docker-compose.test.yml run --rm             -e DATABASE_URL=postgresql+psycopg://waxwatch:waxwatch@postgres:5432/waxwatch_test             -e TOKEN_CRYPTO_LOCAL_KEY=${TOKEN_CRYPTO_LOCAL_KEY:-5pq6kEUS_UIk1_4qatN-Lx42s3e362VNq5CgyI4LAZU=}             -e COVERAGE_FILE=/tmp/.coverage             api-test "pytest -q --disable-warnings --maxfail=1 --cov-fail-under=$COVERAGE_FAIL_UNDER --ignore=tests/test_celery_redis_integration.py"; then
+            echo "warning: base revision failed DB pytest pass; skipping coverage regression comparison for this run"
+            BASE_COVERAGE_READY=0
+          fi
+
+          if [ "$BASE_COVERAGE_READY" -eq 1 ] && [ -f coverage.json ]; then
+            mv coverage.json coverage.base.json
+          fi
           docker compose -f docker-compose.test.yml down >/dev/null 2>&1 || true
           trap - EXIT
 
           git checkout --force "$PR_SHA"
           mv coverage.pr.json coverage.json
 
-          python scripts/check_coverage_regression.py
+          if [ -f coverage.base.json ]; then
+            python scripts/check_coverage_regression.py
+          else
+            echo "warning: coverage regression comparison skipped because base revision baseline coverage was unavailable"
+          fi
 
       - name: Verify perf smoke/release gate harness files
         run: |

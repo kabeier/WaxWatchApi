@@ -45,6 +45,7 @@ The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four 
 
 If your change affects CI behavior or governance policy, update this section alongside `.github/workflows/ci.yml` in the same PR.
 If your change touches `/readyz` DB probe compatibility behavior (for example dialect fallback or missing `in_transaction()`/`begin()` guards), also synchronize `.env.sample`, `Makefile`, docs, and `CHANGELOG.md` in the same PR to satisfy policy-sync checks.
+Coverage-regression comparison (`scripts/check_coverage_regression.py`) requires a successful base-branch DB pytest baseline; CI now skips only the comparison step (with a warning) when that baseline generation fails, while preserving the PR coverage gate.
 When adding/changing readiness DB probe regression tests (`tests/test_health.py`), include synchronized governance file and changelog updates so `make check-change-surface` remains green.
 
 Security checks are additionally split into dedicated workflows for least-privilege operation:
