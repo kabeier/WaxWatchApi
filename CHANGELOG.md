@@ -10,6 +10,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 
 ### Changed
 - Refined `/readyz` database probing to use an in-thread short-lived bind connection and Postgres `SET LOCAL statement_timeout` before `SELECT 1`, avoiding request-scoped session handoff to worker threads while preserving readiness response compatibility.
+- Pinned `pip-audit` installation for CI and local `make security-deps-audit` runs via shared `PIP_AUDIT_VERSION` settings, and documented synchronized bump/maintenance expectations across governance files.
 - Standardized provider retry telemetry metadata across Discogs/eBay to emit unambiguous `attempt` (current) and `attempts_total` (configured total) fields while retaining `max_attempts` as a compatibility alias, and updated provider retry assertions accordingly.
 - Clarified and enforced structured logging governance synchronization so logging contract/task-orchestration/auth-observability changes are accompanied by `.env.sample`, `Makefile`, `.github/workflows/ci.yml`, docs, and changelog updates in the same PR.
 - Restricted mock provider registration/default search-provider selection to explicit safe environments (`dev`, `test`, `local`) and added coverage to prevent production-like default inclusion.
