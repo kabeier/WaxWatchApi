@@ -44,6 +44,7 @@ The CI workflow (`.github/workflows/ci.yml`) is intentionally triggered by four 
 - Top-level workflow `concurrency` uses `${{ github.workflow }}-${{ github.ref }}` with `cancel-in-progress: true`, so force-pushes and rapid commit sequences on the same PR ref cancel superseded runs and keep required checks pinned to the newest commit.
 
 If your change affects CI behavior or governance policy, update this section alongside `.github/workflows/ci.yml` in the same PR.
+If your change touches `/readyz` DB probe compatibility behavior (for example dialect fallback or missing `in_transaction()`/`begin()` guards), also synchronize `.env.sample`, `Makefile`, docs, and `CHANGELOG.md` in the same PR to satisfy policy-sync checks.
 
 Security checks are additionally split into dedicated workflows for least-privilege operation:
 

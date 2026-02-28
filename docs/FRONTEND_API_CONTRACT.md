@@ -1,11 +1,14 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-28.3`
+**Contract version:** `2026-02-28.4`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-28.4`
+  - Recorded additional `/readyz` probe compatibility hardening for test doubles that omit transaction helpers (`in_transaction()`/`begin()`), while keeping existing Postgres statement-timeout behavior.
+  - Confirmed this is operational-readiness behavior only with no frontend request/response schema changes.
 - `2026-02-28.3`
   - Documented additional `/readyz` DB probe compatibility hardening: when a connection does not expose `begin()`, the probe now executes directly instead of raising attribute errors in lightweight doubles.
   - Confirmed no frontend request/response schema changes (operational-readiness behavior only).
