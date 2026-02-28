@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
 
@@ -220,3 +222,79 @@ def test_provider_requests_pagination_stable_ordering_under_ties(client, user, h
     cursor_resp = client.get(f"/api/provider-requests?limit=5&cursor={cursor}", headers=h)
     assert cursor_resp.status_code == 200
     assert [row["endpoint"] for row in cursor_resp.json()] == [expected_by_id[str(ordered[1].id)]]
+
+
+def test_provider_requests_list_returns_500_on_database_error(client, user, headers, monkeypatch):
+    class _FailingPagination:
+        def all(self):
+            raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr(
+        "app.api.routers.provider_requests.apply_created_id_pagination",
+        lambda *_args, **_kwargs: _FailingPagination(),
+    )
+
+    response = client.get("/api/provider-requests", headers=headers(user.id))
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500
+
+
+def test_provider_requests_summary_returns_500_on_database_error(client, user, headers, monkeypatch):
+    def _raise_db_error(*_args, **_kwargs):
+        raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr("sqlalchemy.orm.Query.all", _raise_db_error)
+
+    response = client.get("/api/provider-requests/summary", headers=headers(user.id))
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500
+
+
+def test_provider_requests_admin_list_returns_500_on_database_error(client, user, sign_jwt, monkeypatch):
+    class _FailingPagination:
+        def all(self):
+            raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr(
+        "app.api.routers.provider_requests.apply_created_id_pagination",
+        lambda *_args, **_kwargs: _FailingPagination(),
+    )
+
+    admin_token = sign_jwt(sub=str(user.id), extra_claims={"role": "admin"})
+    response = client.get(
+        "/api/provider-requests/admin",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500
+
+
+def test_provider_requests_admin_summary_returns_500_on_database_error(client, user, sign_jwt, monkeypatch):
+    def _raise_db_error(*_args, **_kwargs):
+        raise SQLAlchemyError("boom")
+
+    monkeypatch.setattr("sqlalchemy.orm.Query.all", _raise_db_error)
+
+    admin_token = sign_jwt(sub=str(user.id), extra_claims={"role": "admin"})
+    response = client.get(
+        "/api/provider-requests/admin/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 500
+    body = response.json()
+    assert body["error"]["message"] == "db error"
+    assert body["error"]["code"] == "http_error"
+    assert body["error"]["status"] == 500

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db, rate_limit_scope
@@ -24,11 +25,14 @@ def list_notifications(
     user_id: UUID = Depends(get_current_user_id),
     pagination: PaginationParams = Depends(get_pagination_params),
 ):
-    return apply_created_id_pagination(
-        db.query(models.Notification).filter(models.Notification.user_id == user_id),
-        models.Notification,
-        pagination,
-    ).all()
+    try:
+        return apply_created_id_pagination(
+            db.query(models.Notification).filter(models.Notification.user_id == user_id),
+            models.Notification,
+            pagination,
+        ).all()
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="db error") from exc
 
 
 @router.post("/notifications/{notification_id}/read", response_model=NotificationOut)
@@ -37,11 +41,14 @@ def mark_notification_read(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    notification = (
-        db.query(models.Notification)
-        .filter(models.Notification.id == notification_id, models.Notification.user_id == user_id)
-        .one_or_none()
-    )
+    try:
+        notification = (
+            db.query(models.Notification)
+            .filter(models.Notification.id == notification_id, models.Notification.user_id == user_id)
+            .one_or_none()
+        )
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="db error") from exc
     if notification is None:
         raise HTTPException(status_code=404, detail="notification not found")
 
@@ -50,7 +57,10 @@ def mark_notification_read(
         notification.is_read = True
         notification.read_at = now
         notification.updated_at = now
-        db.flush()
+        try:
+            db.flush()
+        except SQLAlchemyError as exc:
+            raise HTTPException(status_code=500, detail="db error") from exc
     return notification
 
 
@@ -59,11 +69,14 @@ def unread_count(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    unread_count = (
-        db.query(models.Notification)
-        .filter(models.Notification.user_id == user_id, models.Notification.is_read.is_(False))
-        .count()
-    )
+    try:
+        unread_count = (
+            db.query(models.Notification)
+            .filter(models.Notification.user_id == user_id, models.Notification.is_read.is_(False))
+            .count()
+        )
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail="db error") from exc
     return UnreadCountOut(unread_count=unread_count)
 
 
