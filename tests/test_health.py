@@ -52,19 +52,93 @@ def test_readyz_returns_503_when_redis_required_and_unavailable(client, monkeypa
     }
 
 
-def test_probe_db_returns_clear_failure_reason_on_sql_error(db_session, monkeypatch):
+def test_readyz_db_probe_does_not_use_worker_thread(client, monkeypatch):
+    from app.api.routers import health
+
+    def _raise_if_called(*_args, **_kwargs):
+        raise AssertionError("_run_with_timeout should not be used by _probe_db")
+
+    monkeypatch.setattr(health, "_run_with_timeout", _raise_if_called)
+
+    r = client.get("/readyz")
+    assert r.status_code == 200
+    assert r.json()["checks"]["db"]["status"] == "ok"
+
+
+def test_probe_db_returns_clear_failure_reason_on_sql_error():
     from sqlalchemy.exc import SQLAlchemyError
 
     from app.api.routers import health
 
-    def _raise_sqlalchemy_error(*_args, **_kwargs):
-        raise SQLAlchemyError("boom")
+    class _DB:
+        def get_bind(self):
+            raise SQLAlchemyError("boom")
 
-    monkeypatch.setattr(health, "_run_with_timeout", _raise_sqlalchemy_error)
-
-    ok, reason = health._probe_db(db_session, timeout_seconds=0.1)
+    ok, reason = health._probe_db(_DB(), timeout_seconds=0.1)
     assert ok is False
     assert reason == "db readiness probe failed: SQLAlchemyError"
+
+
+def test_probe_db_handles_connection_bound_bind_without_connect():
+    from app.api.routers import health
+
+    calls: list[str] = []
+
+    class _Connection:
+        class dialect:  # noqa: D106
+            name = "sqlite"
+
+        def in_transaction(self):
+            return True
+
+        def execute(self, stmt, params=None):
+            calls.append(str(stmt))
+
+    class _DB:
+        def get_bind(self):
+            return _Connection()
+
+    ok, reason = health._probe_db(_DB(), timeout_seconds=0.25)
+
+    assert ok is True
+    assert reason is None
+    assert calls == ["SELECT 1"]
+
+
+def test_probe_db_uses_local_statement_timeout_for_postgres():
+    from app.api.routers import health
+
+    calls: list[str] = []
+
+    class _Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def begin(self):
+            return self
+
+        def execute(self, stmt, params=None):
+            calls.append(str(stmt))
+
+    class _Bind:
+        class dialect:  # noqa: D106
+            name = "postgresql"
+
+        def connect(self):
+            return _Connection()
+
+    class _DB:
+        def get_bind(self):
+            return _Bind()
+
+    ok, reason = health._probe_db(_DB(), timeout_seconds=0.25)
+
+    assert ok is True
+    assert reason is None
+    assert calls == ["SET LOCAL statement_timeout = 250", "SELECT 1"]
 
 
 def test_metrics_endpoint_exposes_prometheus_payload(client):

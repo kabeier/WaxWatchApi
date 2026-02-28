@@ -1,11 +1,13 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-02-28.0`
+**Contract version:** `2026-02-28.1`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-02-28.1`
+  - Documented `/readyz` DB probe implementation hardening (in-thread bind/connection handling with Postgres `SET LOCAL statement_timeout`), and clarified this is an operational-readiness behavior change with no frontend request/response schema impact.
 - `2026-02-28.0`
   - Clarified that recent structured-logging and auth/dependency observability hardening changes are server-side telemetry-only updates; frontend request/response envelopes and endpoint semantics remain unchanged.
 - `2026-02-26.2`
