@@ -52,6 +52,7 @@ Security checks are additionally split into dedicated workflows for least-privil
 
 - `.github/workflows/security.yml` (CodeQL for Python on PR + weekly cadence + push to `main` for meaningful code/config changes)
 - `.github/workflows/dependency-audit.yml` (`pip-audit` on `requirements*.in/txt` changes + weekly cadence)
+- External GitHub Action `uses:` references are pinned to full commit SHAs with trailing release-tag comments; keep `.github/dependabot.yml` GitHub Actions updates enabled so SHA rotation remains automated.
   - `pip-audit` is pinned; bump `.github/workflows/dependency-audit.yml` `PIP_AUDIT_VERSION` and `Makefile` `PIP_AUDIT_VERSION` together, then record the bump in `CHANGELOG.md`.
 - `.github/workflows/secrets-scan.yml` (Gitleaks on PRs + push to `main` for meaningful code/config changes)
 
