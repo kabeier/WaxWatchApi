@@ -108,8 +108,21 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
-def configure_logging(*, level: str = "INFO", json_logs: bool = True) -> None:
+def _is_pytest_capture_handler(handler: logging.Handler) -> bool:
+    return (
+        handler.__class__.__module__ == "_pytest.logging"
+        and handler.__class__.__name__ == "LogCaptureHandler"
+    )
+
+
+def configure_logging(
+    *,
+    level: str = "INFO",
+    json_logs: bool = True,
+    replace_handlers: bool = True,
+) -> None:
     handler = logging.StreamHandler(sys.stdout)
+    handler.name = "waxwatch-root-handler"
     handler.addFilter(RequestIDFilter())
 
     if json_logs:
@@ -123,7 +136,13 @@ def configure_logging(*, level: str = "INFO", json_logs: bool = True) -> None:
     root.setLevel(getattr(logging, level.upper(), logging.INFO))
 
     for h in list(root.handlers):
-        root.removeHandler(h)
+        if replace_handlers or not _is_pytest_capture_handler(h):
+            root.removeHandler(h)
+
+    for h in list(root.handlers):
+        if getattr(h, "name", "") == handler.name:
+            root.removeHandler(h)
+
     root.addHandler(handler)
 
     logging.getLogger("urllib3").setLevel(logging.WARNING)

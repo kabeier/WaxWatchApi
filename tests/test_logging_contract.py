@@ -7,6 +7,7 @@ import jwt
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
+from app.core.logging import configure_logging
 from app.main import create_app
 
 
@@ -35,6 +36,9 @@ def test_admin_denial_logs_warning(client, user, headers, caplog):
 
 def test_http_exception_and_validation_logs_include_request_context(caplog):
     app = create_app()
+    root_logger = logging.getLogger()
+    if caplog.handler not in root_logger.handlers:
+        root_logger.addHandler(caplog.handler)
 
     @app.get("/boom")
     def _boom():
@@ -68,3 +72,13 @@ def test_http_exception_and_validation_logs_include_request_context(caplog):
     )
     assert auth_error.path == "/api/watch-rules"
     assert auth_error.status_code == 401
+
+
+def test_configure_logging_preserves_caplog_handler_when_not_replacing_handlers(caplog):
+    root_logger = logging.getLogger()
+    if caplog.handler not in root_logger.handlers:
+        root_logger.addHandler(caplog.handler)
+
+    configure_logging(level="INFO", json_logs=False, replace_handlers=False)
+
+    assert caplog.handler in root_logger.handlers

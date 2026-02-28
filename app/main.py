@@ -53,8 +53,15 @@ def _error_response_payload(
     return payload
 
 
-def create_app() -> FastAPI:
-    configure_logging(level=settings.log_level, json_logs=settings.json_logs)
+def create_app(*, logging_replace_handlers: bool | None = None) -> FastAPI:
+    if logging_replace_handlers is None:
+        logging_replace_handlers = settings.environment.lower() != "test"
+
+    configure_logging(
+        level=settings.log_level,
+        json_logs=settings.json_logs,
+        replace_handlers=logging_replace_handlers,
+    )
     configure_error_reporting()
 
     logger.info(
