@@ -81,12 +81,21 @@ def _run_with_timeout(func, timeout_seconds: float):
 
 
 def _probe_db(db: Session, *, timeout_seconds: float) -> tuple[bool, str | None]:
+    bind = db.get_bind()
+    timeout_ms = max(1, int(timeout_seconds * 1000))
+
     try:
-        _run_with_timeout(lambda: db.execute(text("SELECT 1")), timeout_seconds=timeout_seconds)
-    except TimeoutError:
-        return False, f"db readiness probe timed out after {timeout_seconds:.1f}s"
+        with bind.connect() as connection:
+            with connection.begin():
+                if bind.dialect.name.startswith("postgres"):
+                    connection.execute(
+                        text("SET LOCAL statement_timeout = :timeout"),
+                        {"timeout": f"{timeout_ms}ms"},
+                    )
+                connection.execute(text("SELECT 1"))
     except SQLAlchemyError as exc:
         return False, f"db readiness probe failed: {exc.__class__.__name__}"
+
     return True, None
 
 
