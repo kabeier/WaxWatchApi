@@ -75,7 +75,16 @@ def create_rule(
     db.commit()
 
     # DEV: backfill recent listings so user sees matches immediately.
-    enqueue_backfill_rule_matches_task(user_id, rule.id)
+    # Enqueue failures are logged but do not fail the request after commit,
+    # avoiding accidental duplicate rule creation from client retries.
+    try:
+        enqueue_backfill_rule_matches_task(user_id, rule.id)
+    except Exception:
+        logger.exception(
+            "watch_rules.create.backfill_enqueue_failed",
+            extra={"request_id": request_id, "user_id": str(user_id), "rule_id": str(rule.id)},
+        )
+
     db.refresh(rule)
 
     logger.info(
