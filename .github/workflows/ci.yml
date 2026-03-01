@@ -108,6 +108,7 @@ jobs:
           fi
 
       # DB CI target includes integration coverage for migrations/service changes (for example token lifecycle normalization).
+      # Discogs queue-dispatch regression behavior is covered by DB CI pytest discovery (tests/test_discogs_integration_router.py).
       - name: Run targeted rate-limit regression tests
         run: |
           set -euo pipefail

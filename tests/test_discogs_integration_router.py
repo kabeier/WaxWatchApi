@@ -382,7 +382,7 @@ def test_discogs_import_queue_failure_returns_retryable_response(
     assert latest_job.status == "failed_to_queue"
     assert latest_job.error_count == 1
     assert latest_job.completed_at is not None
-    assert latest_job.errors == [{"error": "queue_dispatch_failed: broker unavailable"}]
+    assert latest_job.errors == [{"error": "queue_dispatch_failed", "detail": "broker unavailable"}]
 
     job_status = client.get(f"/api/integrations/discogs/import/{latest_job.id}", headers=h)
     assert job_status.status_code == 200, job_status.text

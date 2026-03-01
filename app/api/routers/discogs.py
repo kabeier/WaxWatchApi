@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db, rate_limit_scope
+from app.core.logging import redact_sensitive_data
 from app.schemas.discogs import (
     DiscogsConnectIn,
     DiscogsConnectOut,
@@ -141,7 +142,8 @@ def import_discogs(
         now = datetime.now(timezone.utc)
         job.status = "failed_to_queue"
         job.error_count += 1
-        job.errors = [*(job.errors or []), {"error": f"queue_dispatch_failed: {exc}"}]
+        safe_error = str(redact_sensitive_data(str(exc)))
+        job.errors = [*(job.errors or []), {"error": "queue_dispatch_failed", "detail": safe_error}]
         job.completed_at = now
         job.updated_at = now
 
