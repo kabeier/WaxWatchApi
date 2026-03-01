@@ -137,7 +137,6 @@ def import_discogs(
     # before dependency teardown commits the transaction.
     db.commit()
     if not created:
-        db.refresh(job)
         return job
 
     try:
