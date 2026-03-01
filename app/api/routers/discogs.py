@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db, rate_limit_scope
@@ -134,7 +135,23 @@ def import_discogs(
     # In eager mode this avoids `Import job not found` when task execution happens
     # before dependency teardown commits the transaction.
     db.commit()
-    run_discogs_import_task.delay(str(job.id))
+    try:
+        run_discogs_import_task.delay(str(job.id))
+    except Exception as exc:
+        now = datetime.now(timezone.utc)
+        job.status = "failed_to_queue"
+        job.error_count += 1
+        job.errors = [*(job.errors or []), {"error": f"queue_dispatch_failed: {exc}"}]
+        job.completed_at = now
+        job.updated_at = now
+
+        db.add(job)
+        db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Discogs import could not be queued. Please retry shortly.",
+        ) from exc
+
     db.refresh(job)
     return job
 
