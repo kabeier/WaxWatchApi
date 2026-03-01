@@ -145,8 +145,10 @@ def import_discogs(
         now = datetime.now(timezone.utc)
         job.status = "failed_to_queue"
         job.error_count += 1
-        safe_error = str(redact_sensitive_data(str(exc)))
-        job.errors = [*(job.errors or []), {"error": "queue_dispatch_failed", "detail": safe_error}]
+        job.errors = [
+            *(job.errors or []),
+            {"error": "queue_dispatch_failed", "detail": str(redact_sensitive_data(str(exc)))},
+        ]
         job.completed_at = now
         job.updated_at = now
 
