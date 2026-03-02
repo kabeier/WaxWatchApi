@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id, get_db, rate_limit_scope
+from app.core.logging import redact_sensitive_data
 from app.schemas.discogs import (
     DiscogsConnectIn,
     DiscogsConnectOut,
@@ -129,12 +131,34 @@ def import_discogs(
     db: Session = Depends(get_db),
     user_id: UUID = Depends(get_current_user_id),
 ):
-    job = discogs_import_service.run_import(db, user_id=user_id, source=payload.source)
+    job, created = discogs_import_service.ensure_import_job(db, user_id=user_id, source=payload.source)
     # Ensure the queued task can always read the job row.
     # In eager mode this avoids `Import job not found` when task execution happens
     # before dependency teardown commits the transaction.
     db.commit()
-    run_discogs_import_task.delay(str(job.id))
+    if not created:
+        return job
+
+    try:
+        run_discogs_import_task.delay(str(job.id))
+    except Exception as exc:
+        now = datetime.now(timezone.utc)
+        job.status = "failed_to_queue"
+        job.error_count += 1
+        job.errors = [
+            *(job.errors or []),
+            {"error": "queue_dispatch_failed", "detail": str(redact_sensitive_data(str(exc)))},
+        ]
+        job.completed_at = now
+        job.updated_at = now
+
+        db.add(job)
+        db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Discogs import could not be queued. Please retry shortly.",
+        ) from exc
+
     db.refresh(job)
     return job
 

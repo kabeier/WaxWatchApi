@@ -47,6 +47,7 @@ If your change affects CI behavior or governance policy, update this section alo
 If your change touches `/readyz` DB probe compatibility behavior (for example dialect fallback or missing `in_transaction()`/`begin()` guards), also synchronize `Makefile`, docs, and `CHANGELOG.md` in the same PR, and update `.env.sample` only when env vars are added/removed or defaults change, to satisfy policy-sync checks.
 Coverage-regression comparison (`scripts/check_coverage_regression.py`) requires a successful base-branch DB pytest baseline; CI now skips only the comparison step (with a warning) when that baseline generation fails, while preserving the PR coverage gate.
 When adding/changing readiness DB probe regression tests (`tests/test_health.py`), include synchronized governance file and changelog updates so `make check-change-surface` remains green.
+When changing Discogs import integration routing/tests (including queue-dispatch failure handling in `tests/test_discogs_integration_router.py`), update `Makefile`, `.github/workflows/ci.yml`, docs, and `CHANGELOG.md` together to satisfy policy-sync checks.
 
 Security checks are additionally split into dedicated workflows for least-privilege operation:
 

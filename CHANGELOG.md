@@ -22,6 +22,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Deferred notification task dispatch until SQL transaction commit via session post-commit hooks, and retained failed post-commit enqueue attempts for retry on the session's next commit boundary.
 - Improved notification task observability by logging structured context when delivery tasks cannot find their notification records (likely race indicator).
 - Broadened `.github/workflows/secrets-scan.yml` push coverage by removing push path filters so every direct push to `main` runs Gitleaks regardless of file type.
+- Hardened Discogs import queue dispatch failure handling so `/api/integrations/discogs/import` returns recoverable `503` retry guidance when task enqueue fails and persists the job as `failed_to_queue` for deterministic status polling.
 
 ### Added
 - Notification service tests covering rollback-after-flush (no dispatch), successful commit (single dispatch), and failed post-commit enqueue retry behavior.

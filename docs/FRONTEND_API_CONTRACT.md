@@ -1,6 +1,6 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-03-01.0`
+**Contract version:** `2026-03-01.1`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
@@ -274,6 +274,8 @@ Frontend guidance: pause automatic retries until `Retry-After` elapses, apply ex
 - **Screen:** `DiscogsImportScreen`.
 - **Action:** Start import (`wantlist`, `collection`, `both`).
 - **Frontend behavior:** Store returned `job_id` and poll job endpoint.
+- **Recoverable failure contract:** If queue dispatch fails for a newly created job, endpoint returns `503` with retry guidance (`error.message`: `Discogs import could not be queued. Please retry shortly.`) and the persisted job transitions to `status=failed_to_queue` with error details for polling/ops visibility.
+- **In-flight dedupe contract:** If a same-scope job is already `pending`/`running`, endpoint returns that existing job (`200`) without redispatching, so clients may receive the same `job_id` across repeated clicks/retries.
 
 ### `GET /api/integrations/discogs/import/{job_id}`
 - **Screen:** `DiscogsImportScreen` progress panel.

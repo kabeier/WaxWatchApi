@@ -343,6 +343,97 @@ def test_discogs_import_failure_persists_job_and_event(client, user, headers, db
     assert "IMPORT_FAILED" in event_types
 
 
+def test_discogs_import_queue_failure_returns_retryable_response(
+    client, user, headers, db_session, monkeypatch
+):
+    h = headers(user.id)
+    client.post(
+        "/api/integrations/discogs/connect",
+        json={
+            "external_user_id": "discogs-user",
+            "access_token": "token",
+            "token_metadata": {
+                "refresh_token": "manual-refresh",
+                "token_type": "Bearer",
+                "scope": "identity collection",
+                "expires_at": "2030-01-01T00:00:00+00:00",
+            },
+        },
+        headers=h,
+    )
+
+    def _raise_queue_error(_job_id):
+        raise RuntimeError("broker unavailable")
+
+    monkeypatch.setattr("app.api.routers.discogs.run_discogs_import_task.delay", _raise_queue_error)
+
+    run_import = client.post("/api/integrations/discogs/import", json={"source": "both"}, headers=h)
+    assert run_import.status_code == 503, run_import.text
+    body = run_import.json()
+    assert body["error"]["message"] == "Discogs import could not be queued. Please retry shortly."
+
+    latest_job = (
+        db_session.query(models.ImportJob)
+        .filter(models.ImportJob.user_id == user.id)
+        .order_by(models.ImportJob.created_at.desc())
+        .first()
+    )
+    assert latest_job is not None
+    assert latest_job.status == "failed_to_queue"
+    assert latest_job.error_count == 1
+    assert latest_job.completed_at is not None
+    assert latest_job.errors == [{"error": "queue_dispatch_failed", "detail": "broker unavailable"}]
+
+    job_status = client.get(f"/api/integrations/discogs/import/{latest_job.id}", headers=h)
+    assert job_status.status_code == 200, job_status.text
+    assert job_status.json()["status"] == "failed_to_queue"
+
+
+def test_discogs_import_queue_failure_does_not_overwrite_existing_in_flight_job(
+    client, user, headers, db_session, monkeypatch
+):
+    h = headers(user.id)
+    client.post(
+        "/api/integrations/discogs/connect",
+        json={
+            "external_user_id": "discogs-user",
+            "access_token": "token",
+            "token_metadata": {
+                "refresh_token": "manual-refresh",
+                "token_type": "Bearer",
+                "scope": "identity collection",
+                "expires_at": "2030-01-01T00:00:00+00:00",
+            },
+        },
+        headers=h,
+    )
+
+    existing_job, created = discogs_import_service.ensure_import_job(
+        db_session, user_id=user.id, source="both"
+    )
+    assert created is True
+    original_updated_at = existing_job.updated_at
+    db_session.commit()
+
+    def _raise_queue_error(_job_id):
+        raise RuntimeError("broker unavailable")
+
+    monkeypatch.setattr("app.api.routers.discogs.run_discogs_import_task.delay", _raise_queue_error)
+
+    run_import = client.post("/api/integrations/discogs/import", json={"source": "both"}, headers=h)
+    assert run_import.status_code == 200, run_import.text
+    body = run_import.json()
+    assert body["id"] == str(existing_job.id)
+    assert body["status"] == "running"
+
+    db_session.refresh(existing_job)
+    assert existing_job.status == "running"
+    assert existing_job.error_count == 0
+    assert existing_job.errors == []
+    assert existing_job.completed_at is None
+    assert existing_job.updated_at == original_updated_at
+
+
 def test_discogs_imported_items_list_and_open_in_discogs(client, user, headers, db_session):
     h = headers(user.id)
     now = datetime.now(timezone.utc)

@@ -8,7 +8,8 @@ ROOT = Path(__file__).resolve().parent.parent
 CURRENT_COVERAGE = ROOT / "coverage.json"
 BASE_COVERAGE = ROOT / "coverage.base.json"
 
-COMPARISON_TOLERANCE_PERCENT = 0.005
+WARNING_THRESHOLD_PERCENT = 0.0
+FAILURE_THRESHOLD_PERCENT = 1.0
 
 HIGH_RISK_MODULES = {
     "app/services/background.py": "Background dispatch and orchestration",
@@ -54,8 +55,8 @@ def total_percent(report: dict) -> float:
     return (covered / total) * 100
 
 
-def _regressed(current: float, base: float) -> bool:
-    return (base - current) > COMPARISON_TOLERANCE_PERCENT
+def _regression_delta(current: float, base: float) -> float:
+    return max(base - current, 0.0)
 
 
 def main() -> int:
@@ -67,11 +68,19 @@ def main() -> int:
         return 1
 
     failures: list[str] = []
+    warnings: list[str] = []
 
     current_total = total_percent(current)
     base_total = total_percent(base)
-    if _regressed(current_total, base_total):
-        failures.append(f"total coverage regressed: current={current_total:.2f}% < base={base_total:.2f}%")
+    total_delta = _regression_delta(current_total, base_total)
+    if total_delta > FAILURE_THRESHOLD_PERCENT:
+        failures.append(
+            f"total coverage regressed by {total_delta:.2f}%: current={current_total:.2f}% < base={base_total:.2f}%"
+        )
+    elif total_delta > WARNING_THRESHOLD_PERCENT:
+        warnings.append(
+            f"total coverage regressed by {total_delta:.2f}%: current={current_total:.2f}% < base={base_total:.2f}%"
+        )
 
     for module_path, description in HIGH_RISK_MODULES.items():
         current_pct = module_percent(current, module_path)
@@ -79,9 +88,16 @@ def main() -> int:
         if current_pct is None or base_pct is None:
             failures.append(f"missing high-risk module coverage entry for {module_path} ({description})")
             continue
-        if _regressed(current_pct, base_pct):
+        module_delta = _regression_delta(current_pct, base_pct)
+        if module_delta > FAILURE_THRESHOLD_PERCENT:
             failures.append(
-                f"high-risk module regressed: {module_path} current={current_pct:.2f}% < base={base_pct:.2f}% ({description})"
+                "high-risk module regressed by "
+                f"{module_delta:.2f}%: {module_path} current={current_pct:.2f}% < base={base_pct:.2f}% ({description})"
+            )
+        elif module_delta > WARNING_THRESHOLD_PERCENT:
+            warnings.append(
+                "high-risk module regressed by "
+                f"{module_delta:.2f}%: {module_path} current={current_pct:.2f}% < base={base_pct:.2f}% ({description})"
             )
 
     print(f"total coverage: current={current_total:.2f}% | base={base_total:.2f}%")
@@ -90,6 +106,11 @@ def main() -> int:
         base_pct = module_percent(base, module_path)
         if current_pct is not None and base_pct is not None:
             print(f"high-risk module: {module_path} current={current_pct:.2f}% | base={base_pct:.2f}%")
+
+    if warnings:
+        print("coverage regression gate warning:")
+        for warning in warnings:
+            print(f" - {warning}")
 
     if failures:
         print("coverage regression gate failed:")

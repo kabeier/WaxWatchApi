@@ -6,6 +6,7 @@ SHELL := /bin/bash
 # Readiness governance note: DB probe compatibility changes (dialect fallback and missing begin()/in_transaction() guards) must be mirrored in CI/docs/CHANGELOG sync updates (plus .env.sample only when env vars/defaults change).
 # Readiness test-governance note: `/readyz` DB probe regression test-path changes must keep policy-sync artifacts updated together.
 # Coverage regression note: CI may bypass base coverage comparison when base-revision DB pytest baseline generation fails, while keeping PR coverage gating active.
+# Discogs import governance note: queue-dispatch failure path/test changes must keep CI/docs/CHANGELOG synchronized for policy-sync compliance.
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev
