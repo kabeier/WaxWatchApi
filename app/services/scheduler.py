@@ -25,7 +25,7 @@ class SchedulerRunResult:
 
 def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 20) -> SchedulerRunResult:
     now = datetime.now(timezone.utc)
-    due_rules = (
+    due_query = (
         db.query(models.WatchSearchRule)
         .filter(models.WatchSearchRule.is_active.is_(True))
         .filter(
@@ -38,8 +38,17 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
             models.WatchSearchRule.next_run_at.asc().nullsfirst(), models.WatchSearchRule.created_at.asc()
         )
         .limit(batch_size)
-        .all()
     )
+
+    dialect = db.get_bind().dialect
+    if getattr(dialect, "supports_for_update_skip_locked", False):
+        due_query = due_query.with_for_update(skip_locked=True)
+    else:
+        # Fallback for engines without SKIP LOCKED support; this keeps row locking
+        # semantics but can block under concurrent schedulers.
+        due_query = due_query.with_for_update()
+
+    due_rules = due_query.all()
 
     processed = 0
     failed = 0
