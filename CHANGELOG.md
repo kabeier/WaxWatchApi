@@ -9,6 +9,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 ## [Unreleased]
 
 ### Changed
+- Prevented duplicate watch-release `NEW_MATCH` events under concurrent ingest by adding a partial unique `events` index and switching release-match event creation to insert-first `ON CONFLICT DO NOTHING`, with concurrency regression coverage to ensure notifications enqueue only for newly inserted events.
 - Hardened Discogs import job creation under concurrent requests by enforcing partial unique in-flight job constraints and insert-first idempotent `ensure_import_job` behavior, while preserving cooldown reuse semantics and adding parallel-session regression coverage.
 - Updated scheduler due-rule selection to claim rows atomically via `FOR UPDATE` with dialect-gated `SKIP LOCKED` support (fallback to plain `FOR UPDATE` on unsupported backends), preventing duplicate claims across concurrent scheduler sessions.
 - Pinned perf workflow action references for `actions/github-script` (v8.0.0) and `actions/upload-artifact` (v7.0.0) using release-linked commit refs and synchronized governance/docs notes required by change-surface policy.
