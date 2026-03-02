@@ -4,11 +4,10 @@ from datetime import datetime, timezone
 from threading import Barrier, Thread
 from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from app.db import models
 from app.services.discogs_import import discogs_import_service
-from tests.conftest import engine
 
 
 def test_discogs_oauth_connect_success(client, user, headers, db_session, monkeypatch):
@@ -438,8 +437,10 @@ def test_discogs_import_queue_failure_does_not_overwrite_existing_in_flight_job(
     assert existing_job.updated_at == original_updated_at
 
 
-def test_ensure_import_job_is_idempotent_under_concurrent_creates():
-    concurrent_sessionmaker = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+def test_ensure_import_job_is_idempotent_under_concurrent_creates(db_session):
+    bind = db_session.get_bind()
+    assert bind is not None
+    concurrent_sessionmaker = sessionmaker(bind=bind, expire_on_commit=False)
     user_id = uuid4()
     now = datetime.now(timezone.utc)
 
