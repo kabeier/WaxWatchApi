@@ -1,10 +1,14 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-03-02.3`
+**Contract version:** `2026-03-02.4`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
+
+- `2026-03-02.4`
+  - Structural cleanup only: reordered section `4.6 Provider Request Observability (User + Admin)` to follow `4.5` and keep all `4.x` endpoint contracts before governance/process sections `5/6/7`.
+  - No request/response schema behavior changes.
 
 - `2026-03-02.3`
   - Normalized the two watch-rule validation error examples in section `4.3 Watch List / Alert CRUD` to use `"message": "validation error"`, matching backend `validation_exception_handler` error payloads.
@@ -549,6 +553,51 @@ Frontend guidance:
 
 ---
 
+## 4.6 Provider Request Observability (User + Admin)
+
+### `GET /api/provider-requests`
+- **Audience:** Authenticated end user.
+- **Scope:** Returns only the caller's `provider_requests` rows.
+- **Pagination:** Supports shared pagination params (`limit`, `offset`, `cursor`) with stable ordering (`created_at DESC, id DESC`).
+
+### `GET /api/provider-requests/summary`
+- **Audience:** Authenticated end user.
+- **Scope:** Per-provider summary for only the caller's rows.
+- **Response fields:**
+  - `provider`
+  - `total_requests`
+  - `error_requests` (counts rows where `status_code >= 400` **or** where `error` is populated for transport/network failures when `status_code` is null)
+  - `avg_duration_ms`
+
+### `GET /api/provider-requests/admin`
+- **Audience:** Admin-only (claim/role-gated).
+- **Scope:** Cross-user query endpoint for provider request diagnostics.
+- **Authorization contract:** Caller must include admin-capable claims (for example `role=admin`, `user_role=admin`, `app_metadata.roles` containing `admin`, or equivalent admin permission claim).
+- **Filtering params (all optional):**
+  - `provider` (`discogs` | `ebay` | `mock`)
+  - `status_code_gte` (100-599)
+  - `status_code_lte` (100-599)
+  - `created_from` (ISO8601 timestamp)
+  - `created_to` (ISO8601 timestamp)
+  - `user_id` (UUID)
+- **Validation rules:**
+  - `status_code_gte` cannot be greater than `status_code_lte`.
+  - `created_from` cannot be later than `created_to`.
+- **Pagination:** Supports shared pagination params (`limit`, `offset`, `cursor`).
+- **Response shape:** Same as user list plus `id` and `user_id` to support cross-user triage views.
+
+### `GET /api/provider-requests/admin/summary`
+- **Audience:** Admin-only (same auth gate as `/admin`).
+- **Scope:** Cross-user summary grouped by `provider`.
+- **Filtering params:** Same filter set as `/api/provider-requests/admin`.
+- **Response fields:**
+  - `provider`
+  - `total_requests`
+  - `error_requests`
+  - `avg_duration_ms`
+
+---
+
 ## 5) OpenAPI Example Alignment (frontend scaffolding guidance)
 
 The OpenAPI schema now includes representative examples for:
@@ -606,49 +655,6 @@ Enforcement:
 - Snapshot gate: CI runs `python -m scripts.openapi_snapshot --check` and compares `app/main.py` generated schema output to the committed `docs/openapi.snapshot.json` baseline. Update the baseline with `make openapi-snapshot` whenever intentional API schema changes are introduced.
 
 ---
-
-## 4.6 Provider Request Observability (User + Admin)
-
-### `GET /api/provider-requests`
-- **Audience:** Authenticated end user.
-- **Scope:** Returns only the caller's `provider_requests` rows.
-- **Pagination:** Supports shared pagination params (`limit`, `offset`, `cursor`) with stable ordering (`created_at DESC, id DESC`).
-
-### `GET /api/provider-requests/summary`
-- **Audience:** Authenticated end user.
-- **Scope:** Per-provider summary for only the caller's rows.
-- **Response fields:**
-  - `provider`
-  - `total_requests`
-  - `error_requests` (counts rows where `status_code >= 400` **or** where `error` is populated for transport/network failures when `status_code` is null)
-  - `avg_duration_ms`
-
-### `GET /api/provider-requests/admin`
-- **Audience:** Admin-only (claim/role-gated).
-- **Scope:** Cross-user query endpoint for provider request diagnostics.
-- **Authorization contract:** Caller must include admin-capable claims (for example `role=admin`, `user_role=admin`, `app_metadata.roles` containing `admin`, or equivalent admin permission claim).
-- **Filtering params (all optional):**
-  - `provider` (`discogs` | `ebay` | `mock`)
-  - `status_code_gte` (100-599)
-  - `status_code_lte` (100-599)
-  - `created_from` (ISO8601 timestamp)
-  - `created_to` (ISO8601 timestamp)
-  - `user_id` (UUID)
-- **Validation rules:**
-  - `status_code_gte` cannot be greater than `status_code_lte`.
-  - `created_from` cannot be later than `created_to`.
-- **Pagination:** Supports shared pagination params (`limit`, `offset`, `cursor`).
-- **Response shape:** Same as user list plus `id` and `user_id` to support cross-user triage views.
-
-### `GET /api/provider-requests/admin/summary`
-- **Audience:** Admin-only (same auth gate as `/admin`).
-- **Scope:** Cross-user summary grouped by `provider`.
-- **Filtering params:** Same filter set as `/api/provider-requests/admin`.
-- **Response fields:**
-  - `provider`
-  - `total_requests`
-  - `error_requests`
-  - `avg_duration_ms`
 
 ## Change synchronization requirement
 
