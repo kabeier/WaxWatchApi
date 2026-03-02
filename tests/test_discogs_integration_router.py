@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from uuid import UUID
+from threading import Barrier, Thread
+from uuid import UUID, uuid4
+
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.db import models
 from app.services.discogs_import import discogs_import_service
+from tests.conftest import engine
 
 
 def test_discogs_oauth_connect_success(client, user, headers, db_session, monkeypatch):
@@ -432,6 +436,96 @@ def test_discogs_import_queue_failure_does_not_overwrite_existing_in_flight_job(
     assert existing_job.errors == []
     assert existing_job.completed_at is None
     assert existing_job.updated_at == original_updated_at
+
+
+def test_ensure_import_job_is_idempotent_under_concurrent_creates():
+    concurrent_sessionmaker = sessionmaker(bind=engine, expire_on_commit=False, class_=Session)
+    user_id = uuid4()
+    now = datetime.now(timezone.utc)
+
+    setup_session = concurrent_sessionmaker()
+    try:
+        user = models.User(
+            id=user_id,
+            email=f"concurrency-{uuid4()}@example.com",
+            hashed_password="not-a-real-hash",
+            display_name="Concurrency User",
+            is_active=True,
+            created_at=now,
+            updated_at=now,
+        )
+        link = models.ExternalAccountLink(
+            id=uuid4(),
+            user_id=user_id,
+            provider=models.Provider.discogs,
+            external_user_id="discogs-user",
+            access_token=discogs_import_service._encrypt_access_token("token"),
+            token_metadata={"oauth_connected": True},
+            refresh_token="refresh",
+            token_type="Bearer",
+            scopes=["identity", "wantlist"],
+            connected_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        setup_session.add_all([user, link])
+        setup_session.commit()
+    finally:
+        setup_session.close()
+
+    start_barrier = Barrier(2)
+    results: list[tuple[str, bool]] = []
+    errors: list[Exception] = []
+
+    def _run_worker() -> None:
+        session = concurrent_sessionmaker()
+        try:
+            start_barrier.wait()
+            job, created = discogs_import_service.ensure_import_job(
+                session,
+                user_id=user_id,
+                source="wantlist",
+            )
+            session.commit()
+            results.append((str(job.id), created))
+        except Exception as exc:  # pragma: no cover - assertion below validates empty list
+            session.rollback()
+            errors.append(exc)
+        finally:
+            session.close()
+
+    threads = [Thread(target=_run_worker), Thread(target=_run_worker)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert len(results) == 2
+
+    created_count = sum(1 for _job_id, created in results if created)
+    reused_count = sum(1 for _job_id, created in results if not created)
+    assert created_count == 1
+    assert reused_count == 1
+
+    job_ids = {job_id for job_id, _created in results}
+    assert len(job_ids) == 1
+
+    verify_session = concurrent_sessionmaker()
+    try:
+        persisted_jobs = (
+            verify_session.query(models.ImportJob)
+            .filter(models.ImportJob.user_id == user_id)
+            .filter(models.ImportJob.provider == models.Provider.discogs)
+            .filter(models.ImportJob.import_scope == "wantlist")
+            .all()
+        )
+        assert len(persisted_jobs) == 1
+
+        verify_session.query(models.User).filter(models.User.id == user_id).delete()
+        verify_session.commit()
+    finally:
+        verify_session.close()
 
 
 def test_discogs_imported_items_list_and_open_in_discogs(client, user, headers, db_session):
