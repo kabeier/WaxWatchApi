@@ -85,25 +85,31 @@ def _probe_db(db: Session, *, timeout_seconds: float) -> tuple[bool, str | None]
     timeout_ms = max(1, int(timeout_seconds * 1000))
 
     try:
-        bind = db.get_bind()
-        connection_context = bind.connect() if hasattr(bind, "connect") else nullcontext(bind)
 
-        with connection_context as connection:
-            dialect = getattr(connection, "dialect", None) or getattr(bind, "dialect", None)
-            dialect_name = str(getattr(dialect, "name", "") or "")
+        def _probe() -> None:
+            bind = db.get_bind()
+            connection_context = bind.connect() if hasattr(bind, "connect") else nullcontext(bind)
 
-            in_transaction = getattr(connection, "in_transaction", None)
-            is_in_transaction = in_transaction() if callable(in_transaction) else False
+            with connection_context as connection:
+                dialect = getattr(connection, "dialect", None) or getattr(bind, "dialect", None)
+                dialect_name = str(getattr(dialect, "name", "") or "")
 
-            if is_in_transaction:
-                _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
-            else:
-                begin = getattr(connection, "begin", None)
-                if callable(begin):
-                    with begin():
-                        _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
-                else:
+                in_transaction = getattr(connection, "in_transaction", None)
+                is_in_transaction = in_transaction() if callable(in_transaction) else False
+
+                if is_in_transaction:
                     _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
+                else:
+                    begin = getattr(connection, "begin", None)
+                    if callable(begin):
+                        with begin():
+                            _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
+                    else:
+                        _execute_db_probe(connection, dialect_name=dialect_name, timeout_ms=timeout_ms)
+
+        _run_with_timeout(_probe, timeout_seconds=timeout_seconds)
+    except TimeoutError:
+        return False, f"db readiness probe timed out after {timeout_seconds:.1f}s"
     except SQLAlchemyError as exc:
         return False, f"db readiness probe failed: {exc.__class__.__name__}"
 

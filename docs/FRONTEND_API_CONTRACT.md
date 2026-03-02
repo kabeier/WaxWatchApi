@@ -1,11 +1,14 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-03-01.1`
+**Contract version:** `2026-03-02.0`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
 
+- `2026-03-02.0`
+  - Documented `/readyz` DB readiness timeout enforcement now uses backend-agnostic `_run_with_timeout(...)` wrapping, while keeping Postgres `SET LOCAL statement_timeout` as a secondary safeguard.
+  - Confirmed readiness timeout failures surface explicit reasons (for example `db readiness probe timed out after ...`) and no frontend request/response schema changes were introduced.
 - `2026-03-01.0`
   - Documented watch-rule creation resilience update: `POST /api/watch-rules` now preserves `201` success even if post-commit background backfill enqueue fails; failures are logged for retry/operations follow-up.
   - Confirmed no frontend request/response schema changes (server-side task-dispatch reliability behavior only).
