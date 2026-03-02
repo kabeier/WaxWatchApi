@@ -2,13 +2,18 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from prometheus_client import generate_latest
 
 from app.db import models
 from app.db.base import SessionLocal
 from app.services import scheduler
-from app.services.scheduler import FAILURE_RETRY_DELAY_SECONDS, run_due_rules_once
+from app.services.scheduler import (
+    FAILURE_RETRY_DELAY_SECONDS,
+    _supports_skip_locked,
+    run_due_rules_once,
+)
 
 
 def test_scheduler_runs_due_rules_and_advances_schedule(db_session, user):
@@ -170,3 +175,16 @@ def test_scheduler_claims_due_rules_once_across_concurrent_sessions(monkeypatch)
                     cleanup_session.commit()
             finally:
                 cleanup_session.close()
+
+
+def test_supports_skip_locked_uses_backend_name_when_dialect_flag_is_missing():
+    assert _supports_skip_locked(SimpleNamespace(name="postgresql")) is True
+    assert _supports_skip_locked(SimpleNamespace(name="sqlite")) is False
+
+
+def test_supports_skip_locked_prefers_explicit_dialect_flag():
+    assert (
+        _supports_skip_locked(SimpleNamespace(name="postgresql", supports_for_update_skip_locked=False))
+        is False
+    )
+    assert _supports_skip_locked(SimpleNamespace(name="sqlite", supports_for_update_skip_locked=True)) is True

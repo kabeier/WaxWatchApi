@@ -23,6 +23,16 @@ class SchedulerRunResult:
     failed_rules: int
 
 
+def _supports_skip_locked(dialect: object) -> bool:
+    supports_skip_locked = getattr(dialect, "supports_for_update_skip_locked", None)
+    if supports_skip_locked is not None:
+        return bool(supports_skip_locked)
+
+    # SQLAlchemy's Postgres dialect may not expose
+    # `supports_for_update_skip_locked`; prefer backend-name detection.
+    return getattr(dialect, "name", None) == "postgresql"
+
+
 def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 20) -> SchedulerRunResult:
     now = datetime.now(timezone.utc)
     due_query = (
@@ -41,7 +51,7 @@ def run_due_rules_once(db: Session, *, batch_size: int = 100, rule_limit: int = 
     )
 
     dialect = db.get_bind().dialect
-    if getattr(dialect, "supports_for_update_skip_locked", False):
+    if _supports_skip_locked(dialect):
         due_query = due_query.with_for_update(skip_locked=True)
     else:
         # Fallback for engines without SKIP LOCKED support; this keeps row locking
