@@ -145,6 +145,24 @@ class EbayClient(ProviderClient):
                 meta={"response": resp.text[:500]},
             )
 
+        payload = resp.json()
+        token = payload.get("access_token")
+        if not isinstance(token, str) or not token:
+            self._log_request(
+                endpoint=token_endpoint,
+                method="POST",
+                status_code=resp.status_code,
+                duration_ms=duration_ms,
+                error="eBay auth missing access_token",
+                meta={**auth_meta, "response_invalid": True},
+            )
+            raise ProviderError(
+                "eBay auth missing access_token",
+                status_code=resp.status_code,
+                endpoint=token_endpoint,
+                method="POST",
+            )
+
         self._log_request(
             endpoint=token_endpoint,
             method="POST",
@@ -153,16 +171,6 @@ class EbayClient(ProviderClient):
             error=None,
             meta=auth_meta,
         )
-
-        payload = resp.json()
-        token = payload.get("access_token")
-        if not isinstance(token, str) or not token:
-            raise ProviderError(
-                "eBay auth missing access_token",
-                status_code=resp.status_code,
-                endpoint=token_endpoint,
-                method="POST",
-            )
         return token
 
     def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:

@@ -9,6 +9,7 @@ SHELL := /bin/bash
 # Coverage regression note: CI may bypass base coverage comparison when base-revision DB pytest baseline generation fails, while keeping PR coverage gating active.
 # Discogs import governance note: queue-dispatch failure path/test changes must keep CI/docs/CHANGELOG synchronized for policy-sync compliance.
 # Provider request summary governance note: transport-error aggregation semantics and related tests must keep Makefile/CI/docs/CHANGELOG synchronized.
+# eBay auth logging governance note: OAuth missing-access_token logging/test-path changes require synchronized Makefile/CI/docs/CHANGELOG updates.
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev

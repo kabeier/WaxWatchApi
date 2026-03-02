@@ -101,3 +101,32 @@ def test_ebay_search_retries_network_error_then_raises(monkeypatch):
         assert exc.meta["max_attempts"] == 2
     else:
         raise AssertionError("Expected ProviderError")
+
+
+def test_ebay_auth_missing_access_token_logs_error(monkeypatch):
+    monkeypatch.setattr("app.providers.ebay.settings.ebay_client_id", "id")
+    monkeypatch.setattr("app.providers.ebay.settings.ebay_client_secret", "secret")
+
+    responses = [_FakeResponse(200, headers={"x-ebay-c-request-id": "auth-req"}, payload={})]
+    monkeypatch.setattr("app.providers.ebay.httpx.Client", lambda timeout: _FakeClient(responses))
+
+    logs = []
+    client = EbayClient(request_logger=logs.append)
+
+    try:
+        client.search(query={"keywords": ["primus"]}, limit=10)
+    except ProviderError as exc:
+        assert str(exc) == "eBay auth missing access_token"
+    else:
+        raise AssertionError("Expected ProviderError")
+
+    error_logs = [
+        log
+        for log in logs
+        if log.endpoint == "/identity/v1/oauth2/token" and log.method == "POST" and log.error
+    ]
+    assert len(logs) == 1
+    assert len(error_logs) == 1
+    assert error_logs[0].error == "eBay auth missing access_token"
+    assert error_logs[0].meta is not None
+    assert error_logs[0].meta["response_invalid"] is True
