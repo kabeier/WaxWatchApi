@@ -5,6 +5,7 @@ SHELL := /bin/bash
 # Security scan policy: `.github/workflows/secrets-scan.yml` must run on every push to `main` (without push path filters).
 # Readiness governance note: DB probe compatibility changes (dialect fallback and missing begin()/in_transaction() guards) must be mirrored in CI/docs/CHANGELOG sync updates (plus .env.sample only when env vars/defaults change).
 # Readiness test-governance note: `/readyz` DB probe regression test-path changes must keep policy-sync artifacts updated together.
+# Readiness timeout governance note: backend-agnostic DB probe timeout wrapper changes must be mirrored in Makefile/CI/docs/CHANGELOG updates.
 # Coverage regression note: CI may bypass base coverage comparison when base-revision DB pytest baseline generation fails, while keeping PR coverage gating active.
 # Discogs import governance note: queue-dispatch failure path/test changes must keep CI/docs/CHANGELOG synchronized for policy-sync compliance.
 
