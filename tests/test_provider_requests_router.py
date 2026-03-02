@@ -173,6 +173,56 @@ def test_provider_requests_admin_filtering_and_pagination(client, user, user2, d
     assert summary_payload["ebay"]["total_requests"] == 1
 
 
+def test_provider_request_summaries_count_transport_errors_without_status(
+    client, user, db_session, headers, sign_jwt
+):
+    db_session.add_all(
+        [
+            models.ProviderRequest(
+                user_id=user.id,
+                provider=models.Provider.discogs,
+                endpoint="/ok",
+                method="GET",
+                status_code=200,
+                duration_ms=15,
+                error=None,
+                meta=None,
+            ),
+            models.ProviderRequest(
+                user_id=user.id,
+                provider=models.Provider.discogs,
+                endpoint="/transport-fail",
+                method="GET",
+                status_code=None,
+                duration_ms=25,
+                error="connection reset",
+                meta=None,
+            ),
+        ]
+    )
+    db_session.flush()
+
+    user_summary = client.get("/api/provider-requests/summary", headers=headers(user.id))
+    assert user_summary.status_code == 200, user_summary.text
+    user_payload = user_summary.json()
+    assert len(user_payload) == 1
+    assert user_payload[0]["provider"] == "discogs"
+    assert user_payload[0]["total_requests"] == 2
+    assert user_payload[0]["error_requests"] == 1
+
+    admin_token = sign_jwt(sub=str(user.id), extra_claims={"role": "admin"})
+    admin_summary = client.get(
+        "/api/provider-requests/admin/summary",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert admin_summary.status_code == 200, admin_summary.text
+    admin_payload = admin_summary.json()
+    assert len(admin_payload) == 1
+    assert admin_payload[0]["provider"] == "discogs"
+    assert admin_payload[0]["total_requests"] == 2
+    assert admin_payload[0]["error_requests"] == 1
+
+
 def test_provider_requests_router_does_not_shadow_watch_rule_routes(client, user, headers):
     h = headers(user.id)
 

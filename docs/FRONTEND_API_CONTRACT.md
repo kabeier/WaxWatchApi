@@ -1,10 +1,14 @@
 # WaxWatch Frontend API Contract
 
-**Contract version:** `2026-03-02.0`
+**Contract version:** `2026-03-02.1`
 
 This contract captures **current API behavior** and maps it to intended React surfaces so frontend can scaffold screens directly from OpenAPI payloads.
 
 ## Changelog
+
+- `2026-03-02.1`
+  - Clarified provider-request summary error semantics: `error_requests` now includes HTTP failures (`status_code >= 400`) and transport/network failures where `status_code` is null but `error` is non-empty, for both user and admin summary endpoints.
+  - Confirmed no request/response schema shape changes; this is an aggregation semantics update for existing fields.
 
 - `2026-03-02.0`
   - Documented `/readyz` DB readiness timeout enforcement now uses backend-agnostic `_run_with_timeout(...)` wrapping, while keeping Postgres `SET LOCAL statement_timeout` as a secondary safeguard.
@@ -562,7 +566,7 @@ Enforcement:
 - **Response fields:**
   - `provider`
   - `total_requests`
-  - `error_requests` (`status_code >= 400`)
+  - `error_requests` (counts rows where `status_code >= 400` **or** where `error` is populated for transport/network failures when `status_code` is null)
   - `avg_duration_ms`
 
 ### `GET /api/provider-requests/admin`
