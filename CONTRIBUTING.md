@@ -313,3 +313,5 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 - `.github/workflows/secrets-scan.yml` must continue to run on pull requests and every direct push to `main` without file-extension allowlists, so secrets in uncommon file types are still scanned.
 
 - When changing eBay OAuth auth logging/error semantics or related tests (for example missing `access_token` response handling), synchronize `Makefile`, `.github/workflows/ci.yml`, docs, and `CHANGELOG.md` in the same PR.
+
+- Discogs import concurrency hardening updates (service + migration + parallel tests for in-flight uniqueness/cooldown reuse) are integration-surface changes and must include synchronized governance/doc/changelog updates in the same PR.

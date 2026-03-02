@@ -9,6 +9,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 ## [Unreleased]
 
 ### Changed
+- Hardened Discogs import job creation under concurrent requests by enforcing partial unique in-flight job constraints and insert-first idempotent `ensure_import_job` behavior, while preserving cooldown reuse semantics and adding parallel-session regression coverage.
 - Updated scheduler due-rule selection to claim rows atomically via `FOR UPDATE` with dialect-gated `SKIP LOCKED` support (fallback to plain `FOR UPDATE` on unsupported backends), preventing duplicate claims across concurrent scheduler sessions.
 - Pinned perf workflow action references for `actions/github-script` (v8.0.0) and `actions/upload-artifact` (v7.0.0) using release-linked commit refs and synchronized governance/docs notes required by change-surface policy.
 - Updated eBay OAuth auth response logging so `POST /identity/v1/oauth2/token` emits a single request-log row when `access_token` is missing (error-only, with `response_invalid=true`) and added regression coverage.
@@ -51,6 +52,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 - Added `make ci-static-checks` as the non-DB CI gate target used by both local and GitHub Actions workflows.
 
 ### Changed
+- Hardened Discogs import job creation under concurrent requests by enforcing partial unique in-flight job constraints and insert-first idempotent `ensure_import_job` behavior, while preserving cooldown reuse semantics and adding parallel-session regression coverage.
 - Fixed lifecycle scope backfill update predicate to treat both SQL NULL and JSONB `null` as missing scopes, addressing migration write-skips in DB CI runs.
 - Refined migration `scope_normalized` CTE into single-row-per-id COALESCE priority selection to prevent non-persisted scope writes under CI DB runs.
 - Added deterministic `scopes` array construction (`to_jsonb(array_remove(string_to_array(...), ''))`) in migration CTE to avoid null scope regressions in migration runtime tests.

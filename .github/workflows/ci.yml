@@ -68,6 +68,7 @@ jobs:
         # Structured logging contract changes are included in this policy-sync requirement.
         # Readiness probe DB timeout/threading behavior changes are also policy-sync-governed.
         # Perf workflow action version/pin rotations are policy-sync-governed as well.
+        # Discogs import in-flight uniqueness/cooldown concurrency hardening changes are policy-sync-governed as well.
         run: |
           make verify-test-deps
           make check-docker-config

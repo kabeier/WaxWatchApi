@@ -4,10 +4,11 @@ from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 from typing import Any, Literal
 from urllib.parse import urlencode
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import httpx
 from fastapi import HTTPException
+from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -386,17 +387,51 @@ class DiscogsImportService:
         if not access_token:
             raise HTTPException(status_code=400, detail="Discogs OAuth callback not completed")
 
-        in_flight_job = (
-            db.query(models.ImportJob)
-            .filter(models.ImportJob.user_id == user_id)
-            .filter(models.ImportJob.provider == models.Provider.discogs)
-            .filter(models.ImportJob.import_scope == source)
-            .filter(models.ImportJob.status.in_(["pending", "running"]))
-            .order_by(models.ImportJob.created_at.desc())
-            .first()
+        now = datetime.now(timezone.utc)
+        job_id = uuid4()
+        insert_stmt = (
+            postgresql_insert(models.ImportJob.__table__)
+            .values(
+                id=job_id,
+                user_id=user_id,
+                external_account_link_id=link.id,
+                provider=models.Provider.discogs,
+                import_scope=source,
+                status="running",
+                page=1,
+                cursor=None,
+                processed_count=0,
+                imported_count=0,
+                created_count=0,
+                updated_count=0,
+                error_count=0,
+                errors=[],
+                started_at=now,
+                created_at=now,
+                updated_at=now,
+            )
+            .on_conflict_do_nothing(
+                index_elements=["user_id", "provider", "import_scope"],
+                index_where=models.ImportJob.status.in_(["pending", "running"]),
+            )
         )
-        if in_flight_job:
-            return in_flight_job, False
+        inserted_job_id = db.execute(insert_stmt.returning(models.ImportJob.id)).scalar_one_or_none()
+
+        if inserted_job_id is None:
+            in_flight_job = (
+                db.query(models.ImportJob)
+                .filter(models.ImportJob.user_id == user_id)
+                .filter(models.ImportJob.provider == models.Provider.discogs)
+                .filter(models.ImportJob.import_scope == source)
+                .filter(models.ImportJob.status.in_(["pending", "running"]))
+                .order_by(models.ImportJob.created_at.desc())
+                .first()
+            )
+            if in_flight_job:
+                return in_flight_job, False
+            raise HTTPException(status_code=409, detail="Concurrent import job creation conflict")
+
+        job = db.query(models.ImportJob).filter(models.ImportJob.id == inserted_job_id).one()
 
         if cooldown_seconds and cooldown_seconds > 0:
             cooldown_cutoff = datetime.now(timezone.utc) - timedelta(seconds=cooldown_seconds)
@@ -405,34 +440,15 @@ class DiscogsImportService:
                 .filter(models.ImportJob.user_id == user_id)
                 .filter(models.ImportJob.provider == models.Provider.discogs)
                 .filter(models.ImportJob.import_scope == source)
+                .filter(models.ImportJob.id != inserted_job_id)
                 .filter(models.ImportJob.created_at >= cooldown_cutoff)
                 .order_by(models.ImportJob.created_at.desc())
                 .first()
             )
             if recent_job:
+                db.delete(job)
+                db.flush()
                 return recent_job, False
-
-        now = datetime.now(timezone.utc)
-        job = models.ImportJob(
-            user_id=user_id,
-            external_account_link_id=link.id,
-            provider=models.Provider.discogs,
-            import_scope=source,
-            status="running",
-            page=1,
-            cursor=None,
-            processed_count=0,
-            imported_count=0,
-            created_count=0,
-            updated_count=0,
-            error_count=0,
-            errors=[],
-            started_at=now,
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(job)
-        db.flush()
 
         self._emit_import_event(
             db,

@@ -184,6 +184,14 @@ class ImportJob(Base):
     __table_args__ = (
         Index("ix_import_jobs_user_created", "user_id", "created_at"),
         Index("ix_import_jobs_status", "status"),
+        Index(
+            "uq_import_jobs_inflight_user_provider_scope",
+            "user_id",
+            "provider",
+            "import_scope",
+            unique=True,
+            postgresql_where=text("status IN ('pending', 'running')"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

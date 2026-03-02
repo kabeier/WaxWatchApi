@@ -254,6 +254,8 @@ Operational behavior:
 When introducing new environment variables, CI/test commands, or Make targets, update `Makefile`, `.github/workflows/ci.yml`, `CONTRIBUTING.md`, and `CHANGELOG.md` (for behavior-impacting changes) in the same PR, plus any affected docs. Update `.env.sample` only when env vars are added/removed or defaults change.
 CI enforces this through `python scripts/check_change_surface.py` and `python scripts/check_env_sample.py` in the workflow.
 
+Discogs import concurrency hardening (for example in-flight uniqueness/cooldown behavior updates spanning service logic, migrations, and tests) also falls under this synchronization policy and must ship with those governance updates in the same PR.
+
 
 ## API request throttling policy
 
