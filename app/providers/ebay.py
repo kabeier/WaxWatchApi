@@ -145,15 +145,6 @@ class EbayClient(ProviderClient):
                 meta={"response": resp.text[:500]},
             )
 
-        self._log_request(
-            endpoint=token_endpoint,
-            method="POST",
-            status_code=resp.status_code,
-            duration_ms=duration_ms,
-            error=None,
-            meta=auth_meta,
-        )
-
         payload = resp.json()
         token = payload.get("access_token")
         if not isinstance(token, str) or not token:
@@ -171,6 +162,15 @@ class EbayClient(ProviderClient):
                 endpoint=token_endpoint,
                 method="POST",
             )
+
+        self._log_request(
+            endpoint=token_endpoint,
+            method="POST",
+            status_code=resp.status_code,
+            duration_ms=duration_ms,
+            error=None,
+            meta=auth_meta,
+        )
         return token
 
     def search(self, *, query: dict[str, Any], limit: int = 20) -> list[ProviderListing]:

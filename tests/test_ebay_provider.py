@@ -120,12 +120,12 @@ def test_ebay_auth_missing_access_token_logs_error(monkeypatch):
     else:
         raise AssertionError("Expected ProviderError")
 
-    assert any(log.error is None for log in logs)
     error_logs = [
         log
         for log in logs
         if log.endpoint == "/identity/v1/oauth2/token" and log.method == "POST" and log.error
     ]
+    assert len(logs) == 1
     assert len(error_logs) == 1
     assert error_logs[0].error == "eBay auth missing access_token"
     assert error_logs[0].meta is not None
