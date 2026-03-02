@@ -309,6 +309,7 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 - For JSON/JSONB lifecycle columns, verify test setup writes SQL NULL (or migration handles JSON `null`) to avoid false negatives in DB-backed migration assertions.
 
 - Notification delivery enqueueing is commit-boundary aware; when changing notification/task orchestration, validate post-commit dispatch and missing-notification logging behavior.
+- Notification preference creation is concurrency-sensitive; when changing `get_or_create_preferences` or `tests/test_notifications.py`, keep race-safe coverage and synchronized governance files (`Makefile`, `.github/workflows/ci.yml`, docs, `CHANGELOG.md`) updated in the same PR.
 
 - `.github/workflows/secrets-scan.yml` must continue to run on pull requests and every direct push to `main` without file-extension allowlists, so secrets in uncommon file types are still scanned.
 

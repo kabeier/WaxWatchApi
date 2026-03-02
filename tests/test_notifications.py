@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -10,9 +11,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.pagination import encode_created_id_cursor
 from app.db import models
+from app.db.base import SessionLocal
 from app.services.notifications import (
     defer_delivery_seconds,
     enqueue_from_event,
+    get_or_create_preferences,
     next_delivery_time,
     publish_realtime,
     send_email,
@@ -30,6 +33,73 @@ def _create_event(db_session, user_id: uuid.UUID) -> models.Event:
     db_session.add(event)
     db_session.flush()
     return event
+
+
+def test_get_or_create_preferences_handles_concurrent_first_create(monkeypatch):
+    user_id = uuid.uuid4()
+    user_email = f"pref-race-{uuid.uuid4()}@example.com"
+
+    setup_session = SessionLocal()
+    setup_session.add(
+        models.User(
+            id=user_id,
+            email=user_email,
+            hashed_password="not-a-real-hash",
+            display_name="Race Preference User",
+            is_active=True,
+        )
+    )
+    setup_session.commit()
+    setup_session.close()
+
+    barrier = threading.Barrier(2)
+
+    def _wait_for_race_window() -> dict[str, bool]:
+        barrier.wait(timeout=5)
+        return {event_type.value: True for event_type in models.EventType}
+
+    monkeypatch.setattr("app.services.notifications._default_event_toggles", _wait_for_race_window)
+
+    returned_ids: list[uuid.UUID] = []
+    errors: list[Exception] = []
+
+    def _create_preferences() -> None:
+        db = SessionLocal()
+        try:
+            preference = get_or_create_preferences(db, user_id=user_id)
+            db.commit()
+            returned_ids.append(preference.id)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(exc)
+        finally:
+            db.close()
+
+    first = threading.Thread(target=_create_preferences)
+    second = threading.Thread(target=_create_preferences)
+
+    first.start()
+    second.start()
+    first.join()
+    second.join()
+
+    verify_session = SessionLocal()
+    stored_preferences = (
+        verify_session.query(models.UserNotificationPreference)
+        .filter(models.UserNotificationPreference.user_id == user_id)
+        .all()
+    )
+
+    assert errors == []
+    assert len(returned_ids) == 2
+    assert len(set(returned_ids)) == 1
+    assert len(stored_preferences) == 1
+
+    verify_session.query(models.UserNotificationPreference).filter(
+        models.UserNotificationPreference.user_id == user_id
+    ).delete()
+    verify_session.query(models.User).filter(models.User.id == user_id).delete()
+    verify_session.commit()
+    verify_session.close()
 
 
 def test_enqueue_from_event_is_idempotent(db_session, user):

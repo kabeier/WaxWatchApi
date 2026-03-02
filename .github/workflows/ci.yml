@@ -3,6 +3,7 @@ name: CI
 # Governance note: rate-limit scoped auth-required pre-auth keying uses shared anon/hybrid principals to avoid bearer spray budget sharding.
 
 # Governance note: notification delivery dispatch is post-commit; task orchestration changes require synced governance/docs/changelog updates.
+# Governance note: notification preference get-or-create paths are concurrency-sensitive; keep race-regression coverage and governance/docs/changelog sync updates together.
 
 # Policy sync marker: migration tests may validate SQL NULL vs JSONB null semantics for scope lifecycle fields.
 # Policy sync marker: migration scope normalization CTE/test updates must keep governance artifacts synchronized.

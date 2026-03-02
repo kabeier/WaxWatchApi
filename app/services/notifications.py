@@ -8,6 +8,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import event, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -203,16 +204,24 @@ def get_or_create_preferences(db: Session, *, user_id: UUID) -> models.UserNotif
     if preference:
         return preference
 
-    preference = models.UserNotificationPreference(
-        user_id=user_id,
-        email_enabled=True,
-        realtime_enabled=True,
-        delivery_frequency="instant",
-        event_toggles=_default_event_toggles(),
-    )
-    db.add(preference)
-    db.flush()
-    return preference
+    try:
+        with db.begin_nested():
+            preference = models.UserNotificationPreference(
+                user_id=user_id,
+                email_enabled=True,
+                realtime_enabled=True,
+                delivery_frequency="instant",
+                event_toggles=_default_event_toggles(),
+            )
+            db.add(preference)
+            db.flush()
+        return preference
+    except IntegrityError:
+        return (
+            db.query(models.UserNotificationPreference)
+            .filter(models.UserNotificationPreference.user_id == user_id)
+            .one()
+        )
 
 
 def _record_notification_backlog(db: Session, *, channel: models.NotificationChannel) -> None:

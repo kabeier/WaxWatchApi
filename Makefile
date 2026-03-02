@@ -104,6 +104,7 @@ help:
 	@echo "  make test-profile          Run focused profile API tests (local debugging only; non-authoritative)"
 	@echo "  make test-background-tasks Run focused background task transaction test (local debugging only; non-authoritative)"
 	@echo "  make test-discogs-ingestion Run focused Discogs ingestion readiness tests (local debugging only; non-authoritative)"
+	@echo "  make test-notifications   Run focused notifications tests (includes preference race regression; local debugging only, non-authoritative)"
 	@echo "  make test-token-security   Run token crypto + redaction focused tests (local debugging only; non-authoritative)"
 	@echo "  make test-celery-tasks     Run celery task tests in eager mode (local debugging only; non-authoritative)"
 	@echo "  make ci-celery-redis-smoke Run Redis-backed non-eager Celery smoke integration test"
