@@ -49,6 +49,7 @@ Coverage-regression comparison (`scripts/check_coverage_regression.py`) requires
 When adding/changing readiness DB probe regression tests (`tests/test_health.py`), include synchronized governance file and changelog updates so `make check-change-surface` remains green.
 When changing `/readyz` DB probe timeout semantics (for example moving probe execution under `_run_with_timeout`), preserve Postgres `SET LOCAL statement_timeout` safeguards and synchronize Makefile/CI/docs/CHANGELOG updates in the same PR.
 When changing Discogs import integration routing/tests (including queue-dispatch failure handling in `tests/test_discogs_integration_router.py`), update `Makefile`, `.github/workflows/ci.yml`, docs, and `CHANGELOG.md` together to satisfy policy-sync checks.
+When changing provider-request summary error semantics or tests (including transport failures with null `status_code` and populated `error`), update `Makefile`, `.github/workflows/ci.yml`, docs, and `CHANGELOG.md` together to satisfy policy-sync checks.
 
 Security checks are additionally split into dedicated workflows for least-privilege operation:
 
