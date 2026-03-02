@@ -12,6 +12,7 @@ SHELL := /bin/bash
 # eBay auth logging governance note: OAuth missing-access_token logging/test-path changes require synchronized Makefile/CI/docs/CHANGELOG updates.
 # Scheduler claim governance note: scheduler due-rule locking/concurrency test updates must keep Makefile/CI/docs/CHANGELOG synchronized.
 # Discogs import job governance note: in-flight uniqueness/cooldown concurrency hardening (migration + tests) must keep Makefile/CI/docs/CHANGELOG synchronized.
+# Release-match dedupe governance note: NEW_MATCH watch-release idempotency (partial unique index + ON CONFLICT path + concurrency tests) requires synchronized Makefile/CI/docs/CHANGELOG updates.
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
+import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -287,36 +288,42 @@ def _create_release_match_event_if_needed(
     watch: models.WatchRelease,
     listing: models.Listing,
 ) -> int:
-    existing_event = (
-        db.query(models.Event.id)
-        .filter(models.Event.user_id == user_id)
-        .filter(models.Event.type == models.EventType.NEW_MATCH)
-        .filter(models.Event.watch_release_id == watch.id)
-        .filter(models.Event.listing_id == listing.id)
-        .first()
-    )
-    if existing_event is not None:
-        return 0
-
     now = datetime.now(timezone.utc)
     public_url = tracked_outbound_path(provider=listing.provider.value, listing_id=listing.id) or listing.url
-    event = models.Event(
-        user_id=user_id,
-        type=models.EventType.NEW_MATCH,
-        watch_release_id=watch.id,
-        listing_id=listing.id,
-        payload={
-            "match_type": "watch_release",
-            "watch_release_title": watch.title,
-            "watch_match_mode": watch.match_mode,
-            "listing_title": listing.title,
-            "provider": listing.provider.value,
-            "url": public_url,
-        },
-        created_at=now,
+    insert_stmt = (
+        pg_insert(models.Event)
+        .values(
+            user_id=user_id,
+            type=models.EventType.NEW_MATCH,
+            watch_release_id=watch.id,
+            listing_id=listing.id,
+            payload={
+                "match_type": "watch_release",
+                "watch_release_title": watch.title,
+                "watch_match_mode": watch.match_mode,
+                "listing_title": listing.title,
+                "provider": listing.provider.value,
+                "url": public_url,
+            },
+            created_at=now,
+        )
+        .on_conflict_do_nothing(
+            index_elements=["user_id", "type", "watch_release_id", "listing_id"],
+            index_where=sa.text(
+                "type = 'NEW_MATCH' AND watch_release_id IS NOT NULL AND listing_id IS NOT NULL"
+            ),
+        )
+        .returning(models.Event.id)
     )
-    db.add(event)
-    db.flush()
+
+    inserted_event_id = db.execute(insert_stmt).scalar_one_or_none()
+    if inserted_event_id is None:
+        return 0
+
+    event = db.get(models.Event, inserted_event_id)
+    if event is None:
+        return 0
+
     enqueue_from_event(db, event=event)
     return 1
 

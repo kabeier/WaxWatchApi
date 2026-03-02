@@ -18,6 +18,7 @@ name: CI
 # Provider request summary policy note: changes to error aggregation (HTTP status failures + transport error rows) require synchronized governance/docs/changelog updates.
 # eBay auth policy note: OAuth token-response logging semantics (including missing access_token error paths) require synchronized governance/docs/changelog updates.
 # Scheduler claim policy note: due-rule SKIP LOCKED/row-claim behavior and scheduler concurrency tests require synchronized governance/docs/changelog updates.
+# Release-match dedupe policy note: watch-release NEW_MATCH idempotency/concurrency hardening must keep governance/docs/changelog artifacts synchronized.
 # Rate-limit contract note: scoped dependencies with require_authenticated_principal=true must still
 # apply scoped throttling to anonymous callers (anon:<client>) and remain covered by tests/test_rate_limit.py.
 

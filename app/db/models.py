@@ -437,6 +437,17 @@ class Event(Base):
     __table_args__ = (
         Index("ix_events_user_created_at", "user_id", "created_at"),
         Index("ix_events_type_created_at", "type", "created_at"),
+        Index(
+            "uq_events_new_match_watch_release_listing",
+            "user_id",
+            "type",
+            "watch_release_id",
+            "listing_id",
+            unique=True,
+            postgresql_where=text(
+                "type = 'NEW_MATCH' AND watch_release_id IS NOT NULL AND listing_id IS NOT NULL"
+            ),
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
