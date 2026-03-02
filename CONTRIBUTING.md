@@ -315,3 +315,4 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 - When changing eBay OAuth auth logging/error semantics or related tests (for example missing `access_token` response handling), synchronize `Makefile`, `.github/workflows/ci.yml`, docs, and `CHANGELOG.md` in the same PR.
 
 - Discogs import concurrency hardening updates (service + migration + parallel tests for in-flight uniqueness/cooldown reuse) are integration-surface changes and must include synchronized governance/doc/changelog updates in the same PR.
+- When changing release-match event idempotency for watch releases (e.g., NEW_MATCH uniqueness/indexing or concurrent-insert behavior/tests), synchronize `Makefile`, `.github/workflows/ci.yml`, docs, and `CHANGELOG.md` in the same PR.
