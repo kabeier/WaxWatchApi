@@ -109,7 +109,7 @@ help:
 	@echo "  make test-with-docker-db   Run tests against test Postgres (manual teardown)"
 	@echo "  make check-docker-config   Validate docker compose files render"
 	@echo "  make check-compose-secret-defaults Validate fail-closed secret default policy in compose"
-	@echo "  make check-policy-sync     Validate governance sync policy (change-surface/changelog + CI concurrency/docs + action pinning sync; .env.sample only for env var/default changes)"
+	@echo "  make check-policy-sync     Validate governance sync policy (change-surface/changelog + CI concurrency/docs + action pinning sync, including perf workflow action updates; .env.sample only for env var/default changes)"
 	@echo "                             Includes Settings/.env governance sync for runtime knobs (for example RATE_LIMIT_* fields)."
 	@echo "  make check-change-surface  Validate integration hygiene change-surface policy"
 	@echo "  make check-contract-sync   Validate API-facing changes update frontend contract doc"

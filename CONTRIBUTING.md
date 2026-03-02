@@ -59,7 +59,7 @@ Security checks are additionally split into dedicated workflows for least-privil
   - `pip-audit` is pinned; bump `.github/workflows/dependency-audit.yml` `PIP_AUDIT_VERSION` and `Makefile` `PIP_AUDIT_VERSION` together, then record the bump in `CHANGELOG.md`.
 - `.github/workflows/secrets-scan.yml` (Gitleaks on PRs + push to `main` for meaningful code/config changes)
 
-Action pin governance: keep marketplace actions SHA-pinned with version comments (for example `# v6.0.2`) when rotating versions, and update `Makefile` and `CHANGELOG.md` in the same PR (plus `.env.sample` only when env vars are added/removed or defaults change) so policy-sync checks remain green.
+Action pin governance: keep marketplace actions SHA-pinned with version comments (for example `# v6.0.2`) when rotating versions, and update `Makefile`, `.github/workflows/ci.yml`, and `CHANGELOG.md` in the same PR (plus `.env.sample` only when env vars are added/removed or defaults change) so policy-sync checks remain green.
 
 For local parity, use `make security-deps-audit` and `make security-secrets-scan` before opening security-sensitive PRs.
 

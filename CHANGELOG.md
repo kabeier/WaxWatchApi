@@ -9,6 +9,7 @@ with release dates in ISO format (`YYYY-MM-DD`).
 ## [Unreleased]
 
 ### Changed
+- Pinned perf workflow action references for `actions/github-script` (v8.0.0) and `actions/upload-artifact` (v7.0.0) using release-linked commit refs and synchronized governance/docs notes required by change-surface policy.
 - Updated eBay OAuth auth response logging so `POST /identity/v1/oauth2/token` emits a single request-log row when `access_token` is missing (error-only, with `response_invalid=true`) and added regression coverage.
 - Updated provider-request summary aggregation to count `error_requests` for both HTTP failures (`status_code >= 400`) and transport/network failures where `status_code` is null but `error` is populated; added regression coverage for user and admin summary endpoints.
 - Hardened CI coverage-regression fallback logic so base-vs-PR comparison is skipped with an explicit warning when base-revision DB pytest baseline generation fails, avoiding false-negative PR failures from unrelated red base commits.
