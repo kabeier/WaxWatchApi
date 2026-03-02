@@ -4,7 +4,7 @@ from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import case, func
+from sqlalchemy import and_, case, func, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Query as SAQuery
 from sqlalchemy.orm import Session
@@ -19,6 +19,18 @@ from app.schemas.provider_requests import (
 )
 
 router = APIRouter(prefix="/provider-requests", tags=["provider-requests"])
+
+
+_error_request_case = case(
+    (
+        or_(
+            models.ProviderRequest.status_code >= 400,
+            and_(models.ProviderRequest.error.is_not(None), models.ProviderRequest.error != ""),
+        ),
+        1,
+    ),
+    else_=0,
+)
 
 
 def _provider_to_string(provider: models.Provider | str) -> str:
@@ -83,9 +95,7 @@ def provider_request_summary(
             db.query(
                 models.ProviderRequest.provider.label("provider"),
                 func.count(models.ProviderRequest.id).label("total_requests"),
-                func.sum(case((models.ProviderRequest.status_code >= 400, 1), else_=0)).label(
-                    "error_requests"
-                ),
+                func.sum(_error_request_case).label("error_requests"),
                 func.avg(models.ProviderRequest.duration_ms).label("avg_duration_ms"),
             )
             .filter(models.ProviderRequest.user_id == user_id)
@@ -150,9 +160,7 @@ def provider_request_summary_admin(
             db.query(
                 models.ProviderRequest.provider.label("provider"),
                 func.count(models.ProviderRequest.id).label("total_requests"),
-                func.sum(case((models.ProviderRequest.status_code >= 400, 1), else_=0)).label(
-                    "error_requests"
-                ),
+                func.sum(_error_request_case).label("error_requests"),
                 func.avg(models.ProviderRequest.duration_ms).label("avg_duration_ms"),
             ),
             provider=provider,
