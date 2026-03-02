@@ -157,6 +157,14 @@ class EbayClient(ProviderClient):
         payload = resp.json()
         token = payload.get("access_token")
         if not isinstance(token, str) or not token:
+            self._log_request(
+                endpoint=token_endpoint,
+                method="POST",
+                status_code=resp.status_code,
+                duration_ms=duration_ms,
+                error="eBay auth missing access_token",
+                meta={**auth_meta, "response_invalid": True},
+            )
             raise ProviderError(
                 "eBay auth missing access_token",
                 status_code=resp.status_code,
