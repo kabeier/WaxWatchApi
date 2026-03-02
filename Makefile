@@ -10,6 +10,7 @@ SHELL := /bin/bash
 # Discogs import governance note: queue-dispatch failure path/test changes must keep CI/docs/CHANGELOG synchronized for policy-sync compliance.
 # Provider request summary governance note: transport-error aggregation semantics and related tests must keep Makefile/CI/docs/CHANGELOG synchronized.
 # eBay auth logging governance note: OAuth missing-access_token logging/test-path changes require synchronized Makefile/CI/docs/CHANGELOG updates.
+# Scheduler claim governance note: scheduler due-rule locking/concurrency test updates must keep Makefile/CI/docs/CHANGELOG synchronized.
 
 APP_SERVICE ?= api
 DEV_ENV_FILE ?= .env.dev
