@@ -310,3 +310,5 @@ When a change touches integration surfaces (tests, CI workflow, task orchestrati
 - Notification delivery enqueueing is commit-boundary aware; when changing notification/task orchestration, validate post-commit dispatch and missing-notification logging behavior.
 
 - `.github/workflows/secrets-scan.yml` must continue to run on pull requests and every direct push to `main` without file-extension allowlists, so secrets in uncommon file types are still scanned.
+
+- When changing eBay OAuth auth logging/error semantics or related tests (for example missing `access_token` response handling), synchronize `Makefile`, `.github/workflows/ci.yml`, docs, and `CHANGELOG.md` in the same PR.
