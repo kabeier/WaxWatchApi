@@ -34,6 +34,24 @@ def test_readyz_returns_503_when_db_probe_fails(client, monkeypatch):
     }
 
 
+def test_readyz_returns_503_when_db_probe_times_out(client, monkeypatch):
+    from app.api.routers import health
+
+    def _timeout_db(*_args, **_kwargs):
+        return False, "db readiness probe timed out after 1.0s"
+
+    monkeypatch.setattr(health, "_probe_db", _timeout_db)
+
+    r = client.get("/readyz")
+    assert r.status_code == 503
+    payload = r.json()["error"]["details"]
+    assert payload["status"] == "not_ready"
+    assert payload["checks"]["db"] == {
+        "status": "failed",
+        "reason": "db readiness probe timed out after 1.0s",
+    }
+
+
 def test_readyz_returns_503_when_redis_required_and_unavailable(client, monkeypatch):
     from app.api.routers import health
 
@@ -52,17 +70,21 @@ def test_readyz_returns_503_when_redis_required_and_unavailable(client, monkeypa
     }
 
 
-def test_readyz_db_probe_does_not_use_worker_thread(client, monkeypatch):
+def test_readyz_db_probe_uses_timeout_wrapper(client, monkeypatch):
     from app.api.routers import health
 
-    def _raise_if_called(*_args, **_kwargs):
-        raise AssertionError("_run_with_timeout should not be used by _probe_db")
+    calls: list[float] = []
 
-    monkeypatch.setattr(health, "_run_with_timeout", _raise_if_called)
+    def _run_immediately(func, *, timeout_seconds):
+        calls.append(timeout_seconds)
+        return func()
+
+    monkeypatch.setattr(health, "_run_with_timeout", _run_immediately)
 
     r = client.get("/readyz")
     assert r.status_code == 200
     assert r.json()["checks"]["db"]["status"] == "ok"
+    assert calls == [health.READINESS_PROBE_TIMEOUT_SECONDS]
 
 
 def test_probe_db_returns_clear_failure_reason_on_sql_error():
@@ -77,6 +99,25 @@ def test_probe_db_returns_clear_failure_reason_on_sql_error():
     ok, reason = health._probe_db(_DB(), timeout_seconds=0.1)
     assert ok is False
     assert reason == "db readiness probe failed: SQLAlchemyError"
+
+
+def test_probe_db_returns_timeout_reason_when_probe_exceeds_limit(monkeypatch):
+    from concurrent.futures import TimeoutError
+
+    from app.api.routers import health
+
+    class _DB:
+        def get_bind(self):
+            raise AssertionError("should not execute probe when timeout is raised")
+
+    def _raise_timeout(*_args, **_kwargs):
+        raise TimeoutError
+
+    monkeypatch.setattr(health, "_run_with_timeout", _raise_timeout)
+
+    ok, reason = health._probe_db(_DB(), timeout_seconds=0.1)
+    assert ok is False
+    assert reason == "db readiness probe timed out after 0.1s"
 
 
 def test_probe_db_handles_connection_bound_bind_without_connect():
