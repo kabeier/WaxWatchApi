@@ -56,7 +56,9 @@ colorama==0.4.6
     #   -r requirements.in
     #   rend
 cryptography==46.0.5
-    # via pyjwt
+    # via
+    #   -r requirements.in
+    #   pyjwt
 dict-toolbox==5.0.0
     # via
     #   -r requirements.in
@@ -67,9 +69,9 @@ dnspython==2.8.0
     # via email-validator
 email-validator==2.3.0
     # via -r requirements.in
-fastapi==0.129.0
+fastapi==0.133.1
     # via -r requirements.in
-greenlet==3.3.1
+greenlet==3.3.2
     # via
     #   -r requirements.in
     #   sqlalchemy
@@ -170,7 +172,7 @@ pyyaml==6.0.3
     #   dict-toolbox
     #   pop
     #   rend
-redis==7.2.1
+redis==7.3.0
     # via -r requirements.in
 rend==7.0.2
     # via
